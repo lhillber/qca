@@ -127,6 +127,21 @@ def read_results(params):
        results =  json.load(infile)
     return results
 
+# save multi page pdfs of plots
+# -----------------------------
+def multipage(fname, figs=None, clf=True, dpi=300): 
+    pp = PdfPages(fname) 
+    if figs is None:
+        figs = [plt.figure(fignum) for fignum in plt.get_fignums()]
+    for fig in figs:
+        fig.savefig(pp, format='pdf')
+        
+        if clf==True:
+            fig.clf()
+    pp.close()
+    return
+
+
 
 
 
@@ -246,6 +261,9 @@ def MIcalc(rho, ss_entropy):
 
 # Plotting utilities
 # ==================
+
+# plot space time grids
+# ---------------------
 def board_plot(board_res, cmap, norm):
     plt.imshow(board_res,
                     vmin = 0.,
@@ -256,8 +274,8 @@ def board_plot(board_res, cmap, norm):
                     aspect = 'auto',
                     rasterized = True)
 
-# plot probability board (prob_res)
-# ---------------------------------
+# plot probability, discretized probability, and single-site entropy
+# ------------------------------------------------------------------
 def board_plots(results, params, fignum=1, axs=(131, 132, 133)):
     output_name, Rs, IC, L, tmax = params 
     xtick_locs = range(0,L,2)
@@ -424,17 +442,6 @@ def run_sim(params, force_rewrite = False, name=None):
     multipage(file_name(output_name, 'plots', name, '.pdf'))    
     return
 
-def multipage(fname, figs=None, clf=True, dpi=300): 
-    pp = PdfPages(fname) 
-    if figs is None:
-        figs = [plt.figure(fignum) for fignum in plt.get_fignums()]
-    for fig in figs:
-        fig.savefig(pp, format='pdf')
-        
-        if clf==True:
-            fig.clf()
-    pp.close()
-    return
 
 
 
@@ -444,9 +451,10 @@ def multipage(fname, figs=None, clf=True, dpi=300):
 
 # lists of parameters to simulate
 # -------------------------------
-IC_list = [ [('c1d1', 1.0)], [('c1l1', 1.0)], \
-       [('c2d3', 1.0)], [('c2l3', 1.0)], [('c2E0_1', 1.0)], \
-       [('c3d5', 1.0)], [('c3l5', 1.0)], [('c3E0_2', 1.0)] ] 
+
+#IC_list = [ [('c1d1', 1.0)], [('c1l1', 1.0)], \
+#       [('c2d3', 1.0)], [('c2l3', 1.0)], [('c2E0_1', 1.0)], \
+#       [('c3d5', 1.0)], [('c3l5', 1.0)], [('c3E0_2', 1.0)] ] 
 
 
 output_name = '110'
