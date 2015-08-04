@@ -8,42 +8,35 @@ from os import makedirs, environ
 import scipy.sparse as sps
 from scipy.linalg import kron,  expm
 from math import pi, sqrt, log
-import qca_util as util
 import networkmeasures as nm
 from itertools import product, cycle
 import copy
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
 
-
-local_basis = { 'dead'  : np.array([[1.,0.]]).transpose(),
-                'alive' : np.array([[0.,1.]]).transpose(),
-                'es'    : np.array([[1./sqrt(2), 1./sqrt(2)]]).transpose() }
-
-uabi = { '00' : (np.array([[1,0],[0,0]]), np.array([[0,1],[0,0]])), 
-         '01' : (np.array([[0,1],[1,0]]), np.array([[0,0],[0,0]])), 
-         '10' : (np.array([[1,0],[0,1]]), np.array([[0,0],[0,0]])),
-         '11' : (np.array([[0,0],[0,1]]), np.array([[0,0],[1,0]]))}
-
-local_rhos = { 0 : local_basis['dead'].dot(local_basis['dead'].transpose()), 
-               1 : local_basis['alive'].dot(local_basis['alive'].transpose()) }
+import matrix as mx
+import states as ss
 
 
-# string describing initial condition (IC)
-# ----------------------------------------
-def IC_name(IC):
-    return '-'.join(['{:0.3f}{}'.format(val,name) \
-                for (name, val) in IC])
+init_state = ss.make_state(3 ,[('E0_1', 1.0)])
 
-def Rs_name(Rs):
-    return '-'.join([str(R) for R in Rs])
-    
- 
-# string describing simulation parameters
-# ---------------------------------------
-def sim_name(Rs, IC, L, tmax):
-    return 'R{}_IC{}_L{}_tmax{}'.format( \
-                Rs_name(Rs), IC_name(IC), L, tmax)
+r0 = mx.rdms(init_state, [0])
+r1 = mx.rdms(init_state, [1])
+r2 = mx.rdms(init_state, [2])
 
-print(sim_name([200,220], [('c1d1',1.0,)], 5, 5))
+state_1 = mx.op_on_state(mx.listkron([ss.pauli['1']]*2), [0,2], init_state)
+r0_1 = mx.rdms(state_1, [0])
+r1_1 = mx.rdms(state_1, [1])
+r2_1 = mx.rdms(state_1, [2])
 
+print('t = 0')
+print(init_state)
+print(r0)
+print(r1)
+print(r2)
+print()
+print('t = 1')
+print(state_1)
+print(r0_1)
+print(r1_1)
+print(r2_1)

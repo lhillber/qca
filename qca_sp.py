@@ -151,6 +151,7 @@ def multipage(fname, figs=None, clf=True, dpi=300):
 # reduced density matrix starting from density matrix
 # NOTE: klist is list of site numbers to keep, indexed from 0
 # -----------------------------------------------------------
+# TODO: improve method!
 def rdmr(rho, klist):
     L = int(log(len(rho), 2))
     d = 2*L    
@@ -182,7 +183,7 @@ def rdmr(rho, klist):
 # NOTE: klist is list of site numbers to keep, indexed from 0
 # -----------------------------------------------------------
 def rdms(state, klist):
-    L = int(log(len(state), 2))
+    L = int(log(state.get_shape()[0], 2))
     n = len(klist)
     rest = np.setdiff1d(np.arange(L), klist)
     ordering = []
@@ -213,21 +214,22 @@ def dagger(mat):
 # probability of finding rho at site j in state proj
 # --------------------------------------------------
 def prob(rho, j, proj = 'alive'):
-    L = int(log(len(rho), 2)) 
+    L = int(log(rho.get_shape()[0], 2)) 
     I = np.eye(2) 
     proj = local_basis[proj]
     p = proj.dot(proj.transpose())
     P = [I]*L
     P[j] = p
-    P = util.matkron(P)
-    return np.trace(rho.dot(P))
+    P = sps.csr_matrix(util.matkron(P))
+    return sum((rho*P).diagonal())
 
 # von Neumann entropy of reduced density matrix described by rho and klist
 # ------------------------------------------------------------------------
 def entropy(rho, klist):
     rdm = rdmr(rho, klist)
-    L = int(log(len(rdm),2)) 
-    evals = sp.linalg.eigvalsh(rdm)
+    L = int(log(rdm.get_shape()[0],2)) 
+    evals = sp.linalg.eigvalsh(rdm.todense())
+    np.append(evals, 1 - sum(evals))
     s = -sum(el*log(el,2) if el > 1e-14 else 0.  for el in evals)
     return s
 
@@ -240,7 +242,7 @@ def dec_to_bin(dec, L):
 # single-site entropies (ss_entropy) ordered 0 to L
 # --------------------------------------------------------------------
 def MInetwork(rho, ss_entropy):
-    L = int(log(len(rho),2)) 
+    L = int(log(rho.get_shape()[0],2)) 
     MInet = np.zeros((L,L))
     for i in range(L):
         for j in range(i,L):
@@ -352,8 +354,8 @@ def shape_R(R):
 def build_local_R(R, j, L):
     R = shape_R(R)
     I = np.eye(2)
-    F0j, F1j = np.zeros( (2**(2*L), 2**(2*L)) ), \
-               np.zeros( (2**(2*L), 2**(2*L)) )
+    F0j, F1j = sps.csr_matrix( (2**(2*L), 2**(2*L)) ), \
+               sps.csr_matrix( (2**(2*L), 2**(2*L)) )
     for local_conf, uab in zip(neighbor_confs, R):
         F0_list            = [I]*(2*L)
         F0_list[j]         = uabi [uab][0]
@@ -365,8 +367,8 @@ def build_local_R(R, j, L):
         F1_list[L+(j-1)%L] = local_conf[0]
         F1_list[L+(j+1)%L] = local_conf[1]
 
-        F0j += util.matkron(F0_list)
-        F1j += util.matkron(F1_list)
+        F0j += util.spmatkron(F0_list)
+        F1j += util.spmatkron(F1_list)
 
     return F0j, F1j
 
@@ -375,7 +377,7 @@ def build_local_R(R, j, L):
 # -----------------------------------------------------------------------
 def time_evolve(Rs, IC, L, tmax):
     init_state = util.make_state(L, IC)
-    rho = init_state.dot(init_state.transpose())
+    rho = sps.csr_matrix(init_state.dot(init_state.transpose()))
     rho_list    = [rho]*tmax
     timing_list = [0.0]*(tmax-1)
 
@@ -386,20 +388,20 @@ def time_evolve(Rs, IC, L, tmax):
     for t in range(1, tmax):
         tic = time.time() 
         rho_copy = copy.deepcopy(rho)
-        rho_Rs = np.zeros( (2**L,2**L) )
+        rho_Rs = sps.csr_matrix([ [0]*2**(L) for i in range(2**(L)) ]) 
         for R in Rs:
             ta.append(time.time())
-            xsi = sp.kron(rho_copy, rho_copy)
+            xsi = sps.kron(rho_copy, rho_copy)
             tb.append(time.time())
             for j in range(L):
                 F0j, F1j = build_local_R(R, j, L)
-                xsi = F0j.dot( xsi ).dot( dagger(F0j) ) + \
-                      F1j.dot( xsi ).dot( dagger(F1j) )
+                xsi = F0j * xsi * dagger(F0j) + \
+                      F1j * xsi * dagger(F1j)
             tc.append(time.time()) 
             rho_el = rdmr(xsi, range(L))
             td.append(time.time()) 
             rho_Rs = rho_Rs + rho_el
-        rho = rho_Rs*1.0/len(Rs)
+        rho = rho_Rs.multiply(1.0/len(Rs))
         rho_list[t] = rho
         toc = time.time()
         timing = toc-tic
@@ -478,9 +480,9 @@ def run_sim(params, force_rewrite = False, name=None):
 
 
 output_name = 'memory'
-Rs_list = [[110]]
+Rs_list = [[206, 220]]
 IC_list = [ [('c1d1',1.0)] ]
-L_list = [5]
+L_list = [6, 7]
 tmax_list = [3]
 
 params_list = [ (output_name, Rs, IC, L, tmax) \
