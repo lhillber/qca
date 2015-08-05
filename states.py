@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from math import sqrt
+from cmath import sqrt, sin, cos, exp, pi
 import numpy as np
 import matrix as mx
 
@@ -110,6 +110,28 @@ def center(L, config):
     else:
         return mx.listkron([left, cent, right])
 
+
+def qubit(th, ph):
+    th = th * pi/180.0 
+    ph = ph * pi/180.0
+    print(th, ph)
+    return cos(th/2.0) * bvecs['0'] + exp(1j*ph) * sin(th/2) * bvecs['1']
+
+def qubits(L, config):
+    Tt, Pp = config.split('_')
+    ang_dict = {'T' : np.linspace(0.0,  pi*float(Tt[1:]), L),
+                't' : [float(Tt[1:])]*L,
+                'P' : np.linspace(0.0, 2*pi*float(Pp[1:]), L),
+                'p' : [float(Pp[1:])]*L,
+                    }
+    th_list = ang_dict[Tt[0]]
+    ph_list = ang_dict[Pp[0]]
+    qubit_list = [0.0]*L
+    for j, (th, ph) in enumerate(zip(th_list, ph_list)):
+        qubit_list[j] = qubit(th, ph)
+    
+    return mx.listkron(qubit_list)
+
 # Make the specified state
 # ------------------------
 smap = { 'd' : fock,
@@ -117,12 +139,13 @@ smap = { 'd' : fock,
          'l' : alive_list,
          'a' : all_alive,
          'c' : center,
+         'q' : qubits,
          'G' : GHZ,
          'W' : W,
          'E' : entangled_list } 
 
 def make_state (L, IC):
-    state = np.asarray([0.]*(2**L))
+    state = np.array([0.0]*(2**L), dtype = complex)
     for s in IC: 
             name = s[0][0]
             config = s[0][1:]

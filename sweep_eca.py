@@ -61,7 +61,7 @@ mpl.rc('font',**font)
 # string describing initial condition (IC)
 # ----------------------------------------
 def IC_name(IC):
-    return '-'.join(['{:0.3f}{}'.format(val, name) \
+    return '-'.join(['{:0.3f}{}'.format(val.real, name) \
                 for (name, val) in IC])
 
 # string describing simulation parameters
@@ -385,7 +385,7 @@ output_name = 'sweep/classical_inspired_rules'
 
 R_list = [102,90,91,60,153,165,195]
 
-IC_list = [ [('c2E0_1',1.0)] ]
+IC_list = [ [ ('c2l1', 1.0/sqrt(2)), ('c2l2',1.0/sqrt(2)) ] ]
 L_list = [21]
 tmax_list = [21]
 
