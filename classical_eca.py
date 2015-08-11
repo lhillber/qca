@@ -168,12 +168,10 @@ def run_sim(L, R, tmax, IC, mode = 'sweep'):
     plt.ylabel('time')
     #plt.show()
 
-def plot_all():
+def plot_all(IC, fname):
     for R in range(256):
         fignum = R
-        L = 101
         tmax = 4*int((L-1)/2)
-        IC = [0]*int((L-1)/2) + [1] + [0]*int((L-1)/2)
         fig = plt.figure(fignum) 
         fig.add_subplot(121)
         run_sim(L, R, tmax, IC, mode = 'ECA') 
@@ -182,10 +180,18 @@ def plot_all():
         run_sim(L, R, tmax, IC, mode = 'sweep') 
         plt.title('Sweep ECA R ' + str(R)) 
         plt.tight_layout()
-    multipage(file_name('classical', 'plots',  'all_4T_L101', '.pdf')) 
+    multipage(file_name('classical', 'plots',  fname, '.pdf')) 
 
-plot_all() 
 
+L = 101
+
+fname = 'all_1' 
+IC = [1]*L
+plot_all(IC, fname) 
+
+fname = 'all_0' 
+IC = [0]*L
+plot_all(IC, fname) 
 
 
 if __name__ == '__main__':

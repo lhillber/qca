@@ -112,9 +112,6 @@ def center(L, config):
 
 
 def qubit(th, ph):
-    th = th * pi/180.0 
-    ph = ph * pi/180.0
-    print(th, ph)
     return cos(th/2.0) * bvecs['0'] + exp(1j*ph) * sin(th/2) * bvecs['1']
 
 def qubits(L, config):

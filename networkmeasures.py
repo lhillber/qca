@@ -127,7 +127,7 @@ def harmoniclength(distance):
     if denominator == 0.0:
         return 0.0
     else:
-        return 1./denominator
+        return denominator
 def eigenvectorcentralitynx0(mutualinformation):
     #Uses the power method to find eigenvector of 
     #a weighted adjacency matrix.
