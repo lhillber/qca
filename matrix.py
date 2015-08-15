@@ -31,6 +31,13 @@ def spmatkron (matlist):
 def listdot (matlist):
     return reduce(lambda A,B: np.dot(A,B), matlist)
 
+
+def edit_small_vals(mat, tol=1e-14, replacement=0.0):
+    if not type(mat) is np.ndarray:
+        mat = np.asarray(mat)
+    mat[mat<=tol] = replacement
+    return mat
+
 # sparse matrix tensor product (custom)
 # -------------------------------------
 def tensor(A, B):
@@ -95,8 +102,8 @@ def rdmr(rho, klist):
     block = block.transpose(ordering)
     block = block.reshape((2**(n), 2**((d-n)))) 
     
-    RDM = np.zeros((2**n,2**n))
-    tot = 0
+    RDM = np.zeros((2**n,2**n), dtype=complex)
+    tot = complex(0,0)
     for i in range(2**n-1):
         Rii = sum(np.multiply(block[i,:], np.conj(block[i,:])))
         tot = tot+Rii
@@ -106,7 +113,7 @@ def rdmr(rho, klist):
                 Rij = np.inner(block[i,:], np.conj(block[j,:]))
                 RDM[i][j] = Rij
                 RDM[j][i] = Rij
-    RDM[2**n-1,2**n-1] = 1-tot
+    RDM[2**n-1,2**n-1] = complex(1,0)-tot
     return RDM
 
 
@@ -243,4 +250,6 @@ def comp_plot():
     plt.legend(loc = 'upper left')
     plt.show()
 
-#comp_plot()
+
+if __name__ == '__main__':
+    comp_plot()

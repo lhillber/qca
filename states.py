@@ -99,7 +99,7 @@ def center(L, config):
     len_back = L - len_cent
     len_L = int(len_back/2)
     len_R = len_back - len_L
-    cent_IC = [(config[1:], 1)]
+    cent_IC = [(config[1:], 1.0)]
     left = fock(len_L, 0)
     cent = make_state(len_cent, cent_IC)
     right = fock(len_R, 0)

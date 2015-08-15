@@ -29,14 +29,6 @@ r0_1 = mx.rdms(state_1, [0])
 r1_1 = mx.rdms(state_1, [1])
 r2_1 = mx.rdms(state_1, [2])
 
-print('t = 0')
-print(init_state)
-print(r0)
-print(r1)
-print(r2)
-print()
-print('t = 1')
-print(state_1)
-print(r0_1)
-print(r1_1)
-print(r2_1)
+
+rd = mx.rdms(state_1, [1,2])
+
