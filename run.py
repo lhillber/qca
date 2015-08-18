@@ -16,30 +16,27 @@ import classical_eca as eca
 # -------------------------------
 
 
-output_name = 'comp2'
+output_name = 'comp3'
 
 eq = 1.0/sqrt(2.0)
 
-QIC_list = [ [('c2l0', eq), ('c2l1', eq)], [('c2E0_1', 1.0)], [('c2s1', 1.0)] ]
-
-CIC_list = [[('z', 0.5), ('c2i0_1', 0.5)], [('c2i0', 0.5), ('c2i1', 0.5)], [('z', 0.5), ('c2i1', 0.5)] ]
 
 
 
-QIC_list = [ [('qt90_p0', 1.0)], [('qt90_p90', 1.0)], [('qt90_P1', 1.0)] ]
-
-CIC_list = [ [('o', 0.5), ('z', 0.5)]]
+L = 10
 
 
+QIC_list = [[('E0_'+str(j), 1.0)] for j in range(1, int(L))]
 
 
-CIC_list = [[('a',1)]]
+CIC_list = [ [('z', 0.5), ('i0_'+str(j), 0.5)] for j in range(1, int(L)) ]
 
-R_list = [91]
 
-L_list = [10]
+R_list = [60]
 
-tmax_list = [35]
+L_list = [L]
+
+tmax_list = [200]
 
 Qparams_list = [ (output_name, R, IC, L, tmax) \
         for R    in R_list     \

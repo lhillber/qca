@@ -180,7 +180,9 @@ def run_mixture(params, force_rewrite = False):
     if not isfile(io.file_name(output_name, 'data', io.sim_name(R, IC, L, tmax), '.res' )) \
         or force_rewrite:
         results = measure_sim(params)
-        io.write_results(results, params)
+    else:
+        results = io.read_results(params)
+    io.write_results(results, params)
     return results
 
 

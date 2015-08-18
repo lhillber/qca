@@ -122,7 +122,7 @@ def file_name(output_name, output_type, name, ext):
 
 # save simulation results
 # -----------------------
-def write_results(results, params):
+def write_results(results, params, ):
     output_name, R, IC, L, tmax = params 
     with open(file_name(output_name,'data', sim_name(R, IC, L, tmax), '.res'), 'w') as outfile:
         outfile.write(data_to_json(results))
