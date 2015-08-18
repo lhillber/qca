@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from cmath  import sqrt
+import copy
 import numpy as np
 import information as im
 import fio as io
@@ -24,31 +25,49 @@ def get_diag_vecs(mats):
 
 def get_offdiag_mats(mats):
     L = len(mats[0])
-    mats = np.asarray(mats)
-    for t, mat in enumerate(mats): 
-        mat[np.arange(L), np.arange(L)] = 0.0
-        mats[t] = mat
-    return mats
+    mats_out = copy.deepcopy(mats)
+    for t, mat in enumerate(mats_out): 
+        mats_out[np.arange(L), np.arange(L)] = 0.0
+        mats_out[t] = mat
+    return mats_out
 
 def spatialnetworksQ(results, typ):
     n_mats = results[typ]
     corr, loc = get_offdiag_mats(n_mats), get_diag_vecs(n_mats)
     return im.spatialnetworksQ(corr, loc)
 
-def measure_networks(nets, tasks):
+def measure_networks(nets, tasks=['Y','CC'], typ='avg'):
     measures = {} 
     for task in tasks:
-        measures[task] = [ms.NMcalc(net, tasks=tasks)[task] for net in nets]
+        measures[task] = np.asarray([ms.NMcalc(net, typ=typ,
+                                    tasks=tasks)[task] for net in nets])
     return measures
 
-def make_net_measures_dict(results, tasks):
-    nz_network = spatialnetworksQ(results, 'nz')
-    nx_network = spatialnetworksQ(results, 'nx')
-    mi_network = results['mi']
+def make_net_dict(results, net_types=['nz', 'nx', 'mi']):
+    net_dict = {}
+    for net_typ in net_types:
+        if net_typ == 'mi':
+            network = results['mi']
+        else: 
+            network = spatialnetworksQ(results, net_typ)
+        net_dict[net_typ] = network
+    return net_dict
+
+def comp_import(R, CIC, QIC, L, tmax):
+    Cname = io.sim_name(R, CIC, L, tmax)
+    Cfname = io.file_name(output_name, 'plots', 'C'+Cname, '.pdf')
+
+    Qname = io.sim_name(R, QIC, L, tmax)
+    Qfname = io.file_name(output_name, 'plots', 'Q'+fname, '.pdf')
+
     
-    nz_net_measures = measure_networks(nz_network, tasks)
-    nx_net_measures = measure_networks(nx_network, tasks)
-    mi_net_measures = measure_networks(mi_network, tasks) 
-    return { 'nz': nz_net_measures,
-             'nx': nx_net_measures,
-             'mi': mi_net_measures }
+
+
+
+
+
+
+
+
+
+
