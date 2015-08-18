@@ -117,16 +117,15 @@ def qubit(th, ph):
 def qubits(L, config):
     Tt, Pp = config.split('_')
     ang_dict = {'T' : np.linspace(0.0,  pi*float(Tt[1:]), L),
-                't' : [float(Tt[1:])]*L,
+                't' : [float(Tt[1:])*pi/180.0]*L,
                 'P' : np.linspace(0.0, 2*pi*float(Pp[1:]), L),
-                'p' : [float(Pp[1:])]*L,
+                'p' : [float(Pp[1:])*pi/180.0]*L,
                     }
     th_list = ang_dict[Tt[0]]
     ph_list = ang_dict[Pp[0]]
     qubit_list = [0.0]*L
     for j, (th, ph) in enumerate(zip(th_list, ph_list)):
         qubit_list[j] = qubit(th, ph)
-    
     return mx.listkron(qubit_list)
 
 # Make the specified state

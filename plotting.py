@@ -16,15 +16,28 @@ mpl.rc('font',**font)
 # Plotting utilities
 # ==================
 
+# plot time series
+# ---------------0
+def plot_time_series(data, title, label='', loc='lower right', fignum=1, ax=111):
+    fig = plt.figure(fignum)
+    fig.add_subplot(ax)
+    plt.plot(range(len(data)), data, label=label)
+    plt.title(title)
+    plt.legend(loc=loc)
+    plt.tight_layout() 
+
 # plot space time grids
 # ---------------------
-def board_plot(board_res, cmap, norm):
+def plot_spacetime_grid(data, title, cmap=plt.cm.jet, norm=None, fignum=1, ax=111):
     vmin, vmax = 0.0, 1.0
-    if np.max(board_res) > 1.0:
-        vmax = np.max(board_res)
-    if np.min(board_res) < 0.0:
-        vmin = np.min(board_res)
-    plt.imshow(board_res,
+    if np.max(data) > 1.0:
+        vmax = np.max(data)
+    if np.min(data) < 0.0:
+        vmin = np.min(data)
+    
+    fig = plt.figure(fignum)
+    fig.add_subplot(ax)
+    plt.imshow(data,
                     vmin = vmin,
                     vmax = vmax,
                     cmap = cmap,
@@ -32,21 +45,13 @@ def board_plot(board_res, cmap, norm):
                     interpolation = 'none',
                     aspect = 'auto',
                     rasterized = True)
-
-def plot_time_series(data, label, title, fignum=1, ax=111):
-    fig = plt.figure(fignum)
-    fig.add_subplot(ax)
-    plt.plot(range(len(data)), data, label=label)
     plt.title(title)
-    plt.legend(loc='lower right')
+    plt.colorbar()
     plt.tight_layout() 
 
 # plot probability, discretized probability, and single-site entropy
 # ------------------------------------------------------------------
-def board_plots(results, suptitle, fignum=1, axs=(131, 132, 133)):
-    #xtick_locs = range(0,L,4)
-    #xtick_lbls = xtick_locs
-     
+def board_plots(results, fignum=1, axs=(131, 132, 133)):
     n_res      = pp.get_diag_vecs(results['nz'])
     sj_res     = pp.get_diag_vecs(results['sr'])
     disc_n_res = [ [0 if p < 0.5 else 1 for p in p_vec] for p_vec in n_res]
@@ -58,23 +63,21 @@ def board_plots(results, suptitle, fignum=1, axs=(131, 132, 133)):
     titles = [ r'$ \langle n_j \rangle $', \
                r'$ \lfloor \langle n_j \rangle + 0.5 \rfloor $', \
                r'$ s_j $' ]
+    
     results = [n_res, disc_n_res, sj_res]
     mycmaps = [plt.cm.jet, disc_cmap, plt.cm.jet]
     norms = [None, disc_norm, None]
     fig = plt.figure(fignum)
     for title, res, cmap, norm, ax in zip(titles, results, mycmaps, norms, axs):
+        kwargs = {'cmap': cmap, 'norm': norm, 'fignum' : fignum, 'ax' : ax} 
         fig.add_subplot(ax)
-        board_plot(res, cmap, norm)
+        plot_spacetime_grid(res, title, **kwargs)
         plt.title(title)
-        plt.xlabel('site number')
+        plt.xlabel('Site number')
      #   plt.xticks(xtick_locs, xtick_lbls)
-        plt.ylabel('time')
-        plt.colorbar()
-    plt.suptitle(suptitle) 
+        plt.ylabel('Time')
     plt.tight_layout() 
 
-
-    
 
 # plot entropy of all bi-partite cuts
 # -----------------------------------
@@ -89,62 +92,86 @@ def cut_entropy_plots(results, L, suptitle, fignum=1, axs=(121, 122)):
     fig =  plt.figure(fignum)
 
     fig.add_subplot(axs[0]) 
-    board_plot(EC_res, plt.cm.jet, None)
-    plt.title('Entropy of cut')
-    plt.xlabel('cut number')
+    plot_spacetime_grid(EC_res, 'Entropy of cut', 
+                         cmap=plt.cm.jet, norm=None, fignum=fignum, ax=axs[0])
+    plt.xlabel('Cut number')
 #    plt.xticks(xtick_locs, xtick_lbls)
-    plt.ylabel('time')
+    plt.ylabel('Time')
     
     fig.add_subplot(axs[1])
-    plot_time_series(center_cut_res,'', 'Entropy of center cut', fignum=fignum,
-            ax = axs[1])
+    plot_time_series(center_cut_res, 'Entropy of center cut', 
+                     fignum=fignum, ax = axs[1])
     plt.xlabel('time')
     plt.ylabel('Entropy')
+    
     plt.suptitle(suptitle) 
     plt.tight_layout() 
 
 # plot network measures
 # ---------------------
-def network_plots(results,  types = ['nz', 'nx', 'mi'], tasks
-        = ['ND', 'CC','Y', 'IHL'], fignum=10):
-    net_measures_dict = pp.make_net_measures_dict(results, tasks) 
-    fignum = fignum
-    for typ in types:
-        data = net_measures_dict[typ]
-        title = 'Network Measures on ' + typ 
-        for task in tasks:
-            dat = data[task]
-            label = task + ' ' + typ
-            plot_time_series(dat, label, title, fignum=fignum)
-        fignum+=1
-        plt.tight_layout
 
-# plot eigenvector centrality
-# ---------------------------
-def evec_centrality_plot(results, params, fignum=1, ax=111):
-    output_name, R, IC, L, tmax = params
-    fig = plt.figure(fignum) 
-    fig.add_subplot(ax)
-    board_plot(results['EV'], plt.cm.jet, None)
-    plt.title('R ' + str(R) + 'Eigenvector Centrality')
-    plt.xlabel('site number')
-    plt.ylabel('time')
-    plt.tight_layout()
+
+def st_nm_plots(st_data, title, tasks = ['EV', 'CC', 'Y'], fignum=1):
+    ax = 131 
+    for i, task in enumerate(tasks):
+        dat = st_data[task]
+        label = task
+        plot_spacetime_grid(dat, title, fignum=fignum, ax=ax)
+        plt.ylabel('Time')
+        plt.xlabel('Site number')
+        ax += 1
+
+
+def avg_nm_plots(avg_data, title, tasks = ['ND', 'CC','Y'], fignum=1):
+    for i, task in enumerate(tasks):
+        dat = avg_data[task]
+        label = task
+        plot_time_series(dat, title, label=label, fignum=fignum)
+
+def st_nm_plots(st_data, title, tasks = ['EV', 'CC', 'Y'], fignum=1):
+    ax = 131 
+    for i, task in enumerate(tasks):
+        title = task
+        dat = st_data[task]
+        label = task
+        plot_spacetime_grid(dat, title, fignum=fignum, ax=ax)
+        plt.ylabel('Time')
+        plt.xlabel('Site number')
+        ax += 1
 
 # call for time series plots
 # --------------------------
-def plot_main(params, name=None):
+def plot_main(params, 
+        st_tasks =['EV', 'CC', 'Y' ], avg_tasks=['ND', 'CC', 'Y'],
+        net_types=['nz', 'nx', 'mi'], name=None):
+    
     output_name, R, IC, L, tmax = params
     if name is None:
         name = io.sim_name(R, IC, L, tmax)
     else:
         name = name
+    
     print('Importing results...')
     results = io.read_results(params)
-    board_plots(results, 'R ' + str(R), fignum=1)
-    cut_entropy_plots(results, L, 'R ' + str(R), fignum=2) 
-    #evec_centrality_plot(results, params, fignum=3) 
-    network_plots(results) 
+    
+    net_dict = pp.make_net_dict(results, net_types=net_types)
+    fignum = 0
+    board_plots(results, fignum=fignum)
+    for net_typ in net_types:
+         title = net_typ + ' network measures'
+         fignum += 10
+         nets = net_dict[net_typ]
+         
+         st_net_measures  = pp.measure_networks(nets, 
+                                                tasks=st_tasks , typ='st')
+         avg_net_measures  = pp.measure_networks(nets, 
+                                                tasks=avg_tasks, typ='avg')
+         
+         avg_nm_plots( avg_net_measures, title, tasks=avg_tasks, fignum=fignum  )
+         st_nm_plots ( st_net_measures,  title,  tasks=st_tasks , fignum=fignum+1 )
+    
+    cut_entropy_plots(results, L, 'R ' + str(R), fignum=fignum+2) 
+    
     io.multipage(io.file_name(output_name, 'plots', 'Q'+name, '.pdf'))    
     return
 

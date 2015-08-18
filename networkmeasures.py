@@ -148,15 +148,14 @@ def disparitylattice(matrix):
     logos=denominator>0.
     denominator=denominator[logos]
     numerator=numerator[logos]
-    if sum(denominator)==0.:
-        return np.nan
-    else:
-        disparity=(numerator/denominator)
-        nodes=np.array(range(1,int(l+1)))[logos]
-        nodedict={}
-        for i in range(len(nodes)):
-            nodedict[nodes[i]]=disparity[i]
-        return nodedict
+    
+    displattice=np.array([np.nan]*int(l))
+    disparity=(numerator/denominator)
+    nodes=np.array(range(int(l)))[logos]
+    dsiplattice = np.array([np.nan]*int(l))
+    for count, i in enumerate(nodes):
+        displattice[i]=disparity[count]
+    return displattice
 
 def strengthdist(mutualinformation,bincount):
     #Compute the weighted analog of a degree distribution.
@@ -222,9 +221,13 @@ def harmoniclength(distance):
 def eigenvectorcentralitynx0(mutualinformation):
     #Uses the power method to find eigenvector of 
     #a weighted adjacency matrix.
-    G=nx.Graph(mutualinformation)
-    eigvcent=nx.eigenvector_centrality(G, weight='weight',max_iter=2000)
-    return eigvcent
+    l=len(mutualinformation)
+    try: 
+        G=nx.Graph(mutualinformation)
+        eigvcent=nx.eigenvector_centrality(G, weight='weight',max_iter=2000)
+        return eigvcent
+    except:
+        return { i:np.nan for i in range(l)}
 
 def eigenvectorcentralitynx(mutualinformation,startingvector):
     #Identical to eigenvectorcentralitynx0, but requires an additional argument startingvector.

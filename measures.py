@@ -70,18 +70,30 @@ def MInetwork(state, ss_entropy):
 def invharmoniclen(net):
     return nm.harmoniclength(nm.distance(net))
 
-NM_dict = { 'CC'  : nm.clustering,
-            'ND'  : nm.density,
-            'Y'   : nm.disparity,
-            'IHL' : invharmoniclen, 
-             #'EV'  : list(eveccentrality.values()) }
-             'EV'  : [0] }
+def eveccentrality(net):
+    return list(nm.eigenvectorcentralitynx0(net).values())
 
-def NMcalc(net, tasks=['CC', 'ND', 'Y', 'IHL', 'EV']):
-    #eveccentrality = nm.eigenvectorcentralitynx0(net)
+
+
+def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
+    
+    NM_dict = { 'avg' : {
+                         'CC'  : nm.clustering,
+                         'ND'  : nm.density,
+                         'Y'   : nm.disparity,
+                         'IHL' : invharmoniclen,
+                        },
+                'st'  : { 
+                         'CC'  : nm.localclustering,
+                         'Y'   : nm.disparitylattice,
+                         'EV'  : eveccentrality,
+                         
+                         }
+              }
+    
     measures = {} 
     for key in tasks:
-        measures[key] = NM_dict[key](np.asarray(net))
+        measures[key] = NM_dict[typ][key](net)
     return measures
     
 
@@ -105,7 +117,6 @@ def measure_sim(params, state_gen, tol=1e-14):
             nzj = np.trace( rj.dot(nz) )
             nxj = np.trace( rj.dot(nx) )
             mij  = 0.0
-            
             sr_mat[j,j] = sj.real
             nz_mat[j,j] = nzj.real
             nx_mat[j,j] = nxj.real
@@ -127,22 +138,22 @@ def measure_sim(params, state_gen, tol=1e-14):
         # set small elemetns to tol 
         mi_mat = mx.edit_small_vals(mi_mat, tol=tol, replacement=tol)
         s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
-        sr_mat = mx.edit_small_vals( sr_mat, tol=tol, replacement=tol )
+        sr_mat = mx.edit_small_vals( sr_mat, tol=tol )
         nz_mat = mx.edit_small_vals( nz_mat, tol=tol, replacement=tol )
         nx_mat = mx.edit_small_vals( nx_mat, tol=tol, replacement=tol )
         mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
         measure = {} 
-        measure['ec'] = s_cuts.tolist()
-        measure['sr'] = sr_mat.tolist()
-        measure['nz'] = nz_mat.tolist()
-        measure['nx'] = nx_mat.tolist()
-        measure['mi'] = mi_mat.tolist() 
+        measure['ec'] = s_cuts
+        measure['sr'] = sr_mat
+        measure['nz'] = nz_mat
+        measure['nx'] = nx_mat
+        measure['mi'] = mi_mat
         measure['t' ] = t
         measures[t] = measure
     
     results = {}
     for key in measure.keys(): 
-        results[key] = [measures[t][key] for t in range(tmax)]
+        results[key] = np.array([measures[t][key] for t in range(tmax)])
     return results
 
 
