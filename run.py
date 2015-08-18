@@ -32,11 +32,11 @@ QIC_list = [[('E0_'+str(j), 1.0)] for j in range(1, int(L))]
 CIC_list = [ [('z', 0.5), ('i0_'+str(j), 0.5)] for j in range(1, int(L)) ]
 
 
-R_list = [60]
+R_list = [45]
 
 L_list = [L]
 
-tmax_list = [200]
+tmax_list = [201]
 
 Qparams_list = [ (output_name, R, IC, L, tmax) \
         for R    in R_list     \

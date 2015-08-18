@@ -146,13 +146,6 @@ def long_time_avg_plots(long_time_avgs):
             plt.tight_layout()
     plt.show()
     
-
-    plt.plot(range(len(data)), data, label=label)
-    plt.title(title)
-    plt.legend(loc=loc)
-
-
-
 def running_avg_plots(avg_measures_dict):
     fignum=0
     for typ in avg_measures_dict.keys():
