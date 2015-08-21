@@ -79,9 +79,7 @@ def sweep_time_evolve(rule_dict, IC, L, tmax):
     return state_list
 
 def run_sim(R, IC, L, tmax, mode = 'sweep'):
-    
     Rb = mx.dec_to_bin(R, 8)[::-1]
-    
     neighborhood_basis = (i_Nj for i_Nj in [mx.dec_to_bin(d, 3) 
                                for d in range(8)])
     
@@ -179,10 +177,10 @@ def run_mixture(params, force_rewrite = False):
     output_name, R, IC, L, tmax = params
     if not isfile(io.file_name(output_name, 'data', io.sim_name(R, IC, L, tmax), '.res' )) \
         or force_rewrite:
-        results = measure_sim(params)
+        results = measere_sim(params)
     else:
-        results = io.read_results(params)
-    io.write_results(results, params)
+        results = io.read_results(params, typ='C')
+    io.write_results(results, params, typ='C')
     return results
 
 
@@ -366,7 +364,7 @@ def plot_main(params, name=None):
     
     output_name, R, IC, L, tmax = params
     
-    results   = io.read_results(params)
+    results   = io.read_results(params, typ='C')
     
     data_list = results['b']
     w_list    = results['w']

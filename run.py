@@ -21,9 +21,14 @@ output_name = 'comp3'
 eq = 1.0/sqrt(2.0)
 
 
+utput_name = 'comp3'
+
+eq = 1.0/sqrt(2.0)
 
 
-L = 10
+
+
+L = 20
 
 
 QIC_list = [[('E0_'+str(j), 1.0)] for j in range(1, int(L))]
@@ -32,11 +37,12 @@ QIC_list = [[('E0_'+str(j), 1.0)] for j in range(1, int(L))]
 CIC_list = [ [('z', 0.5), ('i0_'+str(j), 0.5)] for j in range(1, int(L)) ]
 
 
-R_list = [45]
+R_list = [165]
 
 L_list = [L]
 
-tmax_list = [201]
+tmax_list = [400]
+
 
 Qparams_list = [ (output_name, R, IC, L, tmax) \
         for R    in R_list     \
@@ -61,13 +67,13 @@ if __name__ == '__main__':
     nprocs = comm.Get_size()
     for i, params in enumerate(Qparams_list):
         if i % nprocs == rank: 
-            sweep.run_sim(params, force_rewrite=True)
+            sweep.run_sim(params, force_rewrite=False)
             pt.plot_main(params)
             plt.clf
     plt.close('all')
     for i, params in enumerate(Cparams_list):
         if i % nprocs == rank: 
-            eca.run_mixture(params, force_rewrite=True) 
+            eca.run_mixture(params, force_rewrite=False) 
             eca.plot_main(params)
             plt.clf
     plt.close('all')

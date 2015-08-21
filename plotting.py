@@ -152,7 +152,7 @@ def plot_main(params,
         name = name
     
     print('Importing results...')
-    results = io.read_results(params)
+    results = io.read_results(params, typ='Q')
     
     net_dict = pp.make_net_dict(results, net_types=net_types)
     fignum = 0

@@ -122,17 +122,17 @@ def file_name(output_name, output_type, name, ext):
 
 # save simulation results
 # -----------------------
-def write_results(results, params, ):
+def write_results(results, params, typ=''):
     output_name, R, IC, L, tmax = params 
-    with open(file_name(output_name,'data', sim_name(R, IC, L, tmax), '.res'), 'w') as outfile:
+    with open(file_name(output_name,'data', typ+sim_name(R, IC, L, tmax), '.res'), 'w') as outfile:
         outfile.write(data_to_json(results))
     return
 
 # load simulation results
 # -----------------------
-def read_results(params):
+def read_results(params, typ=''):
     input_name, R, IC, L, tmax = params 
-    with open(file_name(input_name, 'data', sim_name(R, IC, L, tmax), '.res'), 'r') as infile:
+    with open(file_name(input_name, 'data', typ+sim_name(R, IC, L, tmax), '.res'), 'r') as infile:
        results = infile.read()
     return json_to_data(results)
 

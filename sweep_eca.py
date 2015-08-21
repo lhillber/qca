@@ -67,7 +67,7 @@ def run_sim(params, force_rewrite = False):
     if not isfile(io.file_name(output_name, 'data', io.sim_name(R, IC, L, tmax), '.res' )) \
         or force_rewrite:
         results = ms.measure_sim(params, time_evolve(R, IC, L, tmax))
-        io.write_results(results, params)
+        io.write_results(results, params, typ='Q')
     return
 
 

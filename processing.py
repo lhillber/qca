@@ -64,9 +64,8 @@ def running_average(data):
 
 
 def make_comp_data(Cparams, Qparams, avg_tasks=['ND','CC','Y']):
-    
-    Cres = io.read_results(Cparams)
-    Qres = io.read_results(Qparams)
+    Cres = io.read_results(Cparams, typ='C')
+    Qres = io.read_results(Qparams, typ='Q')
     
     times = Qres['t'] 
     
@@ -104,7 +103,9 @@ def make_long_time_avgs(Cparams_list, Qparams_list, win_len=10):
     data = []
     for n, (Cparams, Qparams) in enumerate(zip(Cparams_list, Qparams_list)):
         avg_meas_dict = make_comp_data(Cparams, Qparams)
-        
+        #running_avg_plots(avg_measures_dict, fignum=fignum)
+        #plt.show() 
+        #plt.close('all')
         dat = {} 
         for typ in avg_meas_dict.keys():
             dat[typ] = {}
@@ -130,8 +131,8 @@ def make_long_time_avgs(Cparams_list, Qparams_list, win_len=10):
     return res
 
 
-def long_time_avg_plots(long_time_avgs):
-    fignum=0
+def long_time_avg_plots(long_time_avgs, fignum=0):
+    fignum=fignum
     for typ in long_time_avgs.keys():
         Tavg_measures = long_time_avgs[typ] 
         for task in Tavg_measures.keys():
@@ -144,10 +145,11 @@ def long_time_avg_plots(long_time_avgs):
             plt.legend()
             plt.title(task)
             plt.tight_layout()
-    plt.show()
+            plt.xlabel(r'$|i-j|$')
+            plt.ylabel('avg measure')
     
-def running_avg_plots(avg_measures_dict):
-    fignum=0
+def running_avg_plots(avg_measures_dict, fignum=0):
+    fignum=fignum
     for typ in avg_measures_dict.keys():
         avg_measures = avg_measures_dict[typ] 
         for task in avg_measures.keys():
@@ -155,17 +157,19 @@ def running_avg_plots(avg_measures_dict):
             r_avg = avg_measures[task]
             pt.plot_time_series(r_avg, typ[:3], label= typ[:3] + ' ' + task,
                     fignum=fignum)
-    plt.show()
-
+            plt.xlabel('Time')
+            plt.ylabel('Measure average')
 
 if __name__ == '__main__':
 
     Cparams_list = run.Cparams_list
     Qparams_list = run.Qparams_list
-
+    output_name, R, IC, L, tmax = Cparams_list[0]
+     
     LT = make_long_time_avgs(Cparams_list, Qparams_list)
     long_time_avg_plots(LT)
     
-    #avg_meas_dict = make_comp_data(Cparams_list[0], Qparams_list[0])
-    #running_avg_plots(avg_meas_dict)
+    io.multipage(io.file_name(output_name, \
+        'plots','LT_avg_'+'R'+str(R)+'_0011_seperation', '.pdf')) 
+    
 
