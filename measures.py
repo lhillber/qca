@@ -116,7 +116,6 @@ def measure_sim(params, state_gen, tol=1e-14):
             sj = vn_entropy(rj)
             nzj = np.trace( rj.dot(nz) )
             nxj = np.trace( rj.dot(nx) )
-            mij  = 0.0
             sr_mat[j,j] = sj.real
             nz_mat[j,j] = nzj.real
             nx_mat[j,j] = nxj.real
@@ -135,7 +134,7 @@ def measure_sim(params, state_gen, tol=1e-14):
                 nx_mat[j,k] = nx_mat[k,j] = nxjk.real
                 mi_mat[j,k] = mi_mat[k,j] = 0.5 * (sj + sk - sjk).real
 
-        # set small elemetns to tol 
+        # set small elements to tol 
         mi_mat = mx.edit_small_vals(mi_mat, tol=tol, replacement=tol)
         s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
         sr_mat = mx.edit_small_vals( sr_mat, tol=tol )

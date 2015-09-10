@@ -31,7 +31,8 @@ def spmatkron (matlist):
 def listdot (matlist):
     return reduce(lambda A,B: np.dot(A,B), matlist)
 
-
+# replace small elements in an array
+# ----------------------------------
 def edit_small_vals(mat, tol=1e-14, replacement=0.0):
     if not type(mat) is np.ndarray:
         mat = np.asarray(mat)
@@ -102,8 +103,8 @@ def rdmr(rho, klist):
     block = block.transpose(ordering)
     block = block.reshape((2**(n), 2**((d-n)))) 
     
-    RDM = np.zeros((2**n,2**n), dtype=complex)
-    tot = complex(0,0)
+    RDM = np.zeros((2**n,2**n))
+    tot = 0
     for i in range(2**n-1):
         Rii = sum(np.multiply(block[i,:], np.conj(block[i,:])))
         tot = tot+Rii
@@ -113,7 +114,7 @@ def rdmr(rho, klist):
                 Rij = np.inner(block[i,:], np.conj(block[j,:]))
                 RDM[i][j] = Rij
                 RDM[j][i] = Rij
-    RDM[2**n-1,2**n-1] = complex(1,0)-tot
+    RDM[2**n-1,2**n-1] = 1-tot
     return RDM
 
 
@@ -223,13 +224,6 @@ def comp_plot():
             mop = util.matkron(lops)
             state1 = op_on_state(mop, j, init_state )
             tb_list = np.append(tb_list, time.time())
-            state2 = meso_op_on_global_state(mop, j, init_state )
-            tc_list = np.append(tc_list, time.time()) 
-            if L<1:
-                tm1_list = np.append(tm1_list, time.time())
-                state3 = big_mat(lops, j, init_state)
-                tm2_list = np.append(tm2_list, time.time())
-            print( np.array_equal(state2.transpose(), state1.transpose()))
            #     print( np.array_equal(state2.transpose(), state1.transpose()))
                  
             #print('G', state1.transpose())
@@ -249,7 +243,6 @@ def comp_plot():
     plt.title('bit flips')
     plt.legend(loc = 'upper left')
     plt.show()
-
 
 if __name__ == '__main__':
     comp_plot()

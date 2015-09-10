@@ -16,32 +16,30 @@ import classical_eca as eca
 # -------------------------------
 
 
-output_name = 'comp3'
 
 eq = 1.0/sqrt(2.0)
 
 
-utput_name = 'comp3'
+output_name = 'unitaries0011'
 
 eq = 1.0/sqrt(2.0)
 
-
-
-
-L = 20
-
+L = 15
 
 QIC_list = [[('E0_'+str(j), 1.0)] for j in range(1, int(L))]
 
-
 CIC_list = [ [('z', 0.5), ('i0_'+str(j), 0.5)] for j in range(1, int(L)) ]
 
+QIC_list = [[('E'+str(L-2)+'_' + str(L-1), 1.0)]]
 
-R_list = [165]
+
+R_list = [51,54,57,60,99,102,105,108,147,150,153,156,195,198,201,204]
 
 L_list = [L]
 
-tmax_list = [400]
+tmax_list = [200]
+
+
 
 
 Qparams_list = [ (output_name, R, IC, L, tmax) \
@@ -71,9 +69,12 @@ if __name__ == '__main__':
             pt.plot_main(params)
             plt.clf
     plt.close('all')
+    
+    '''
     for i, params in enumerate(Cparams_list):
         if i % nprocs == rank: 
             eca.run_mixture(params, force_rewrite=False) 
             eca.plot_main(params)
             plt.clf
     plt.close('all')
+    '''

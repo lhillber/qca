@@ -19,7 +19,7 @@ from collections import namedtuple, Iterable, OrderedDict
 from numpy import sin, cos, log, pi
 import matrix as mx
 import states as ss
-
+import sweep_eca as sweep
 
 init_state = ss.make_state(3 ,[('E0_1', 1.0)])
 
@@ -38,7 +38,8 @@ rd = mx.rdms(state_1, [1,2])
 
 
 
-
+# sx and sz entropies
+# -------------------
 def sz(th):
     p0 = 0.5 * (1.0 + cos(2.0*th))
     p1 = 0.5 * (1.0 - cos(2.0*th))
@@ -56,6 +57,35 @@ plt.plot(th, sz(th), label='sz')
 plt.plot(th, sx(th), label='sx')
 plt.plot(th, sz(const_th))
 plt.legend()
-plt.show()
+#plt.show()
+
+
+
+
+# update op
+# ---------
+
+G = np.array([[0,1,0,0,0,0,0,0],
+              [0,0,1,0,0,0,0,0],
+              [0,0,0,1,0,0,0,0],
+              [0,0,0,0,1,0,0,0],
+              [0,0,0,0,0,1,0,0],
+              [0,0,0,0,0,0,1,0],
+              [0,0,0,0,0,0,0,1],
+              [1,0,0,0,0,0,0,0]])
+
+for R in range(256):
+    T = sweep.general_local_update_op(R, th=pi/2.0-0.1)
+    I = np.eye(8)
+    Tdag = mx.dagger(T)
+    TdT = Tdag.dot(T)
+    TTd = T.dot(Tdag)
+    unitaryQ = np.array_equal(TdT, I) and np.array_equal(TTd, I) 
+    if unitaryQ is True:
+        TG = T.dot(G)
+        GT = G.dot(T)
+        #print(np.array_equal(TG,GT))
+        print(R, mx.dec_to_bin(R,8))
+
 
 

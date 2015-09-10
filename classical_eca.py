@@ -55,27 +55,44 @@ mpl.rc('font',**font)
 
 
 
-def time_evolve(rule_dict, state, L, tmax):
-    state_copy = copy.copy(state) 
-    state_list = np.array([state_copy]*tmax)
+def time_evolve(rule_dict, init_state, L, tmax):
+    state_copy = init_state.copy() 
+    state_list = np.zeros((tmax, L))
+    state_list[0] = init_state
     for t in range(1, tmax):
+        state = state_list[t]
         for j in range(L):
             Nj = [(j-1)%L, j, (j+1)%L]
-            local_state = state_copy[Nj]
+            local_state = state_copy.take(Nj)
             state[j] = rule_dict[tuple(local_state)]
-        state_copy = copy.copy(state)
-        state_list[t] = state_copy
+        state_copy = state.copy()
+        state_list[t] = state
     return state_list
 
-def sweep_time_evolve(rule_dict, IC, L, tmax):
-    state = copy.copy(IC)
-    state_list = np.array([IC]*tmax)
+def sweep_time_evolve(rule_dict, init_state, L, tmax):
+    state_copy = init_state.copy() 
+    state_list = np.zeros((tmax, L))
+    state_list[0] = state_copy
     for t in range(1, tmax):
         for j in range(L):
             Nj = [(j-1)%L, j, (j+1)%L]
-            local_state = state[Nj]
-            state[j] = rule_dict[tuple(local_state)]
-        state_list[t]  = copy.copy(state)
+            local_state = state_copy.take(Nj)
+            state_copy[j] = rule_dict[tuple(local_state)]
+        state_list[t]  = state_copy
+    return state_list
+
+def sweep_time_evolve_between(rule_dict, init_state, L, tmax):
+    state_copy = init_state.copy() 
+    state_list = np.zeros((tmax*L, L))
+    state_list[0] = state_copy
+    it = 0
+    for t in range(1, tmax):
+        for j in range(L):
+            Nj = [(j-1)%L, j, (j+1)%L]
+            local_state = state_copy.take(Nj)
+            state_copy[j] = rule_dict[tuple(local_state)]
+            state_list[it]  = state_copy
+            it += 1
     return state_list
 
 def run_sim(R, IC, L, tmax, mode = 'sweep'):
@@ -85,15 +102,17 @@ def run_sim(R, IC, L, tmax, mode = 'sweep'):
     
     rule_dict = {tuple(Nj) : Rb[d] for d, Nj in 
                  enumerate(neighborhood_basis) }
-    
     if   mode is 'ECA': 
          state_list = time_evolve(rule_dict, IC, L, tmax)
+         return state_list
+
     elif mode is 'sweep':
          state_list = sweep_time_evolve(rule_dict, IC, L, tmax)
-    
-    return state_list
+         return state_list
 
-
+    elif mode is 'between':
+         state_list = sweep_time_evolve_between(rule_dict, IC, L, tmax)
+         return state_list
 
 # Initial States
 # ==============
@@ -131,7 +150,7 @@ def binary(L, config):
 
 def all_states(L, config):
     IC = [('b'+str(i), 1.0 / 2.0**float(L)) for i in range(2**L)]
-    return make_states_to_mix(L, IC) 
+    return make_states_to_mix(l, ic) 
 
 def make_states_to_mix(L, IC):
     state_map = { 'i' : index,
@@ -177,7 +196,7 @@ def run_mixture(params, force_rewrite = False):
     output_name, R, IC, L, tmax = params
     if not isfile(io.file_name(output_name, 'data', io.sim_name(R, IC, L, tmax), '.res' )) \
         or force_rewrite:
-        results = measere_sim(params)
+        results = measure_sim(params)
     else:
         results = io.read_results(params, typ='C')
     io.write_results(results, params, typ='C')
@@ -266,30 +285,6 @@ def measure_networks(nets, tasks=['Y','CC'], typ='avg'):
 
 # plotting
 # ========
-def plot_all(L, IC, tmax, fname):
-    for R in range(256):
-        fignum = R
-        fig = plt.figure(fignum) 
-        
-        fig.add_subplot(121)
-        state_list = run_sim(R, IC, L, tmax, mode = 'ECA') 
-        board_plot(state_list, plt.cm.jet, None)
-        plt.xlabel('site number')
-        plt.ylabel('time')
-        #plt.show()
-        plt.title('ECA R ' + str(R)) 
-        
-        
-        fig.add_subplot(122)
-        state_list = run_sim(R, IC, L, tmax, mode = 'sweep') 
-        board_plot(state_list, plt.cm.jet, None)
-        plt.xlabel('site number')
-        plt.ylabel('time')
-        #plt.show()
-        plt.title('Sweep ECA R ' + str(R)) 
-        plt.tight_layout()
-    multipage(file_name('classical', 'plots',  fname, '.pdf')) 
-
 def plot_time_series(data, label, title, loc='lower right', fignum=1, ax=111):
     fig = plt.figure(fignum)
     fig.add_subplot(ax)
@@ -381,8 +376,55 @@ def plot_main(params, name=None):
     
     io.multipage(io.file_name(output_name, 'plots', 'C'+name, '.pdf'))    
 
+def plot_all(R_list, L, lc, tmax, fname):
+    fignum = 0
+    for R in R_list:
+        ic_list = gen_ics(L, lc)
+        print('R: ', R)
+        for IC in ic_list:
+            print(IC)
+            fignum += 1
+            '''
+            state_list = run_sim(R, IC, L, tmax, mode = 'ECA')
+            plot_spacetime_grid(state_list, 'ECA R ' + str(R), fignum=fignum, ax=121)
+            plt.xlabel('site number')
+            plt.ylabel('time')
+            #plt.show()
+            '''
+            state_list = run_sim(R, IC, L, tmax, mode = 'between')
+            plot_spacetime_grid(state_list, 'Sweep between ECA R ' + str(R), fignum=fignum, ax=111)
+            plt.xlabel('site number')
+            plt.ylabel('time')
+            #plt.show()
+
+            plt.tight_layout()
+
+        io.multipage(io.file_name('classical', 'plots',  'R'+str(R)+fname, '.pdf'), dpi=100) 
+        plt.close('all')
+
+def gen_ics(L, lc):
+    for d in range(2**lc): 
+        c  = mx.dec_to_bin(d, lc)
+        IC = [0]*int((L-lc)/2) + c + [0]*int((L-lc)/2)
+        IC = np.array(IC)
+        yield IC
 
 if __name__ == '__main__':
+    
+    unitary_Rs = [ 51,  54,  57,  60, \
+                   99, 102, 105, 108, \
+                  147, 150, 153, 156, \
+                  195, 198, 201, 204  ]
+    
+    unitary_Rs = [2]
+    L = 13
+    tmax = 15
+    lc = 1
+    
+    
+    plot_all(unitary_Rs, L, lc, tmax,  '_lc'+str(lc))
+    
+    ''' 
     output_name = 'comp'
 
     IC_listC = [[('z', 0.5), ('c2i0_1', 0.5)] ]
@@ -404,9 +446,6 @@ if __name__ == '__main__':
         run_mixture(params, force_rewrite = True)
         plot_main(params)
 
-
-
-#plot_all(L, IC, tmax,  'many_periods')
-
+    '''
 # END
 # ===

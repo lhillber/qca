@@ -111,7 +111,7 @@ def sim_name(R, IC, L, tmax):
 # make an output directory
 # ------------------------
 def base_name(output_name, output_type):
-    bn = environ['HOME']+'/Documents/qca/output/' + output_name + '/' + output_type 
+    bn = environ['HOME']+'/documents/qca/output/' + output_name + '/' + output_type 
     makedirs(bn, exist_ok=True)
     return bn
 
