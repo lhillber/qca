@@ -19,8 +19,7 @@ import classical_eca as eca
 
 eq = 1.0/sqrt(2.0)
 
-
-output_name = 'unitaries0011'
+output_name = 'R_leak_study/0p0'
 
 eq = 1.0/sqrt(2.0)
 
@@ -33,7 +32,7 @@ CIC_list = [ [('z', 0.5), ('i0_'+str(j), 0.5)] for j in range(1, int(L)) ]
 QIC_list = [[('E'+str(L-2)+'_' + str(L-1), 1.0)]]
 
 
-R_list = [51,54,57,60,99,102,105,108,147,150,153,156,195,198,201,204]
+R_list = [156, 198]
 
 L_list = [L]
 

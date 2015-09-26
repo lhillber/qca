@@ -1,13 +1,6 @@
 #!/usr/bin/python
 
 # =============================================================================
-# This script generalizes ECA to QECA with irreversible, asynchronus updating. 
-# The state vector is renormalized at after each complete update since
-# irreversibilities in ECA rules will not conserve probability. An update is
-# complete once each state has been updated by the local update operator, which
-# acts on one Moore neighborhood at a time. In otherwords, the update is
-# asynchonus because the local update operator is swept across the lattice
-# sequentially. 
 #
 # By Logan Hillberry
 # =============================================================================
@@ -22,14 +15,14 @@ import copy
 import time
 
 import numpy    as np
-
+import scipy.sparse as sp
 import fio      as io
 import matrix   as mx
 import states   as ss
 import measures as ms
 
-# Sweep updating ECA
-# ==================
+# updating op for ECA
+# ===================
 def local_update_op(R):
     sxR = 204^R                                 # calculate swap rule s.t. 0 -> I, 1 -> sx
     sxR = mx.dec_to_bin(sxR, 2**3)[::-1]        # reverse so rule element 0 comes first
@@ -80,19 +73,29 @@ def general_local_update_op(R, th=pi/2.0):
 
 # construct generator for sweep time evolved states
 # -------------------------------------------------
-def time_evolve(R, IC, L, tmax):
-    Tj = general_local_update_op(R, th = pi/2.0)
+def time_evolve(g, R, IC, L, tmax, dt):
+    J = -1.0
+    Tj = local_update_op(R)
+    Isingj = mx.listkron([ss.pauli['0'], ss.pauli['3'], ss.pauli['3']])
+    Hj = J*Isingj + g*Tj
+    Uj = sp.linalg.expm(-1j*Hj*dt)
+    print(R)
+    print(Uj)
     state = ss.make_state(L, IC)
     yield state 
+
     for t in np.arange(tmax):
         for j in range(L):
             js = [(j-1)%L, j, (j+1)%L]
-            state = mx.op_on_state(Tj, js, state)
+            state = mx.op_on_state(Uj, js, state)
+    
         ip = (state.conj().dot(state))
         if ip == 0.0:
             yield state
+        
         else: 
             yield  1.0/sqrt(ip) * state
+
 
 # import/create measurement results and plot them
 # -----------------------------------------------
@@ -105,4 +108,37 @@ def run_sim(params, force_rewrite = False):
     return
 
 
+if __name__ == "__main__":
+    import plotting as pt
+    import matplotlib.pyplot as plt
+    
+    IC = [('d1',1.0)]
+    L = 15
+    tmax = 100
+    g_list = [0.1, 1.0, 2.0] 
+    R_list = range(256) 
+    
+    nz = ss.brhos['1']
+    fignum = 1
 
+    for R in R_list:
+        print(R)
+        for ng, g in enumerate(g_list):
+            dt = 1.0/g
+            state_gen = time_evolve(g, R, IC, L, tmax, dt)
+            nz_board = np.zeros((tmax+1, L))
+
+            for t, state in enumerate(state_gen):
+                for j in range(L):
+                    print(j,t )
+                    rj = mx.rdms(state, [j])
+                    nzj = np.trace( rj.dot(nz) ).real
+                    nz_board[t, j] = nzj 
+                    
+            pt.plot_spacetime_grid(nz_board, r'$\langle n_j \rangle g = $'+str(g), 
+                    cmap=plt.cm.jet, norm=None, fignum=fignum, ax=131+ng)
+        
+        plt.suptitle(r'R = ' + str(R))
+        
+        fignum+=1
+    io.multipage(io.file_name('ising_eca', 'plots', 'all_rules_g01_1_2', '.pdf'))    

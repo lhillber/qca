@@ -95,6 +95,55 @@ def sweep_time_evolve_between(rule_dict, init_state, L, tmax):
             it += 1
     return state_list
 
+def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
+    state_copy = init_state.copy() 
+    state_list = np.zeros((tmax, L))
+    state_list[0] = state_copy
+    for t in range(1, tmax):
+        for j, k in enumerate(range(L-1,-1,-1)):
+            Nj = [(j-1)%L, j, (j+1)%L]
+            local_state = state_copy.take(Nj)
+            state_copy[j] = rule_dict[tuple(local_state)]
+            
+            Nk = [(k-1)%L, k, (k+1)%L]
+            local_state = state_copy.take(Nk)
+            state_copy[k] = rule_dict[tuple(local_state)]
+        state_list[t]  = state_copy
+    return state_list
+
+def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
+    state_copy = init_state.copy() 
+    state_list = np.zeros((tmax, L))
+    state_list[0] = state_copy
+    for t in range(1, tmax):
+        for j, k in enumerate(range(L-1,-1,-1)):
+            Nj = [(j-1)%L, j, (j+1)%L]
+            local_state = state_copy.take(Nj)
+            state_copy[j] = rule_dict[tuple(local_state)]
+            
+            Nk = [(k-1)%L, k, (k+1)%L]
+            local_state = state_copy.take(Nk)
+            state_copy[k] = rule_dict[tuple(local_state)]
+        state_list[t]  = state_copy
+    return state_list
+
+def sweep_time_evolve_r_then_l(rule_dict, init_state, L, tmax):
+    state_copy = init_state.copy() 
+    state_list = np.zeros((tmax, L))
+    state_list[0] = state_copy
+    for t in range(1, tmax):
+        for j in range(L):
+            Nj = [(j-1)%L, j, (j+1)%L]
+            local_state = state_copy.take(Nj)
+            state_copy[j] = rule_dict[tuple(local_state)]
+        for k in range(L-1,-1,-1):
+            Nk = [(k-1)%L, k, (k+1)%L]
+            local_state = state_copy.take(Nk)
+            state_copy[k] = rule_dict[tuple(local_state)]
+        state_list[t]  = state_copy
+    return state_list
+
+
 def run_sim(R, IC, L, tmax, mode = 'sweep'):
     Rb = mx.dec_to_bin(R, 8)[::-1]
     neighborhood_basis = (i_Nj for i_Nj in [mx.dec_to_bin(d, 3) 
@@ -102,7 +151,8 @@ def run_sim(R, IC, L, tmax, mode = 'sweep'):
     
     rule_dict = {tuple(Nj) : Rb[d] for d, Nj in 
                  enumerate(neighborhood_basis) }
-    if   mode is 'ECA': 
+
+    if   mode is 'eca': 
          state_list = time_evolve(rule_dict, IC, L, tmax)
          return state_list
 
@@ -112,6 +162,14 @@ def run_sim(R, IC, L, tmax, mode = 'sweep'):
 
     elif mode is 'between':
          state_list = sweep_time_evolve_between(rule_dict, IC, L, tmax)
+         return state_list
+    
+    elif mode is 'sweep_rl':
+         state_list = sweep_time_evolve_rl(rule_dict, IC, L, tmax)
+         return state_list
+
+    elif mode is 'sweep_r_then_l':
+         state_list = sweep_time_evolve_r_then_l(rule_dict, IC, L, tmax)
          return state_list
 
 # Initial States
@@ -376,7 +434,7 @@ def plot_main(params, name=None):
     
     io.multipage(io.file_name(output_name, 'plots', 'C'+name, '.pdf'))    
 
-def plot_all(R_list, L, lc, tmax, fname):
+def plot_all_IC(R_list, L, lc, tmax, fname):
     fignum = 0
     for R in R_list:
         ic_list = gen_ics(L, lc)
@@ -384,19 +442,11 @@ def plot_all(R_list, L, lc, tmax, fname):
         for IC in ic_list:
             print(IC)
             fignum += 1
-            '''
-            state_list = run_sim(R, IC, L, tmax, mode = 'ECA')
+            state_list = run_sim(R, IC, L, tmax, mode = 'eca')
             plot_spacetime_grid(state_list, 'ECA R ' + str(R), fignum=fignum, ax=121)
             plt.xlabel('site number')
             plt.ylabel('time')
             #plt.show()
-            '''
-            state_list = run_sim(R, IC, L, tmax, mode = 'between')
-            plot_spacetime_grid(state_list, 'Sweep between ECA R ' + str(R), fignum=fignum, ax=111)
-            plt.xlabel('site number')
-            plt.ylabel('time')
-            #plt.show()
-
             plt.tight_layout()
 
         io.multipage(io.file_name('classical', 'plots',  'R'+str(R)+fname, '.pdf'), dpi=100) 
@@ -409,27 +459,49 @@ def gen_ics(L, lc):
         IC = np.array(IC)
         yield IC
 
+
+def plot_R(R_list, L, IC, tmax, fname):
+    fignum = 0
+    for R in R_list:
+        state_list = run_sim(R, IC, L, tmax, mode = 'eca')
+        plot_spacetime_grid(state_list, ' R ' + str(R), fignum=fignum, ax=121)
+        plt.xlabel('site number')
+        plt.ylabel('time')
+
+        state_list2 = run_sim(R, IC, L, tmax, mode = 'sweep_rl')
+        plot_spacetime_grid(state_list2, 'sweep right/left R ' + str(R),fignum=fignum, ax=122)
+        plt.xlabel('site number')
+        plt.ylabel('time')
+        plt.tight_layout()
+
+        fignum += 1
+
+    io.multipage(io.file_name('classical', 'plots/sweeping', fname, '.pdf'), dpi=100) 
+
+
+
 if __name__ == '__main__':
     
-    unitary_Rs = [ 51,  54,  57,  60, \
-                   99, 102, 105, 108, \
-                  147, 150, 153, 156, \
-                  195, 198, 201, 204  ]
-    
-    unitary_Rs = [2]
-    L = 13
-    tmax = 15
-    lc = 1
-    
-    
-    plot_all(unitary_Rs, L, lc, tmax,  '_lc'+str(lc))
-    
-    ''' 
-    output_name = 'comp'
+    L = 201
+    c = [1]
+    tmax = 400 
+    name = 'eca_sweep_L201_random'
+
+
+    lc = len(c)
+    IC = [0]*int((L-lc)/2) + c + [0]*int((L-lc)/2)
+    IC = np.random.random_integers(0, 1, L) 
+    plot_R(range(256), L, np.array(IC), tmax, name)
+
+'''
+    output_name = 'classical/unitaries'
 
     IC_listC = [[('z', 0.5), ('c2i0_1', 0.5)] ]
 
-    R_list = [91]
+    R_list =  [ 51,  54,  57,  60, \
+                99, 102, 105, 108, \
+               147, 150, 153, 156, \
+               195, 198, 201, 204  ]
 
     L_list = [10]
 
@@ -445,7 +517,6 @@ if __name__ == '__main__':
     for params in params_listC:
         run_mixture(params, force_rewrite = True)
         plot_main(params)
-
-    '''
+'''
 # END
 # ===
