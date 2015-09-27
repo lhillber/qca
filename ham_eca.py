@@ -10,7 +10,9 @@
 from itertools import product, cycle
 from os.path   import isfile
 from cmath     import sqrt
-from math import sin, cos, pi
+from math import sin, cos, pi, fabs
+from collections import OrderedDict
+
 import copy
 import time
 
@@ -73,14 +75,21 @@ def general_local_update_op(R, th=pi/2.0):
 
 # construct generator for sweep time evolved states
 # -------------------------------------------------
-def time_evolve(g, R, IC, L, tmax, dt):
+def time_evolve(params, tol=1E-10):
+    g    = params[ 'g'   ]
+    R    = params[ 'R'   ]
+    L    = params[ 'L'   ]
+    IC   = params[ 'IC'  ]
+    dt   = params[ 'dt'  ] 
+    tmax = params[ 'tmax']
+
     J = -1.0
+    
     Tj = local_update_op(R)
     Isingj = mx.listkron([ss.pauli['0'], ss.pauli['3'], ss.pauli['3']])
     Hj = J*Isingj + g*Tj
     Uj = sp.linalg.expm(-1j*Hj*dt)
-    print(R)
-    print(Uj)
+    
     state = ss.make_state(L, IC)
     yield state 
 
@@ -89,48 +98,68 @@ def time_evolve(g, R, IC, L, tmax, dt):
             js = [(j-1)%L, j, (j+1)%L]
             state = mx.op_on_state(Uj, js, state)
     
-        ip = (state.conj().dot(state))
-        if ip == 0.0:
+        ip = (state.conj().dot(state)).real
+        if fabs(ip - 1.0) < tol:
             yield state
         
         else: 
-            yield  1.0/sqrt(ip) * state
-
+            print(ip)
+            state = 1.0/sqrt(ip) * state
+            yield state
 
 # import/create measurement results and plot them
 # -----------------------------------------------
 def run_sim(params, force_rewrite = False):
-    output_name, R, IC, L, tmax = params
-    if not isfile(io.file_name(output_name, 'data', io.sim_name(R, IC, L, tmax), '.res' )) \
+    output_name = params['output_name']
+    if not isfile(io.file_name(output_name, 'data', io.sim_name(params), '.res' )) \
         or force_rewrite:
-        results = ms.measure_sim(params, time_evolve(R, IC, L, tmax))
+        results = ms.measure_sim(params, time_evolve(params))
         io.write_results(results, params, typ='Q')
-    return
+    return results
 
 
 if __name__ == "__main__":
     import plotting as pt
     import matplotlib.pyplot as plt
     
-    IC = [('d1',1.0)]
-    L = 15
-    tmax = 100
-    g_list = [0.1, 1.0, 2.0] 
-    R_list = range(256) 
+    output_name = 'ising_eca/L4'
+    IC = [('c1d1',1.0)]
+    L = 4
+    tmax = 200
+    dt = 0.1
+    g_list = [1.0]
+    R_list = [ 51,  54,  57,  60,
+               99, 102, 105, 108,
+              147, 150, 153, 156,
+              195, 198, 201, 204 ]
+    R_list = [105] 
     
     nz = ss.brhos['1']
     fignum = 1
 
     for R in R_list:
-        print(R)
         for ng, g in enumerate(g_list):
-            dt = 1.0/g
-            state_gen = time_evolve(g, R, IC, L, tmax, dt)
+            params = OrderedDict(
+                    [
+                        ('output_name', output_name), 
+                        ('g', g),
+                        ('R', R), 
+                        ('IC', IC),
+                        ('L', L), 
+                        ('tmax', tmax), 
+                        ('dt', dt)
+                    ]
+                                )
+
+            run_sim(params)
+            pt.plot_main(params)
+
+            ''' 
             nz_board = np.zeros((tmax+1, L))
+            
 
             for t, state in enumerate(state_gen):
                 for j in range(L):
-                    print(j,t )
                     rj = mx.rdms(state, [j])
                     nzj = np.trace( rj.dot(nz) ).real
                     nz_board[t, j] = nzj 
@@ -141,4 +170,6 @@ if __name__ == "__main__":
         plt.suptitle(r'R = ' + str(R))
         
         fignum+=1
-    io.multipage(io.file_name('ising_eca', 'plots', 'all_rules_g01_1_2', '.pdf'))    
+    io.multipage(io.file_name(output_name, 'plots', 'Runitary_g1_L12_dt01', '.pdf'))    
+        '''
+

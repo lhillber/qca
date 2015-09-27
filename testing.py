@@ -75,7 +75,7 @@ G = np.array([[0,1,0,0,0,0,0,0],
               [1,0,0,0,0,0,0,0]])
 
 for R in range(256):
-    T = sweep.general_local_update_op(R, th=pi/2.0-0.1)
+    T = sweep.general_local_update_op(R, th=pi/2.0)
     I = np.eye(8)
     Tdag = mx.dagger(T)
     TdT = Tdag.dot(T)

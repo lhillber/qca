@@ -108,10 +108,20 @@ def sim_name(R, IC, L, tmax):
     return 'R{}_IC{}_L{}_tmax{}'.format( \
                 R, IC_name(IC), L, tmax)
 
+def sim_name(params):
+    sname = ''
+    for label, value in params.items():
+        if label is 'IC':
+            value = IC_name(value)
+        if label is not 'output_name':
+            sname = sname + str(label) + str(value) + '_'
+    sname = sname[:-1]
+    return sname 
+
 # make an output directory
 # ------------------------
 def base_name(output_name, output_type):
-    bn = environ['HOME']+'/documents/qca/output/' + output_name + '/' + output_type 
+    bn = environ['HOME'] + '/documents/qca/output/' + output_name + '/' + output_type 
     makedirs(bn, exist_ok=True)
     return bn
 
@@ -123,16 +133,16 @@ def file_name(output_name, output_type, name, ext):
 # save simulation results
 # -----------------------
 def write_results(results, params, typ=''):
-    output_name, R, IC, L, tmax = params 
-    with open(file_name(output_name,'data', typ+sim_name(R, IC, L, tmax), '.res'), 'w') as outfile:
+    output_name = params['output_name']
+    with open(file_name(output_name,'data', typ+sim_name(params), '.res'), 'w') as outfile:
         outfile.write(data_to_json(results))
     return
 
 # load simulation results
 # -----------------------
 def read_results(params, typ=''):
-    input_name, R, IC, L, tmax = params 
-    with open(file_name(input_name, 'data', typ+sim_name(R, IC, L, tmax), '.res'), 'r') as infile:
+    input_name = params['output_name']
+    with open(file_name(input_name, 'data', typ+sim_name(params), '.res'), 'r') as infile:
        results = infile.read()
     return json_to_data(results)
 

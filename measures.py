@@ -100,26 +100,37 @@ def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
 # Measure each state of the time evolution
 # ----------------------------------------
 def measure_sim(params, state_gen, tol=1e-14): 
-    output_name, R, IC, L, tmax = params
-    nz = ss.brhos['1']
-    nx = 0.5 * (ss.pauli['0'] + ss.pauli['1'])
-    measures = [0]*(tmax+1)
+    L    = params[ 'L'   ]
+    tmax = params[ 'tmax']
     
+    nz = ss.brhos['1']
+    measures = [0]*(tmax+1)
+
+    r = int(L/4)
+
+    a = [i for i in range(0, r)]
+    b1 = [i for i in range(r, 2*r)]
+    c = [i for i in range(2*r, 3*r)]
+    b2 = [i for i in range(3*r, 4*r)]
+    b = b1+b2
+
     for t, state in enumerate(state_gen): 
+        sab = vn_entropy( mx.rdms(state, a+b) )
+        sbc = vn_entropy( mx.rdms(state, b+c) )
+        sb  = vn_entropy( mx.rdms(state, b  ) )
+        sabc = 0.0
+        s_t_topo = sab + sbc - sb - sabc 
+        
         sr_mat = np.zeros((L,L)) 
         nz_mat = np.zeros((L,L))
-        nx_mat = np.zeros((L,L))
         mi_mat = np.zeros((L,L))
-        
         for j in range(L):
             rj  = mx.rdms(state, [j])
             sj = vn_entropy(rj)
             nzj = np.trace( rj.dot(nz) )
-            nxj = np.trace( rj.dot(nx) )
+            
             sr_mat[j,j] = sj.real
             nz_mat[j,j] = nzj.real
-            nx_mat[j,j] = nxj.real
-            mi_mat[j,j] = 0.0 
             for k in range(j+1, L):
                 rjk  = mx.rdms(state, [j, k])
                 rk   = mx.rdms(state, [k])
@@ -127,26 +138,23 @@ def measure_sim(params, state_gen, tol=1e-14):
                 sjk  = vn_entropy(rjk)
                 sk   = vn_entropy(rk)
                 nzjk = np.trace( rjk.dot( np.kron(nz, nz) ) )
-                nxjk = np.trace( rjk.dot( np.kron(nx, nx) ) )
 
                 sr_mat[j,k] = sr_mat[k,j] = sjk.real
                 nz_mat[j,k] = nz_mat[k,j] = nzjk.real
-                nx_mat[j,k] = nx_mat[k,j] = nxjk.real
                 mi_mat[j,k] = mi_mat[k,j] = 0.5 * (sj + sk - sjk).real
 
         # set small elements to tol 
-        mi_mat = mx.edit_small_vals(mi_mat, tol=tol, replacement=tol)
+        mi_mat = mx.edit_small_vals( mi_mat, tol=tol, replacement=tol)
         s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
         sr_mat = mx.edit_small_vals( sr_mat, tol=tol )
         nz_mat = mx.edit_small_vals( nz_mat, tol=tol, replacement=tol )
-        nx_mat = mx.edit_small_vals( nx_mat, tol=tol, replacement=tol )
         mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
         measure = {} 
         measure['ec'] = s_cuts
         measure['sr'] = sr_mat
         measure['nz'] = nz_mat
-        measure['nx'] = nx_mat
         measure['mi'] = mi_mat
+        measure['st'] = s_t_topo
         measure['t' ] = t
         measures[t] = measure
     

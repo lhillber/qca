@@ -7,7 +7,6 @@ import information as im
 import fio as io
 import networkmeasures as nm
 import measures as ms
-import run 
 import matplotlib        as mpl
 import matplotlib.pyplot as plt
 import plotting as pt
@@ -161,7 +160,8 @@ def running_avg_plots(avg_measures_dict, fignum=0):
             plt.ylabel('Measure average')
 
 if __name__ == '__main__':
-
+    
+    import run_sweep as run 
     Cparams_list = run.Cparams_list
     Qparams_list = run.Qparams_list
     output_name, R, IC, L, tmax = Cparams_list[0]

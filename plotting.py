@@ -9,7 +9,7 @@ import fio               as io
 
 # default plot font to bold and size 16
 # -------------------------------------
-font = {'family':'normal', 'weight':'bold', 'size':16}
+font = {'family':'normal', 'weight':'bold', 'size':14}
 mpl.rc('font',**font)
 
 
@@ -143,11 +143,15 @@ def st_nm_plots(st_data, title, tasks = ['EV', 'CC', 'Y'], fignum=1):
 # --------------------------
 def plot_main(params, 
         st_tasks =['EV', 'CC', 'Y' ], avg_tasks=['ND', 'CC', 'Y'],
-        net_types=['nz', 'nx', 'mi'], name=None):
+        net_types=['nz', 'mi'], name=None):
     
-    output_name, R, IC, L, tmax = params
+    R    = params[ 'R'   ]
+    L    = params[ 'L'   ]
+    tmax = params[ 'tmax']
+    output_name = params['output_name']
+    
     if name is None:
-        name = io.sim_name(R, IC, L, tmax)
+        name = io.sim_name(params)
     else:
         name = name
     
@@ -170,7 +174,9 @@ def plot_main(params,
          avg_nm_plots( avg_net_measures, title, tasks=avg_tasks, fignum=fignum  )
          st_nm_plots ( st_net_measures,  title,  tasks=st_tasks , fignum=fignum+1 )
     
-    cut_entropy_plots(results, L, 'R ' + str(R), fignum=fignum+2) 
+    plot_time_series(results['st'], r'$S^t_{topo}$', fignum=fignum+2)
+    
+    cut_entropy_plots(results, L, 'R ' + str(R), fignum=fignum+3) 
     
     io.multipage(io.file_name(output_name, 'plots', 'Q'+name, '.pdf'))    
     return

@@ -17,8 +17,8 @@
 from itertools import product, cycle
 from os.path   import isfile
 from cmath     import sqrt
-from math import sin, cos, pi
-import copy
+from math import sin, cos, pi, fabs
+import copy 
 import time
 
 import numpy    as np
@@ -80,27 +80,39 @@ def general_local_update_op(R, th=pi/2.0):
 
 # construct generator for sweep time evolved states
 # -------------------------------------------------
-def time_evolve(R, IC, L, tmax):
+def time_evolve(params, tol=1E-10):
+    R = params['R']
+    IC = params['IC']
+    L = params['L'] 
+    tmax = params['tmax']
+
     Tj = general_local_update_op(R, th = pi/2.0)
     state = ss.make_state(L, IC)
     yield state 
+    
     for t in np.arange(tmax):
         for j in range(L):
+     
             js = [(j-1)%L, j, (j+1)%L]
             state = mx.op_on_state(Tj, js, state)
-        ip = (state.conj().dot(state))
-        if ip == 0.0:
+
+        ip = (state.conj().dot(state)).real
+        
+        if fabs(ip - 1.0) < tol:
             yield state
+        
         else: 
-            yield  1.0/sqrt(ip) * state
+            print(ip)
+            state = 1.0/sqrt(ip) * state
+            yield state
 
 # import/create measurement results and plot them
 # -----------------------------------------------
 def run_sim(params, force_rewrite = False):
-    output_name, R, IC, L, tmax = params
-    if not isfile(io.file_name(output_name, 'data', io.sim_name(R, IC, L, tmax), '.res' )) \
+    output_name = params['output_name']
+    if not isfile(io.file_name(output_name, 'data', io.sim_name(params), '.res' )) \
         or force_rewrite:
-        results = ms.measure_sim(params, time_evolve(R, IC, L, tmax))
+        results = ms.measure_sim(params, time_evolve(params))
         io.write_results(results, params, typ='Q')
     return
 

@@ -52,6 +52,7 @@ def shannonentropy(probabilities,d=2):
     #Divide by np.log(d) to convert to base d logarithm.
     return q 
     #return q/np.jklog(d)
+
 def mutualinformation(probdict1,probdict2,probdict12,d):
     dictcheck1=isinstance(probdict1,dict) 
     dictcheck2=isinstance(probdict2,dict)
@@ -73,6 +74,7 @@ def mutualinformation(probdict1,probdict2,probdict12,d):
     s12=shannonentropy(p12,d)
     mutualinformation = 0.5*(s1+s2-s12)
     return mutualinformation
+
 def mutinfonetwork(data,samplespace=[0,1],bins=np.array([0.0,0.5,1.0]),d=2,shifts=0,means=False):
     """
     The floats in data are converted into elements of samplespace
@@ -140,6 +142,7 @@ def mutinfonetwork(data,samplespace=[0,1],bins=np.array([0.0,0.5,1.0]),d=2,shift
                     prob12=probabilities(onetwodiscrete,samplespace2)
                     mutualinfo[i][j]=mutualinformation(prob1,prob2,prob12,d)
     return mutualinfo+mutualinfo.transpose()
+
 def spatialnetworksQ(corr,loc,d=2):
     L=len(loc[0])
     T=len(loc)
