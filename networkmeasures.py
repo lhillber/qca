@@ -43,10 +43,13 @@ def clustering(matrix):
     #if there are no closed paths of length
     #three the clustering is automatically
     #set to zero.
-    if numerator==0.:
-        return 0.
+    C = numerator/denominator
+    if numerator==0.0:
+        C = 0.0
+    if C < 1.5:
+        return C
     else:
-        return numerator/denominator
+        return 0.0
 
 def localclustering(matrix):
     l=len(matrix)
@@ -57,8 +60,9 @@ def localclustering(matrix):
         for j in range(l):
             for k in range(j):
                 squaretmp+=matrix[i][j]*matrix[i][k]
-        if squaretmp!=0:
-            localclustering.append(0.5*matrixcube[i][i]/squaretmp)
+        LC = 0.5*matrixcube[i][i]/squaretmp
+        if LC < 1.5:
+            localclustering.append(LC)
         else:
             localclustering.append(0)
         squaretmp=0

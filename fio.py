@@ -134,16 +134,16 @@ def file_name(output_name, output_type, name, ext):
 # -----------------------
 def write_results(results, params, typ=''):
     output_name = params['output_name']
-    with open(file_name(output_name,'data', typ+sim_name(params), '.res'), 'w') as outfile:
-        outfile.write(data_to_json(results))
+    with open(file_name(output_name,'data', typ+sim_name(params), '.res'), 'wb') as outfile:
+        outfile.write(bytes(data_to_json(results), 'UTF-8'))
     return
 
 # load simulation results
 # -----------------------
 def read_results(params, typ=''):
     input_name = params['output_name']
-    with open(file_name(input_name, 'data', typ+sim_name(params), '.res'), 'r') as infile:
-       results = infile.read()
+    with open(file_name(input_name, 'data', typ+sim_name(params), '.res'), 'rb') as infile:
+       results = infile.read().decode('UTF-8')
     return json_to_data(results)
 
 # save multi page pdfs of plots

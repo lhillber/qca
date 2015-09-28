@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from cmath  import sqrt
+from math   import fabs
 import copy
 import numpy as np
 import information as im
@@ -19,14 +20,13 @@ mpl.rc('font',**font)
 eq = 1.0/sqrt(2.0)
 
 def get_diag_vecs(mats):
-    mats = np.asarray(mats)
     return np.array([mat.diagonal() for mat in mats])
 
 def get_offdiag_mats(mats):
     L = len(mats[0])
     mats_out = copy.deepcopy(mats)
     for t, mat in enumerate(mats_out): 
-        mats_out[np.arange(L), np.arange(L)] = 0.0
+        mat[np.arange(L), np.arange(L)] = 0.0
         mats_out[t] = mat
     return mats_out
 
@@ -42,6 +42,19 @@ def measure_networks(nets, tasks=['Y','CC'], typ='avg'):
                                     tasks=tasks)[task] for net in nets])
     return measures
 
+def correlator_calc(mats):
+    one_corr = get_diag_vecs(mats)
+    two_corr = get_offdiag_mats(mats)
+    tmax = len(mats)
+    L = len(mats[0]) 
+    corr = np.zeros( (tmax + 1, L, L) )
+    for t in range(tmax):
+        for i in range(L):
+            for j in range(i, L):
+                corr[t, i, j] = corr[t, j, i] = \
+                       fabs(two_corr[t, i, j] - one_corr[t, i] * one_corr[t, j])
+    return corr
+
 def make_net_dict(results, net_types=['nz', 'nx', 'mi']):
     net_dict = {}
     for net_typ in net_types:
@@ -49,6 +62,8 @@ def make_net_dict(results, net_types=['nz', 'nx', 'mi']):
             network = results['mi']
         else: 
             network = spatialnetworksQ(results, net_typ)
+            #network = get_offdiag_mats(results[net_typ])
+            #network = correlator_calc(results[net_typ])
         net_dict[net_typ] = network
     return net_dict
 

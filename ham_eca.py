@@ -122,7 +122,7 @@ if __name__ == "__main__":
     import plotting as pt
     import matplotlib.pyplot as plt
     
-    output_name = 'ising_eca/L4'
+    output_name = 'testing/ham_eca'
     IC = [('c1d1',1.0)]
     L = 4
     tmax = 200

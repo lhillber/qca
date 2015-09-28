@@ -87,7 +87,6 @@ def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
                          'CC'  : nm.localclustering,
                          'Y'   : nm.disparitylattice,
                          'EV'  : eveccentrality,
-                         
                          }
               }
     
