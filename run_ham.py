@@ -21,9 +21,9 @@ import classical_eca     as eca
 
 eq = 1.0/sqrt(2.0)    # a useful constant
 
-output_name = 'ham_eca/R105_gsweep'
+output_name = 'ham_eca/R105_gsweep_J0/'
 
-g_list = [0.0, 0.2, 1.0, 1.8, 2.0]
+g_list = [0.5, 0.7, 1.0, 1.3, 2.0]
 
 R_list = [105]
 
@@ -31,9 +31,9 @@ L_list = [12]
 
 QIC_list = [[('c1d1', 1.0)]]
 
-tmax_list = [20]
+tmax_list = [1000]
 
-dt_list = [1.0]
+dt_list = [0.1]
 
 
 # nested list of the above parameters as an ordered dictionary

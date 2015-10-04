@@ -42,18 +42,6 @@ def measure_networks(nets, tasks=['Y','CC'], typ='avg'):
                                     tasks=tasks)[task] for net in nets])
     return measures
 
-def correlator_calc(mats):
-    one_corr = get_diag_vecs(mats)
-    two_corr = get_offdiag_mats(mats)
-    tmax = len(mats)
-    L = len(mats[0]) 
-    corr = np.zeros( (tmax + 1, L, L) )
-    for t in range(tmax):
-        for i in range(L):
-            for j in range(i, L):
-                corr[t, i, j] = corr[t, j, i] = \
-                       fabs(two_corr[t, i, j] - one_corr[t, i] * one_corr[t, j])
-    return corr
 
 def make_net_dict(results, net_types=['nz', 'nx', 'mi']):
     net_dict = {}
@@ -174,8 +162,37 @@ def running_avg_plots(avg_measures_dict, fignum=0):
             plt.xlabel('Time')
             plt.ylabel('Measure average')
 
+def correlator_calc(mats):
+    one_corr = get_diag_vecs(mats)
+    two_corr = get_offdiag_mats(mats)
+    tmax = len(mats)
+    L = len(mats[0]) 
+    corr = np.zeros( (tmax + 1, L) )
+    dist = []
+    i = 3
+    for t in range(tmax):
+        for j in range( L):
+            corr[t, j] = two_corr[t, i, j] - one_corr[t, i] * one_corr[t, j]
+            if t==0: 
+                dist.append(fabs(i-j))
+    return corr, dist
+
+
 if __name__ == '__main__':
-    
+   
+    import run_ham as run 
+    Qparams_list = run.params_list
+    Qparams = Qparams_list[0]
+    L = Qparams['L']
+    tmax = Qparams['tmax']
+    Qres = io.read_results(Qparams, typ='Q')
+    Zcorr = Qres['nz'] 
+    corr, dist = correlator_calc(Zcorr)
+    for t in range(tmax-1, tmax):
+        corr0j = [corr[t,j] for j in range(L)]
+        plt.plot(dist, corr0j, 'x')
+    plt.show()
+    '''
     import run_sweep as run 
     Cparams_list = run.Cparams_list
     Qparams_list = run.Qparams_list
@@ -186,5 +203,5 @@ if __name__ == '__main__':
     
     io.multipage(io.file_name(output_name, \
         'plots','LT_avg_'+'R'+str(R)+'_0011_seperation', '.pdf')) 
-    
+    ''' 
 

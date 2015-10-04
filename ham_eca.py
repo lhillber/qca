@@ -42,6 +42,30 @@ def local_update_op(R):
         op = op + mx.listkron(op_sub_el_list) 
     return op
 
+def local_update_op2(R, return_TX=False):
+    sxR = 204^R                                 # calculate swap rule s.t. 0 -> I, 1 -> sx
+    sxR = mx.dec_to_bin(sxR, 2**3)[::-1]        # reverse so rule element 0 comes first
+    
+    IXI = mx.listkron([ss.pauli['0'], ss.pauli['1'], ss.pauli['0']])
+    
+    TX = np.zeros((2**3, 2**3), dtype=complex)
+    TI = np.zeros((2**3, 2**3), dtype=complex)
+    for m, r in enumerate(sxR):
+        m_2 = mx.dec_to_bin(m, 3)[::-1]
+        m_ket = comp_basis_vec(m_2)
+        m_proj = np.outer(m_ket, m_ket)
+        TX = TX + r * IXI.dot(m_proj)
+        TI = TI + (1 - r) * m_proj
+    
+    T = TI + TX
+    
+    if return_TX == True:
+        return TX
+   
+    else:
+        return T
+
+
 def comp_basis_vec(bin_num_as_list):
     bin_num_as_str = map(str, bin_num_as_list)
     vec_list =[]
@@ -83,11 +107,11 @@ def time_evolve(params, tol=1E-10):
     dt   = params[ 'dt'  ] 
     tmax = params[ 'tmax']
 
-    J = -1.0
+    J = -0.0
     
-    Tj = local_update_op(R)
+    TX = local_update_op2(R, return_TX=True)
     Isingj = mx.listkron([ss.pauli['0'], ss.pauli['3'], ss.pauli['3']])
-    Hj = J*Isingj + g*Tj
+    Hj = J*Isingj + g*TX
     Uj = sp.linalg.expm(-1j*Hj*dt)
     
     state = ss.make_state(L, IC)
@@ -119,23 +143,22 @@ def run_sim(params, force_rewrite = False):
 
 
 if __name__ == "__main__":
+
     import plotting as pt
     import matplotlib.pyplot as plt
     
     output_name = 'testing/ham_eca'
     IC = [('c1d1',1.0)]
-    L = 4
-    tmax = 200
-    dt = 0.1
-    g_list = [1.0]
+    L = 15 
+    tmax = 100
+    dt = 0.099
+    g_list = [2.0]
     R_list = [ 51,  54,  57,  60,
                99, 102, 105, 108,
               147, 150, 153, 156,
               195, 198, 201, 204 ]
-    R_list = [105] 
-    
-    nz = ss.brhos['1']
-    fignum = 1
+
+    R_list = [150] 
 
     for R in R_list:
         for ng, g in enumerate(g_list):
@@ -153,23 +176,3 @@ if __name__ == "__main__":
 
             run_sim(params)
             pt.plot_main(params)
-
-            ''' 
-            nz_board = np.zeros((tmax+1, L))
-            
-
-            for t, state in enumerate(state_gen):
-                for j in range(L):
-                    rj = mx.rdms(state, [j])
-                    nzj = np.trace( rj.dot(nz) ).real
-                    nz_board[t, j] = nzj 
-                    
-            pt.plot_spacetime_grid(nz_board, r'$\langle n_j \rangle g = $'+str(g), 
-                    cmap=plt.cm.jet, norm=None, fignum=fignum, ax=131+ng)
-        
-        plt.suptitle(r'R = ' + str(R))
-        
-        fignum+=1
-    io.multipage(io.file_name(output_name, 'plots', 'Runitary_g1_L12_dt01', '.pdf'))    
-        '''
-

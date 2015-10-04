@@ -468,30 +468,35 @@ def plot_R(R_list, L, IC, tmax, fname):
         plt.xlabel('site number')
         plt.ylabel('time')
 
-        state_list2 = run_sim(R, IC, L, tmax, mode = 'sweep_rl')
-        plot_spacetime_grid(state_list2, 'sweep right/left R ' + str(R),fignum=fignum, ax=122)
+        state_list2 = run_sim(R, IC, L, tmax, mode = 'sweep')
+        plot_spacetime_grid(state_list2, 'sweep R ' + str(R),fignum=fignum, ax=122)
         plt.xlabel('site number')
         plt.ylabel('time')
         plt.tight_layout()
 
         fignum += 1
 
-    io.multipage(io.file_name('classical', 'plots/sweeping', fname, '.pdf'), dpi=100) 
+    io.multipage(io.file_name('classical', 'plots', fname, '.pdf'), dpi=100) 
 
 
 
 if __name__ == '__main__':
     
-    L = 201
+    L = 50
     c = [1]
-    tmax = 400 
-    name = 'eca_sweep_L201_random'
+    tmax = 100 
+    name = 'unitary_L50_random'
 
+    R_list = [ 51,  54,  57,  60,
+               99, 102, 105, 108,
+              147, 150, 153, 156,
+              195, 198, 201, 204 ]
 
     lc = len(c)
-    IC = [0]*int((L-lc)/2) + c + [0]*int((L-lc)/2)
+    IC = [0]*7 + c + [0]*7
     IC = np.random.random_integers(0, 1, L) 
-    plot_R(range(256), L, np.array(IC), tmax, name)
+    rand_IC_number = np.array([2**n for n in range(L)]).dot(IC[::-1])
+    plot_R(R_list, L, np.array(IC), tmax, name+'ICd'+str(rand_IC_number))
 
 '''
     output_name = 'classical/unitaries'
