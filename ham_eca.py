@@ -100,6 +100,7 @@ def general_local_update_op(R, th=pi/2.0):
 # construct generator for sweep time evolved states
 # -------------------------------------------------
 def time_evolve(params, tol=1E-10):
+    J    = params[ 'J'   ]
     g    = params[ 'g'   ]
     R    = params[ 'R'   ]
     L    = params[ 'L'   ]
@@ -107,7 +108,6 @@ def time_evolve(params, tol=1E-10):
     dt   = params[ 'dt'  ] 
     tmax = params[ 'tmax']
 
-    J = -0.0
     
     TX = local_update_op2(R, return_TX=True)
     Isingj = mx.listkron([ss.pauli['0'], ss.pauli['3'], ss.pauli['3']])
@@ -148,15 +148,17 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
     output_name = 'testing/ham_eca'
-    IC = [('c1d1',1.0)]
     L = 15 
     tmax = 100
-    dt = 0.099
+    dt = 0.1
+    
+    IC = [('c1d1',1.0)]
+    J = -1.0
     g_list = [2.0]
     R_list = [ 51,  54,  57,  60,
                99, 102, 105, 108,
               147, 150, 153, 156,
-              195, 198, 201, 204 ]
+              195, 198, 201      ]
 
     R_list = [150] 
 
@@ -165,6 +167,7 @@ if __name__ == "__main__":
             params = OrderedDict(
                     [
                         ('output_name', output_name), 
+                        ('J', J),
                         ('g', g),
                         ('R', R), 
                         ('IC', IC),

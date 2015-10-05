@@ -482,10 +482,10 @@ def plot_R(R_list, L, IC, tmax, fname):
 
 if __name__ == '__main__':
     
-    L = 50
+    L = 100
     c = [1]
-    tmax = 100 
-    name = 'unitary_L50_random'
+    tmax = 600 
+    name = 'unitary_L100_random'
 
     R_list = [ 51,  54,  57,  60,
                99, 102, 105, 108,
@@ -494,7 +494,9 @@ if __name__ == '__main__':
 
     lc = len(c)
     IC = [0]*7 + c + [0]*7
-    IC = np.random.random_integers(0, 1, L) 
+
+    d = 0.01
+    IC = np.random.choice([0, 1], size=L,  p=[1-d, d]) 
     rand_IC_number = np.array([2**n for n in range(L)]).dot(IC[::-1])
     plot_R(R_list, L, np.array(IC), tmax, name+'ICd'+str(rand_IC_number))
 

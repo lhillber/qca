@@ -21,17 +21,23 @@ import classical_eca     as eca
 
 eq = 1.0/sqrt(2.0)    # a useful constant
 
-output_name = 'ham_eca/R105_gsweep_J0/'
+output_name = 'ham_eca/Jg_quench/'
 
-g_list = [0.5, 0.7, 1.0, 1.3, 2.0]
+g_list = [0.3, 0.7, 1.0, 1.3, 2.0]
 
-R_list = [105]
+J_list = [-1.0, 0.0]
 
-L_list = [12]
+
+R_list = [ 51,  54,  57,  60,
+               102, 105, 108,
+               150,      156,
+          195,      201     ]
+
+L_list = [8]
 
 QIC_list = [[('c1d1', 1.0)]]
 
-tmax_list = [1000]
+tmax_list = [600]
 
 dt_list = [0.1]
 
@@ -43,6 +49,7 @@ params_list = [
                 [ 
             ( 'output_name',  output_name ), 
             (           'R',  R           ), 
+            (           'J',  J           ),
             (           'g',  g           ), 
             (           'L',  L           ), 
             (          'dt',  dt          ), 
@@ -51,6 +58,7 @@ params_list = [
                  ] 
                   )
                    for R    in R_list     \
+                   for J    in J_list     \
                    for g    in g_list     \
                    for L    in L_list     \
                    for dt   in dt_list    \
