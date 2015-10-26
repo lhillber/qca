@@ -113,7 +113,6 @@ def time_evolve(params, tol=1E-10):
     Isingj = mx.listkron([ss.pauli['0'], ss.pauli['3'], ss.pauli['3']])
     Hj = J*Isingj + g*TX
     Uj = sp.linalg.expm(-1j*Hj*dt)
-    
     state = ss.make_state(L, IC)
     yield state 
 
@@ -147,10 +146,10 @@ if __name__ == "__main__":
     import plotting as pt
     import matplotlib.pyplot as plt
     
-    output_name = 'testing/ham_eca'
-    L = 15 
-    tmax = 100
-    dt = 0.1
+    output_name = 'testing/trash'
+    L = 4 
+    tmax = 10
+    dt = 1
     
     IC = [('c1d1',1.0)]
     J = -1.0
@@ -160,7 +159,6 @@ if __name__ == "__main__":
               147, 150, 153, 156,
               195, 198, 201      ]
 
-    R_list = [150] 
 
     for R in R_list:
         for ng, g in enumerate(g_list):

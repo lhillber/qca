@@ -142,12 +142,28 @@ smap = { 'd' : fock,
 
 def make_state (L, IC):
     state = np.array([0.0]*(2**L), dtype = complex)
-    for s in IC: 
-            name = s[0][0]
-            config = s[0][1:]
-            coeff = s[1]
-            state = state + coeff * smap[name](L, config)
+
+    if type(IC) == str:
+        name = IC[0]
+        config = IC[1:]
+        state = smap[name](L, config)
+
+    if type(IC) == list:
+        for s in IC: 
+                name = s[0][0]
+                config = s[0][1:]
+                coeff = s[1]
+                state = state + coeff * smap[name](L, config)
     return state
 
 
+if __name__ == '__main__':
 
+    L_list = [2, 2, 2, 3, 3]
+    IC_list = ['qt90_p0', 'qt90_p90', 'E0_1', 'd1' ,'E0_1']
+    for L, IC in zip(L_list, IC_list):
+        state = make_state(L, IC)
+        print()
+        print ("L = ", str(L), " IC = ", str(IC) )
+        print('state')
+        print(state)

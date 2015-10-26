@@ -205,7 +205,7 @@ def comp_plot():
     dead = np.array([1.0 + 0j, 0.0 + 0.0j])
     alive = np.array([0.0 + 0.0j + 1.0j+0.0])
     j=0
-    for color, n_flips in zip(['r', 'g', 'b', 'k', 'c'], [1,3,5]):
+    for color, n_flips in zip(['r', 'g', 'b', 'k', 'c'], [9,10,11,12]):
         js = range(j,j+n_flips)
         Llist = range(n_flips, 21)
         lop = np.array([[0.,1.],[1.,0.]])
@@ -229,12 +229,11 @@ def comp_plot():
                 tc_list = np.append(tc_list, time.time())
                 state2 = big_mat(lops, js, init_state )
                 td_list = np.append(td_list, time.time())
-                print( np.array_equal(state2.transpose(), state1.transpose()))
                  
         plt.plot(Llist, tb_list - ta_list, '-o', 
-                 color = color, label='meso op' + str(n_flips))
+                 color = color, label='meso op n = ' + str(n_flips))
         plt.plot(range(n_flips, 13), td_list - tc_list, '-^', 
-                 color = color, label='big op' + str(n_flips))
+                 color = color, label='big op n = ' + str(n_flips))
 
         #plt.plot(np.arange(n_flips+3, 14), tm2_list - tm1_list,'-s', 
         #         color = color, label='global op: ' + str(n_flips))
@@ -242,9 +241,32 @@ def comp_plot():
     plt.xlabel('number of sites [L]')
     plt.ylabel('computation time [s]')
     
-    plt.title('bit flips')
+    plt.title('n bit flips')
     plt.legend(loc = 'upper left')
     plt.show()
 
 if __name__ == '__main__':
+    
+    import states as st
+
+    L = 3
+    IC = 'd0'
+
+    op = listkron( [st.pauli['0'], st.pauli['1'] ] ) 
+    js = [0,1]
+
+    init_state = st.make_state(L, IC)
+    final_state = op_on_state(op, js, init_state)
+
+    print()
+    print('op = IX ', 'js = ', str(js))
+    print("initial state")
+    print(init_state)
+
+    print()
+    
+    print("final state")
+    print(final_state)
+
+
     comp_plot()
