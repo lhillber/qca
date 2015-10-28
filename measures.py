@@ -25,6 +25,7 @@ def n_in_j(state, i, j, proj_list = ['1', '1']):
     op_state = mx.op_on_state(proj, [i, j], state) 
     return state.conj().dot(op_state).real 
 
+
 # von Neumann entropy of reduced density matrix keeping klist from state
 # ----------------------------------------------------------------------
 def vn_entropy(rdm):
