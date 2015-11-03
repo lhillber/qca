@@ -25,7 +25,6 @@ def n_in_j(state, i, j, proj_list = ['1', '1']):
     op_state = mx.op_on_state(proj, [i, j], state) 
     return state.conj().dot(op_state).real 
 
-
 # von Neumann entropy of reduced density matrix keeping klist from state
 # ----------------------------------------------------------------------
 def vn_entropy(rdm):
@@ -74,8 +73,6 @@ def invharmoniclen(net):
 def eveccentrality(net):
     return list(nm.eigenvectorcentralitynx0(net).values())
 
-
-
 def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
     
     NM_dict = { 'avg' : {
@@ -97,8 +94,65 @@ def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
     return measures
     
 
+# compute the inverse participation ratio
+# ---------------------------------------
+
+def inv_participation_ratio(L, state):
+    ipr = 0.0
+    for basis_num in range(2**L):
+        ipr = ipr + abs(state[basis_num])**4
+    return 1.0 / ipr
+
+
 # Measure each state of the time evolution
 # ----------------------------------------
+def simple_measure_sim(params, state_gen, tol=1e-14): 
+    L    = params[ 'L'   ]
+    tmax = params[ 'tmax']
+    measures = [0]*(tmax+1)
+    
+    for t, state in enumerate(state_gen): 
+        mi_mat = np.zeros((L,L))
+        sd_real = [0.0]*L
+        sd_imag = [0.0]*L
+        ipr = inv_participation_ratio(L, state) 
+        for j in range(L):
+            rj = mx.rdms(state, [j])
+            sj = vn_entropy(rj)
+            sd_real[j] = rj.real
+            sd_imag[j] = rj.imag
+
+            for k in range(j+1, L):
+                rjk = mx.rdms(state, [j, k])
+                rk  = mx.rdms(state, [k])
+                sjk = vn_entropy(rjk)
+                sk  = vn_entropy(rk)
+                mi_mat[j,k] = mi_mat[k,j] = 0.5 * (sj + sk - sjk).real
+
+        # set small elements to tol 
+        mi_mat = mx.edit_small_vals( mi_mat, tol=tol, replacement=tol)
+        s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
+        mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
+        measure = {} 
+        measure['sdr'] = np.array(sd_real)
+        measure['sdi'] = np.array(sd_imag)
+        measure['ec']  = s_cuts
+        measure['mi']  = mi_mat
+        measure['t' ]  = t
+        measure['ipr'] = ipr
+        measures[t] = measure
+
+    results = {}
+    for key in measure.keys(): 
+        results[key] = np.array([measures[t][key] for t in range(tmax)])
+    return results
+
+if __name__ == "__main__":
+    
+    L = 20
+    state = ss.make_state(L, 's4')
+    print(inv_participation_ratio(L, state))
+
 def measure_sim(params, state_gen, tol=1e-14): 
     L    = params[ 'L'   ]
     tmax = params[ 'tmax']
@@ -162,6 +216,5 @@ def measure_sim(params, state_gen, tol=1e-14):
     for key in measure.keys(): 
         results[key] = np.array([measures[t][key] for t in range(tmax)])
     return results
-
 
 

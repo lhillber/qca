@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from os import environ, makedirs
 from collections import namedtuple, Iterable, OrderedDict
@@ -99,18 +99,19 @@ def json_to_data(s):
 # string describing initial condition (IC)
 # ----------------------------------------
 def IC_name(IC):
-    return '-'.join(['{:0.3f}{}'.format(val.real, name) \
-                for (name, val) in IC])
-
+    if type(IC) is str:
+        return IC
+    else:
+        return '-'.join(['{:0.3f}{}'.format(val.real, name) \
+                    for (name, val) in IC])
 # string describing simulation parameters
 # ---------------------------------------
-def sim_name(R, IC, L, tmax):
-    return 'R{}_IC{}_L{}_tmax{}'.format( \
-                R, IC_name(IC), L, tmax)
-
 def sim_name(params):
     sname = ''
     for label, value in params.items():
+        if label is 'center_op':
+            value = ''.join(value)
+            label = ''
         if label is 'IC':
             value = IC_name(value)
         if label is not 'output_name':
@@ -140,9 +141,11 @@ def write_results(results, params, typ=''):
 
 # load simulation results
 # -----------------------
-def read_results(params, typ=''):
-    input_name = params['output_name']
-    with open(file_name(input_name, 'data', typ+sim_name(params), '.res'), 'rb') as infile:
+def read_results(params=None, typ='', fname=None):
+    if fname is None:
+        input_name = params['output_name']
+        fname = file_name(input_name, 'data', typ+sim_name(params), '.res')
+    with open(fname, 'rb') as infile:
        results = infile.read().decode('UTF-8')
     return json_to_data(results)
 

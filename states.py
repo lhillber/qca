@@ -16,6 +16,16 @@ pauli = {
         '3' : np.array( [[1.0,  0.0 ],[0.0 , -1.0]], dtype=complex )
         }
 
+ops = {
+        'H' : 1 / sqrt(2) * np.array( [[1.0,  1.0 ],[1.0,  -1.0]], dtype=complex),
+        'I' : np.array( [[1.0,  0.0 ],[0.0,   1.0]], dtype=complex ),
+        'X' : np.array( [[0.0,  1.0 ],[1.0,   0.0]], dtype=complex ),
+        'Y' : np.array( [[0.0, -1.0j],[1.0j,  0.0]], dtype=complex ),
+        'Z' : np.array( [[1.0,  0.0 ],[0.0 , -1.0]], dtype=complex ),
+        '0' : np.array( [[1.0,   0.0],[0.0,   0.0]], dtype=complex ),
+        '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
+      }
+
 brhos = { 
         '0' : np.array( [[1.0,   0.0],[0.0,   0.0]], dtype=complex ),
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),

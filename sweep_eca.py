@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # =============================================================================
 # This script generalizes ECA to QECA with irreversible, asynchronus updating. 
@@ -30,21 +30,30 @@ import measures as ms
 
 # Sweep updating ECA
 # ==================
-def local_update_op(R):
-    sxR = 204^R                                 # calculate swap rule s.t. 0 -> I, 1 -> sx
-    sxR = mx.dec_to_bin(sxR, 2**3)[::-1]        # reverse so rule element 0 comes first
+def local_update_op(R, center_op=ss.ops['X']):
+
+    update_dict = {0 : np.eye(2), 1 : center_op} # center_op = X is closest to classical ECA
+    
+    sxR = 204^R                                  # calculate swap rule s.t. 0 -> I, 1 -> sx
+    sxR = mx.dec_to_bin(sxR, 2**3)[::-1]         # reverse so rule element 0 comes first
+
     op = np.zeros((2**3, 2**3), dtype=complex)
+
     for Rel_num, sxR_el in enumerate(sxR):      # Rel_num -> sxR_el:  000 -> 1,
-                                                # 001 -> 0, etc
         op_sub_el_list = [] 
+        
         for sub_Rel_num, proj_label in enumerate(mx.dec_to_bin(Rel_num, 3)[::-1]):
             if sub_Rel_num == 1:                # sub_rel_num == 1 is center site
                 op_sub_el = \
-                        ss.pauli[str(sxR_el)].dot(ss.brhos[str(proj_label)]) 
+                        update_dict[sxR_el].dot(ss.brhos[str(proj_label)]) 
+
             else:
                 op_sub_el = ss.brhos[str(proj_label)]  # leave neighbors alone
+
             op_sub_el_list.append(op_sub_el)           # make the 3-site update op
+
         op = op + mx.listkron(op_sub_el_list) 
+
     return op
 
 def comp_basis_vec(bin_num_as_list):
@@ -85,8 +94,8 @@ def time_evolve(params, tol=1E-10):
     IC = params['IC']
     L = params['L'] 
     tmax = params['tmax']
-
-    Tj = general_local_update_op(R, th = pi/2.0)
+    center_op = mx.listdot([ss.ops[k] for k in params['center_op']])
+    Tj = local_update_op(R, center_op=center_op)
     state = ss.make_state(L, IC)
     yield state 
     
@@ -112,7 +121,7 @@ def run_sim(params, force_rewrite = False):
     output_name = params['output_name']
     if not isfile(io.file_name(output_name, 'data', io.sim_name(params), '.res' )) \
         or force_rewrite:
-        results = ms.measure_sim(params, time_evolve(params))
+        results = ms.simple_measure_sim(params, time_evolve(params))
         io.write_results(results, params, typ='Q')
     return
 
