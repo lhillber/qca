@@ -32,25 +32,36 @@ import measures as ms
 # ==================
 def local_update_op(R, center_op=ss.ops['X']):
 
-    update_dict = {0 : np.eye(2), 1 : center_op} # center_op = X is closest to classical ECA
+    update_dict = {0 : np.eye(2), 1 : ss.ops['X'], 2 : center_op} # center_op = X is closest to classical ECA
     
     sxR = 204^R                                  # calculate swap rule s.t. 0 -> I, 1 -> sx
-    sxR = mx.dec_to_bin(sxR, 2**3)[::-1]         # reverse so rule element 0 comes first
 
+    sxR = np.array(mx.dec_to_bin(sxR, 2**3)[::-1])         # reverse so rule element 0 comes first
+   
+    '''
+    op_inds = [ind for ind, val in enumerate(sxR) if val == 1]
+    
+    sxR[op_inds[0]] = 2
+    sxR[op_inds[1]] = 2
+    sxR[op_inds[2]] = 2
+    sxR[op_inds[3]] = 2
+    '''
+    sxR[sxR>0]=2
+    print(sxR) 
     op = np.zeros((2**3, 2**3), dtype=complex)
 
     for Rel_num, sxR_el in enumerate(sxR):      # Rel_num -> sxR_el:  000 -> 1,
         op_sub_el_list = [] 
-        
+       
         for sub_Rel_num, proj_label in enumerate(mx.dec_to_bin(Rel_num, 3)[::-1]):
             if sub_Rel_num == 1:                # sub_rel_num == 1 is center site
                 op_sub_el = \
-                        update_dict[sxR_el].dot(ss.brhos[str(proj_label)]) 
+                        update_dict[sxR_el].dot(ss.ops[str(proj_label)]) 
 
             else:
-                op_sub_el = ss.brhos[str(proj_label)]  # leave neighbors alone
+                op_sub_el = ss.ops[str(proj_label)]  # leave neighbors alone
 
-            op_sub_el_list.append(op_sub_el)           # make the 3-site update op
+            op_sub_el_list.append(op_sub_el)         # make the 3-site update op
 
         op = op + mx.listkron(op_sub_el_list) 
 
@@ -96,22 +107,40 @@ def time_evolve(params, tol=1E-10):
     tmax = params['tmax']
     center_op = mx.listdot([ss.ops[k] for k in params['center_op']])
     Tj = local_update_op(R, center_op=center_op)
+    
+    #Tj = np.array([[1,0,0,0],[0,0,1,0],[0,1/sqrt(2),0,1/sqrt(2)],[0,1j/sqrt(2),0,-1j/sqrt(2)]]).T
+    
     state = ss.make_state(L, IC)
+    state = np.kron(state, ss.bvecs['0'])
+
     yield state 
     
+    # Sweep ECA 
+    '''
     for t in np.arange(tmax):
         for j in range(L):
-     
-            js = [(j-1)%L, j, (j+1)%L]
+            js = [(j-1)%(L+1), j, (j+1)%(L+1)]
+            #print(js)
             state = mx.op_on_state(Tj, js, state)
+    '''
 
+    # Block ECA 
+    for t in range(tmax):
+        for k in [0,1,2]:
+            for j in range(k, L+k, 3):
+                js = [(j-1)%(L+1), j%(L+1), (j+1)%(L+1)]
+                if j==L:
+                    continue
+
+                #print(js)
+                state = mx.op_on_state(Tj, js, state)
         ip = (state.conj().dot(state)).real
         
         if fabs(ip - 1.0) < tol:
             yield state
         
         else: 
-            print(ip)
+            print('t = ', t, 'ip = ', ip)
             state = 1.0/sqrt(ip) * state
             yield state
 

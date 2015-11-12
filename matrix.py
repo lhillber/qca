@@ -25,6 +25,7 @@ def listkron (matlist):
 # -----------------------------------------
 def spmatkron (matlist):
     return sps.csc_matrix(reduce(lambda A,B: sps.kron(A,B,'csc'),matlist)) 
+
 # dot product list of matrices
 # ----------------------------
 def listdot (matlist):
@@ -93,27 +94,34 @@ def rdmr(rho, klist):
     L = int(log(len(rho), 2))
     d = 2*L    
     n = len(klist)
+
     kin = list(klist)
-    kout = [k+L for k in kin]
-    klist = kin+kout
+    kout = [k+L for k in kin] 
+    
+    klist = kin + kout
+    
     rest = np.setdiff1d(np.arange(d), klist)
+    
     ordering = klist+list(rest)
+
     block = rho.reshape(([2]*(d)))
     block = block.transpose(ordering)
     block = block.reshape((2**(n), 2**((d-n)))) 
     
-    RDM = np.zeros((2**n,2**n))
-    tot = 0
-    for i in range(2**n-1):
+    RDM = np.zeros((2**n,2**n), dtype=complex)
+    tot = 0+0j
+
+    for i in range(2**n - 1):
         Rii = sum(np.multiply(block[i,:], np.conj(block[i,:])))
         tot = tot+Rii
         RDM[i][i] = Rii
-        for j in range(i,2**n):
+
+        for j in range(i, 2**n):
             if i != j:
                 Rij = np.inner(block[i,:], np.conj(block[j,:]))
                 RDM[i][j] = Rij
                 RDM[j][i] = Rij
-    RDM[2**n-1,2**n-1] = 1-tot
+    RDM[2**n-1,2**n-1] = 1+0j - tot
     return RDM
 
 

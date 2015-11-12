@@ -85,7 +85,14 @@ for R in range(256):
         TG = T.dot(G)
         GT = G.dot(T)
         #print(np.array_equal(TG,GT))
-        print(R, mx.dec_to_bin(R,8))
+        print(R, mx.dec_to_bin(R^204,8))
 
 
 
+for t in range(4):
+    if t%2==0:
+        for j in range(5):
+            print(j)
+    elif t%2==1:
+        for j in range(3,0,-1):
+            print(j)

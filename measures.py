@@ -36,7 +36,7 @@ def vn_entropy(rdm):
 # entropy of the smaller of all bi-partitions of the lattice
 # ----------------------------------------------------------
 def entropy_of_cut(state):
-    L = int(log(len(state),2))
+    L = int(log(len(state),2))-1
     js = [ [i for i in range(mx)] if mx <= round(L/2) 
             else np.setdiff1d(np.arange(L), [i for i in range(mx)]).tolist() 
             for mx in range(1,L)]
@@ -99,8 +99,10 @@ def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
 
 def inv_participation_ratio(L, state):
     ipr = 0.0
-    for basis_num in range(2**L):
+    for basis_num in range(2**(L+1)):
         ipr = ipr + abs(state[basis_num])**4
+    if ipr == 0.0:
+        return 0.0
     return 1.0 / ipr
 
 

@@ -4,7 +4,6 @@ from cmath import sqrt, sin, cos, exp, pi
 import numpy as np
 import matrix as mx
 
-
 # Global constants
 # ================
 # dictionary of local operators and local basis (b for basis)
@@ -17,11 +16,17 @@ pauli = {
         }
 
 ops = {
-        'H' : 1 / sqrt(2) * np.array( [[1.0,  1.0 ],[1.0,  -1.0]], dtype=complex),
+        'H' : 1.0 / sqrt(2.0) * \
+              np.array( [[1.0,  1.0 ],[1.0,  -1.0]], dtype=complex),
+ 
         'I' : np.array( [[1.0,  0.0 ],[0.0,   1.0]], dtype=complex ),
         'X' : np.array( [[0.0,  1.0 ],[1.0,   0.0]], dtype=complex ),
         'Y' : np.array( [[0.0, -1.0j],[1.0j,  0.0]], dtype=complex ),
         'Z' : np.array( [[1.0,  0.0 ],[0.0 , -1.0]], dtype=complex ),
+
+        'S' : np.array( [[1.0,  0.0 ],[0.0 , 1.0j]], dtype=complex ),
+        'T' : np.array( [[1.0,  0.0 ],[0.0 , exp(1.0j*pi/4.0)]], dtype=complex ),
+ 
         '0' : np.array( [[1.0,   0.0],[0.0,   0.0]], dtype=complex ),
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
       }
@@ -168,12 +173,26 @@ def make_state (L, IC):
 
 
 if __name__ == '__main__':
-
-    L_list = [2, 2, 2, 3, 3]
-    IC_list = ['qt90_p0', 'qt90_p90', 'E0_1', 'd1' ,'E0_1']
+    import measures as ms 
+    import states as ss
+    L_list = [2]
+    IC_list = ['E0_1' ]
     for L, IC in zip(L_list, IC_list):
-        state = make_state(L, IC)
         print()
         print ("L = ", str(L), " IC = ", str(IC) )
         print('state')
+        
+        state = make_state(L, IC)
         print(state)
+        
+        rho = np.outer(state, mx.dagger(state))
+        print(rho)
+        
+        print(np.trace(rho.dot(mx.listkron([ss.ops['1'], ss.ops['I']]))))
+        print(np.trace(rho.dot(mx.listkron([ss.ops['I'], ss.ops['1']]))))
+    
+        rho0 = mx.rdmr(rho, [0])
+        rho1 = mx.rdmr(rho, [1])
+        print(np.trace(rho0.dot(ss.ops['1'])))
+        print(np.trace(rho1.dot(ss.ops['1'])))
+

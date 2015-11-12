@@ -18,17 +18,20 @@ import classical_eca     as eca
 # lists of parameters to simulate
 # -------------------------------
 
-output_name = 'alt_ops/'
+eq = 1.0/sqrt(2.0)
 
-QIC_list = ['c1d1']
+output_name = 'block_eca/102_150_198_54'
 
-R_list = [51, 54, 60, 150, 156]
+QIC_list = [ 'qT1_P2' ]
 
-center_op_list = [['X'], ['H'], ['X','H']]
+R_list = [150]
 
-L_list = [14]
+center_op_list = [['X']]
 
-tmax_list = [30]
+
+L_list = [13]
+
+tmax_list = [70]
 
 Qparams_list = [ 
         OrderedDict( [ 
