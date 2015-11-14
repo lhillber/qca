@@ -20,13 +20,13 @@ import classical_eca     as eca
 
 eq = 1.0/sqrt(2.0)
 
-output_name = 'block_eca/102_150_198_54'
+output_name = 'block_eca/102_150'
 
-QIC_list = [ 'qT1_P2' ]
+QIC_list = [ 's12' ]
 
-R_list = [150]
+R_list = [102, 150]
 
-center_op_list = [['X']]
+center_op_list = [['X'], ['H','X'], ['H','X','T']]
 
 
 L_list = [13]

@@ -111,49 +111,52 @@ def inv_participation_ratio(L, state):
 def simple_measure_sim(params, state_gen, tol=1e-14): 
     L    = params[ 'L'   ]
     tmax = params[ 'tmax']
-    measures = [0]*(tmax+1)
     
+    measures = [0]*(tmax+1)
     for t, state in enumerate(state_gen): 
+        
         mi_mat = np.zeros((L,L))
+        sj_list = [0.0]*L
         sd_real = [0.0]*L
         sd_imag = [0.0]*L
+        measure = {} 
+        
         ipr = inv_participation_ratio(L, state) 
+
         for j in range(L):
             rj = mx.rdms(state, [j])
-            sj = vn_entropy(rj)
             sd_real[j] = rj.real
             sd_imag[j] = rj.imag
 
+            sj = vn_entropy(rj)
+            sj_list[j] = sj
+
+        for j in range(L):
             for k in range(j+1, L):
                 rjk = mx.rdms(state, [j, k])
-                rk  = mx.rdms(state, [k])
                 sjk = vn_entropy(rjk)
-                sk  = vn_entropy(rk)
-                mi_mat[j,k] = mi_mat[k,j] = 0.5 * (sj + sk - sjk).real
+                mi_mat[j][k] = mi_mat[k][j] = 0.5 * (sj_list[j] + sj_list[k] - sjk).real
 
         # set small elements to tol 
-        mi_mat = mx.edit_small_vals( mi_mat, tol=tol, replacement=tol)
+        mi_mat = mx.edit_small_vals( mi_mat)
         s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
         mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
-        measure = {} 
+
         measure['sdr'] = np.array(sd_real)
         measure['sdi'] = np.array(sd_imag)
+
+        measure['ipr'] = ipr
         measure['ec']  = s_cuts
         measure['mi']  = mi_mat
         measure['t' ]  = t
-        measure['ipr'] = ipr
-        measures[t] = measure
 
-    results = {}
+        measures[t] = measure
+    
+    results = { 'meta' : {'params':params, 'add_L':1, 'add_R':1} }
     for key in measure.keys(): 
-        results[key] = np.array([measures[t][key] for t in range(tmax)])
+        results[key] = np.array([measures[t][key] for t in range(tmax)]) 
     return results
 
-if __name__ == "__main__":
-    
-    L = 20
-    state = ss.make_state(L, 's4')
-    print(inv_participation_ratio(L, state))
 
 def measure_sim(params, state_gen, tol=1e-14): 
     L    = params[ 'L'   ]

@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 # import results from the file path/name
 results = io.read_results( 
         fname
-        ='/home/lhillber/documents/qca/output/box_BC/data/QHZST_R51_ICc1d1_L13_tmax30.res' )
+        ='/home/lhillber/documents/qca/output/block_eca/102_150/data/QX_R102_ICs12_L13_tmax70.res' )
        
 # reform single site density matricies with the real and imaginary parts
 sd_list = results['sdr'] + 1j*results['sdi'] 
@@ -32,6 +32,7 @@ ipr = results['ipr']
 dat = [[np.trace(rj.dot(ss.ops['1'])).real for rj in rj_list] for rj_list in sd_list]
 
 #pt.plot_spacetime_grid(dat,'nz')
-print(ec)
 pt.plot_spacetime_grid(ec,'entropy of cut')
-plt.show()
+#plt.show()
+
+print(mi[2])
