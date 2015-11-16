@@ -20,13 +20,15 @@ import classical_eca     as eca
 
 eq = 1.0/sqrt(2.0)
 
-output_name = 'block_eca/102_150'
+output_name = 'sweep_block'
 
-QIC_list = [ 's12' ]
+mode_list = ['sweep', 'block']
 
-R_list = [102, 150]
+QIC_list = [ 's0_12' ]
 
-center_op_list = [['X'], ['H','X'], ['H','X','T']]
+R_list = [102,150]
+
+center_op_list = [['X'],['H']]
 
 
 L_list = [13]
@@ -36,6 +38,7 @@ tmax_list = [70]
 Qparams_list = [ 
         OrderedDict( [ 
             ('output_name', output_name), 
+            ('mode', mode),
             ('center_op', center_op),
             ('R', R), 
             ('IC', IC), 
@@ -43,6 +46,7 @@ Qparams_list = [
             ('tmax', tmax) 
             ] )
 
+        for mode in mode_list  \
         for center_op in center_op_list \
         for R    in R_list     \
         for IC   in QIC_list   \
@@ -58,10 +62,10 @@ if __name__ == '__main__':
     nprocs = comm.Get_size()
     for i, params in enumerate(Qparams_list):
         if i % nprocs == rank: 
-            sweep.run_sim(params, force_rewrite=True)
-            #pt.plot_main(params)
-            #plt.clf
-    #plt.close('all')
+            sweep.run_sim(params, force_rewrite=False)
+            pt.plot_main(params)
+            plt.clf
+    plt.close('all')
     
     '''
 Cparams_list = [ (output_name, R, IC, L, tmax) \

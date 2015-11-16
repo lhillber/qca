@@ -1,11 +1,16 @@
 #!/usr/bin/python
 
 import numpy             as np
+import states            as ss
 import processing        as pp
 import matplotlib        as mpl
+import scipy.stats       as sts
+import scipy.fftpack     as spf
 import matplotlib.pyplot as plt
 import fio               as io
 
+from scipy.ndimage import zoom
+from mpl_toolkits.mplot3d import Axes3D
 
 # default plot font to bold and size 16
 # -------------------------------------
@@ -13,31 +18,106 @@ font = {'family':'normal', 'weight':'bold', 'size':14}
 mpl.rc('font',**font)
 
 
-# Plotting utilities
-# ==================
+# General plotting utilities
+# ==========================
 
 # plot time series
 # ---------------0
-def plot_time_series(data, title, label='', loc='lower right', fignum=1, ax=111):
+def plot_time_series(time_series, title, label='', loc='lower right', fignum=1,
+        ax=111, color='B'):
     fig = plt.figure(fignum)
     fig.add_subplot(ax)
-    plt.plot(range(len(data)), data, label=label)
+    plt.plot(range(len(time_series)), time_series, label=label, color=color)
     plt.title(title)
     plt.legend(loc=loc)
     plt.tight_layout() 
 
-# plot space time grids
-# ---------------------
-def plot_spacetime_grid(data, title, cmap=plt.cm.jet, norm=None, fignum=1, ax=111):
-    vmin, vmax = 0.0, 1.0
-    if np.max(data) > 1.0:
-        vmax = np.max(data)
-    if np.min(data) < 0.0:
-        vmin = np.min(data)
+def plot_average_time_series(time_series, title, label='', loc='lower right', 
+        fignum=1, ax=111, tol=.1, color='B'):
+
+    r_avg, n_equib, val_equib, dval_equib = \
+            pp.running_average(time_series, tol=tol)
     
+    ts = [n_equib, len(time_series)]
+    ys = [val_equib]*2
+    yerr=[dval_equib, 0]
     fig = plt.figure(fignum)
     fig.add_subplot(ax)
-    plt.imshow(data,
+    plt.errorbar(ts, ys, yerr=yerr, marker='o', fmt='-', ms=5, color=color)
+    plt.title(title)
+    plt.legend(loc=loc)
+    plt.tight_layout() 
+
+# make Fourier transform of time series data
+# ------------------------------------------
+def make_ft(time_series, dt):
+    dt = 1 
+    Nsteps = len(time_series)
+    times = range(Nsteps*dt)
+    
+    if Nsteps%2 == 1:
+        time_sereis = np.delete(time_series,-1)
+        Nsteps = Nsteps - 1
+    
+    time_series = time_series - np.mean(time_series)
+    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])
+    freqs = np.linspace(0.0,1.0/(2.0*dt),Nsteps/2)
+    return freqs, amps
+
+# plot Fourier transform
+# ----------------------
+def plot_ft(time_series, dt, title, fignum=1, ax=111, color='B'):
+
+    #Nyquist criterion
+    high_freq = 1.0/(2.0*dt)
+    low_freq = 2.0/(dt*len(time_series))
+    
+    freqs, amps = make_ft(time_series, dt)
+    amp_ave = np.mean(amps)
+    fig = plt.figure(fignum)
+    fig.add_subplot(ax)
+    
+    if amp_ave>1e-14:
+        plt.semilogy(freqs, amps, color=color)
+    else:
+        plt.plot(freqs, amps, color=color)
+    
+    plt.title(title)
+    
+    plt.xlabel('Frequency')
+    plt.xlim([low_freq, high_freq])
+   
+    plt.ylabel('Intensity')
+    plt.ylim(amp_ave/100., 10.*amps.max())
+    
+    #plt.fill_between(freqs, 0, amps)
+    plt.tight_layout()
+
+
+# plot space time grids
+# ---------------------
+def plot_spacetime_grid(grid_data, title, cmap=plt.cm.jet, norm=None, fignum=1,
+        ax=111, nx_ticks=4, ny_ticks=15):
+
+    vmin, vmax = 0.0, 1.0
+    if np.max(grid_data) > 1.0:
+        vmax = np.max(grid_data)
+    if np.min(grid_data) < 0.0:
+        vmin = np.min(grid_data)
+ 
+    x_min = 0
+    x_max = len(grid_data[0])
+    y_min = 0
+    y_max = len(grid_data)
+
+    xtick_lbls = range(x_min, x_max)[::int(x_max/nx_ticks)]
+    xtick_locs = xtick_lbls 
+
+    ytick_lbls = range(y_min, y_max)[::int(y_max/ny_ticks)]
+    ytick_locs = ytick_lbls
+    fig = plt.figure(fignum)
+    fig.add_subplot(ax)
+    plt.imshow(grid_data,
                     vmin = vmin,
                     vmax = vmax,
                     cmap = cmap,
@@ -45,15 +125,55 @@ def plot_spacetime_grid(data, title, cmap=plt.cm.jet, norm=None, fignum=1, ax=11
                     interpolation = 'none',
                     aspect = 'auto',
                     rasterized = True)
+   
+    plt.xticks(xtick_locs, xtick_lbls)
+    plt.yticks(ytick_locs, ytick_lbls)
+
     plt.title(title)
     plt.colorbar()
     plt.tight_layout() 
 
+def make_edge_strength_hist(mat, bins=30):
+    edges = [m for mj in mat for m in mj]
+    hist = sts.binned_statistic(edges, edges, statistic='count', bins=bins)[0]
+    return hist
+
+def plot_histogram_surface(mi_nets, title, cmap=plt.cm.jet, fignum=1, ax=111,
+        bins=30, smoothing=2):
+
+    tmax = len(mi_nets) 
+    Z = np.asarray([make_edge_strength_hist(mi_nets[t], bins=bins) for t in range(tmax)])
+    fig = plt.figure(fignum)
+    axe=fig.add_subplot(ax, projection='3d')
+
+    X = np.linspace(0, 1, bins)
+    Y = np.arange(0, tmax, 1)
+
+    X, Y = np.meshgrid(X, Y)
+
+    Z = zoom(Z, smoothing)
+    X = zoom(X, smoothing)
+    Y = zoom(Y, smoothing)
+
+    axe.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=plt.cm.jet, 
+                     linewidth=0, antialiased=False)
+
+    zmax = 80
+    axe.set_zlim3d(0,zmax)
+    plt.xlabel('Mutual information')
+    plt.ylabel('time')
+    #plt.zlabel('occurrences')
+
+
+
+# Specific plotting utilities
+# ===========================
+
 # plot probability, discretized probability, and single-site entropy
 # ------------------------------------------------------------------
-def board_plots(results, fignum=1, axs=(131, 132, 133)):
-    n_res      = pp.get_diag_vecs(results['nz'])
-    sj_res     = pp.get_diag_vecs(results['sr'])
+def board_plots(rjt, sjt, fignum=1, axs=(131, 132, 133)):
+    n_res      = pp.local_exp_vals(rjt, ss.ops['1'])
+    sj_res     = sjt 
     disc_n_res = [ [0 if p < 0.5 else 1 for p in p_vec] for p_vec in n_res]
     
     disc_cmap = mpl.colors.ListedColormap([plt.cm.jet(0.), plt.cm.jet(1.)])
@@ -92,14 +212,14 @@ def cut_entropy_plots(results, L, suptitle, fignum=1, axs=(121, 122)):
     fig =  plt.figure(fignum)
 
     fig.add_subplot(axs[0]) 
-    plot_spacetime_grid(EC_res, 'Entropy of cut', 
+    plot_spacetime_grid(EC_res, 'Entropy of bi-partite cuts', 
                          cmap=plt.cm.jet, norm=None, fignum=fignum, ax=axs[0])
     plt.xlabel('Cut number')
 #    plt.xticks(xtick_locs, xtick_lbls)
     plt.ylabel('Time')
     
     fig.add_subplot(axs[1])
-    plot_time_series(center_cut_res, 'Entropy of center cut', 
+    plot_time_series(center_cut_res, 'Entropy of cut'+str(int(L/2)), 
                      fignum=fignum, ax = axs[1])
     plt.xlabel('time')
     plt.ylabel('Entropy')
@@ -109,75 +229,87 @@ def cut_entropy_plots(results, L, suptitle, fignum=1, axs=(121, 122)):
 
 # plot network measures
 # ---------------------
-
-
-def st_nm_plots(st_data, title, tasks = ['EV', 'CC', 'Y'], fignum=1):
+def nm_spacetime_plots(st_data, tasks = ['EV', 'CC', 'Y'], fignum=1):
     ax = 131 
     for i, task in enumerate(tasks):
         dat = st_data[task]
-        label = task
+        title = task
         plot_spacetime_grid(dat, title, fignum=fignum, ax=ax)
         plt.ylabel('Time')
         plt.xlabel('Site number')
         ax += 1
 
-
-def avg_nm_plots(avg_data, title, tasks = ['ND', 'CC','Y'], fignum=1):
+def nm_time_series_plots(avg_data, title, tasks = ['ND', 'CC','Y'], fignum=1, tol=0.1):
+    color_list=['B','G','R']
     for i, task in enumerate(tasks):
         dat = avg_data[task]
         label = task
-        plot_time_series(dat, title, label=label, fignum=fignum)
+        plot_average_time_series(dat, title, label=label, fignum=fignum,
+                color=color_list[i], tol=tol)
+        plot_time_series(dat, title, label=label, fignum=fignum, 
+                loc='upper right', color=color_list[i])
 
-def st_nm_plots(st_data, title, tasks = ['EV', 'CC', 'Y'], fignum=1):
-    ax = 131 
+def nm_ft_plots(avg_data, tasks = ['ND', 'CC','Y'], fignum=1):
+    ax = 311 
+    color_list=['B','G','R']
     for i, task in enumerate(tasks):
         title = task
-        dat = st_data[task]
-        label = task
-        plot_spacetime_grid(dat, title, fignum=fignum, ax=ax)
-        plt.ylabel('Time')
-        plt.xlabel('Site number')
+        dat = avg_data[task]
+        plot_ft(dat, 1, title, fignum=fignum, ax=ax, color=color_list[i])
         ax += 1
 
 # call for time series plots
 # --------------------------
 def plot_main(params, 
         st_tasks =['EV', 'CC', 'Y' ], avg_tasks=['ND', 'CC', 'Y'],
-        net_types=['nz', 'mi'], name=None):
-    
+        net_types=['mi'], name=None):
+
     R    = params[ 'R'   ]
     L    = params[ 'L'   ]
     tmax = params[ 'tmax']
     output_name = params['output_name']
-    
+
     if name is None:
         name = io.sim_name(params)
     else:
         name = name
-    
+
     print('Importing results...')
-    results = io.read_results(params, typ='Q')
+    results = io.read_results(params)
     
-    net_dict = pp.make_net_dict(results, net_types=net_types)
-    fignum = 0
-    board_plots(results, fignum=fignum)
-    for net_typ in net_types:
-         title = net_typ + ' network measures'
-         fignum += 10
-         nets = net_dict[net_typ]
-         
-         st_net_measures  = pp.measure_networks(nets, 
-                                                tasks=st_tasks , typ='st')
-         avg_net_measures  = pp.measure_networks(nets, 
-                                                tasks=avg_tasks, typ='avg')
-         
-         avg_nm_plots( avg_net_measures, title, tasks=avg_tasks, fignum=fignum  )
-         st_nm_plots ( st_net_measures,  title,  tasks=st_tasks , fignum=fignum+1 )
+    mi_nets = results['mi']
+    ipr = results['ipr'] 
+    sjt = pp.make_local_vn_entropy(results)
     
-    plot_time_series(results['st'], r'$S^t_{topo}$', fignum=fignum+2)
+    rjt_mat = pp.make_rjt_mat(results) 
+    x_grid  = pp.local_exp_vals(rjt_mat, ss.ops['X'])
+    y_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Y'])
+    z_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Z'])
     
-    cut_entropy_plots(results, L, 'R ' + str(R), fignum=fignum+3) 
-    
-    io.multipage(io.file_name(output_name, 'plots', 'Q'+name, '.pdf'))    
+    nm_spacetime_grids = pp.measure_networks(mi_nets, typ='st')
+    nm_time_series = pp.measure_networks(mi_nets, typ='avg')
+
+    plot_spacetime_grid(x_grid, 'X projection', fignum=1, ax=131)
+    plot_spacetime_grid(y_grid, 'Y projection', fignum=1, ax=132)
+    plot_spacetime_grid(z_grid, 'Z projection', fignum=1, ax=133)
+
+    nm_time_series_plots(nm_time_series, 'Mutual information network measures', 
+                        tasks=avg_tasks, fignum=2, tol=0.001)
+
+    nm_ft_plots(nm_time_series, fignum=3)
+
+    nm_spacetime_plots(nm_spacetime_grids,   tasks=st_tasks , fignum=4)
+
+    cut_entropy_plots(results, L, 'R '+str(R), fignum=5) 
+
+    board_plots(rjt_mat, sjt, fignum=6)
+
+    plot_time_series(ipr, 'Inverse participation ratio', fignum=7, ax=211)
+    plot_ft(ipr, 1, '', fignum=7, ax=212)
+
+    plot_histogram_surface(mi_nets, 'Mutual information distribution', fignum=8,
+            smoothing=2, bins=20)    
+
+    io.multipage(io.file_name(output_name, 'plots', name, '.pdf'))    
     return
 

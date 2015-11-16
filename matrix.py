@@ -84,7 +84,7 @@ def rdms(state, klist):
             if i != j:
                 Rij = np.inner(block[i,:], np.conj(block[j,:]))
                 RDM[i][j] = Rij
-                RDM[j][i] = Rij
+                RDM[j][i] = np.conj(Rij)
     RDM[2**n-1,2**n-1] = complex(1,0)-tot
     return RDM
 
@@ -120,7 +120,7 @@ def rdmr(rho, klist):
             if i != j:
                 Rij = np.inner(block[i,:], np.conj(block[j,:]))
                 RDM[i][j] = Rij
-                RDM[j][i] = Rij
+                RDM[j][i] = np.conj(Rij)
     RDM[2**n-1,2**n-1] = 1+0j - tot
     return RDM
 

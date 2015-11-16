@@ -97,10 +97,10 @@ def general_local_update_op(R, th=pi/2.0):
         T = T + ket_bra
     return mx.edit_small_vals(T)
 
-
 # construct generator for sweep time evolved states
 # -------------------------------------------------
 def time_evolve(params, tol=1E-10):
+    mode = params['mode']
     R = params['R']
     IC = params['IC']
     L = params['L'] 
@@ -116,43 +116,60 @@ def time_evolve(params, tol=1E-10):
     yield state 
     
     # Sweep ECA 
-    '''
     for t in np.arange(tmax):
-        for j in range(L):
-            js = [(j-1)%(L+1), j, (j+1)%(L+1)]
-            #print(js)
-            state = mx.op_on_state(Tj, js, state)
-    '''
+        if mode=='sweep':
+            for j in range(L):
+                js = [(j-1)%(L+1), j, (j+1)%(L+1)]
+                state = mx.op_on_state(Tj, js, state)
+
+            ip = (state.conj().dot(state)).real
+            
+            if fabs(ip - 1.0) < tol:
+                yield state
+            
+            else: 
+                print('t = ', t, 'ip = ', ip)
+                state = 1.0/sqrt(ip) * state
+                yield state
 
     # Block ECA 
-    for t in range(tmax):
-        for k in [0,1,2]:
-            for j in range(k, L+k, 3):
-                js = [(j-1)%(L+1), j%(L+1), (j+1)%(L+1)]
-                if j==L:
-                    continue
+        elif mode=='block':
+            for k in [0,1,2]:
+                for j in range(k, L+k, 3):
+                    js = [(j-1)%(L+1), j%(L+1), (j+1)%(L+1)]
+                    if j==L:
+                        continue
+                    state = mx.op_on_state(Tj, js, state)
 
-                #print(js)
-                state = mx.op_on_state(Tj, js, state)
-        ip = (state.conj().dot(state)).real
-        
-        if fabs(ip - 1.0) < tol:
-            yield state
-        
-        else: 
-            print('t = ', t, 'ip = ', ip)
-            state = 1.0/sqrt(ip) * state
-            yield state
+            ip = (state.conj().dot(state)).real
+            
+            if fabs(ip - 1.0) < tol:
+                yield state
+            
+            else: 
+                print('t = ', t, 'ip = ', ip)
+                state = 1.0/sqrt(ip) * state
+                yield state
 
 # import/create measurement results and plot them
 # -----------------------------------------------
 def run_sim(params, force_rewrite = False):
     output_name = params['output_name']
-    if not isfile(io.file_name(output_name, 'data', io.sim_name(params), '.res' )) \
-        or force_rewrite:
+    mode = params['mode']
+    ic_name = io.IC_name(params['IC'])
+
+    fname = io.file_name(output_name, 'data', io.sim_name(params), '.res' )
+    if ic_name[0] == 'r' and isfile(fname) and not force_rewrite:
+        fname_list = list(fname) 
+        fname_list[-5] = str(eval(fname[-5])+1)
+        fname = ''.join(fname_list)
+
+    print(fname)
+    if not isfile(fname) or force_rewrite:
         results = ms.simple_measure_sim(params, time_evolve(params))
-        io.write_results(results, params, typ='Q')
-    return
+        io.write_results(results, fname)
+    
+    print('results saved to: ', fname)
 
 
 

@@ -107,8 +107,10 @@ def IC_name(IC):
 # string describing simulation parameters
 # ---------------------------------------
 def sim_name(params):
-    sname = ''
+    sname = params['mode']
     for label, value in params.items():
+        if label is 'mode':
+            continue
         if label is 'center_op':
             value = ''.join(value)
             label = ''
@@ -129,22 +131,21 @@ def base_name(output_name, output_type):
 # full path to a file to be opened
 # --------------------------------
 def file_name(output_name, output_type, name, ext):
-    return base_name(output_name, output_type) + '/' + name + ext
+    return base_name(output_name, output_type) + '/' + name +'_V0' + ext
 
 # save simulation results
 # -----------------------
-def write_results(results, params, typ=''):
-    output_name = params['output_name']
-    with open(file_name(output_name,'data', typ+sim_name(params), '.res'), 'wb') as outfile:
+def write_results(results, fname):
+    with open(fname, 'wb') as outfile:
         outfile.write(bytes(data_to_json(results), 'UTF-8'))
     return
 
 # load simulation results
 # -----------------------
-def read_results(params=None, typ='', fname=None):
+def read_results(params=None, fname=None):
     if fname is None:
         input_name = params['output_name']
-        fname = file_name(input_name, 'data', typ+sim_name(params), '.res')
+        fname = file_name(input_name, 'data', sim_name(params), '.res')
     with open(fname, 'rb') as infile:
        results = infile.read().decode('UTF-8')
     return json_to_data(results)

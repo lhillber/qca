@@ -111,16 +111,16 @@ def inv_participation_ratio(L, state):
 def simple_measure_sim(params, state_gen, tol=1e-14): 
     L    = params[ 'L'   ]
     tmax = params[ 'tmax']
-    
+
     measures = [0]*(tmax+1)
     for t, state in enumerate(state_gen): 
-        
+
         mi_mat = np.zeros((L,L))
-        sj_list = [0.0]*L
+        sjk_mat = np.zeros((L,L))
         sd_real = [0.0]*L
         sd_imag = [0.0]*L
         measure = {} 
-        
+
         ipr = inv_participation_ratio(L, state) 
 
         for j in range(L):
@@ -129,22 +129,24 @@ def simple_measure_sim(params, state_gen, tol=1e-14):
             sd_imag[j] = rj.imag
 
             sj = vn_entropy(rj)
-            sj_list[j] = sj
+            sjk_mat[j,j] = sj
 
         for j in range(L):
             for k in range(j+1, L):
                 rjk = mx.rdms(state, [j, k])
                 sjk = vn_entropy(rjk)
-                mi_mat[j][k] = mi_mat[k][j] = 0.5 * (sj_list[j] + sj_list[k] - sjk).real
+                sjk_mat[j, k] = sjk_mat[k, j] = sjk.real
+                mi_mat[j, k] = mi_mat[k, j] = 0.5 * (sjk_mat[j, j] + sjk_mat[k, k] - sjk).real
 
         # set small elements to tol 
-        mi_mat = mx.edit_small_vals( mi_mat)
-        s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
+        mi_mat = mx.edit_small_vals(mi_mat)
+        s_cuts = mx.edit_small_vals(entropy_of_cut(state), tol=tol )
         mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
 
         measure['sdr'] = np.array(sd_real)
         measure['sdi'] = np.array(sd_imag)
 
+        measure['sjk'] = sjk_mat
         measure['ipr'] = ipr
         measure['ec']  = s_cuts
         measure['mi']  = mi_mat
@@ -167,11 +169,11 @@ def measure_sim(params, state_gen, tol=1e-14):
 
     r = int(L/4)
 
-    a = [i for i in range(0, r)]
+    a  = [i for i in range(0, r)]
     b1 = [i for i in range(r, 2*r)]
-    c = [i for i in range(2*r, 3*r)]
+    c  = [i for i in range(2*r, 3*r)]
     b2 = [i for i in range(3*r, 4*r)]
-    b = b1+b2
+    b  = b1 + b2
 
     for t, state in enumerate(state_gen): 
         sab = vn_entropy( mx.rdms(state, a+b) )

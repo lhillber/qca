@@ -30,19 +30,68 @@ def get_offdiag_mats(mats):
         mats_out[t] = mat
     return mats_out
 
-def spatialnetworksQ(results, typ):
-    n_mats = results[typ]
-    corr, loc = get_offdiag_mats(n_mats), get_diag_vecs(n_mats)
-    return im.spatialnetworksQ(corr, loc)
+# make single site von Neuman entropy in space and time
+def make_local_vn_entropy(results):
+    return get_diag_vecs(results['sjk'])
 
-def measure_networks(nets, tasks=['Y','CC'], typ='avg'):
+# make single site density matricies fom si results
+# -------------------------------------------------
+def make_rjt_mat(results):
+    return results['sdr'] + 1.0j*results['sdi'] 
+
+
+# exp vals of op wrt all single site density matricies in space and time
+# ----------------------------------------------------------------------
+def local_exp_vals(rjt_mat, op):
+    return [ [ np.trace(r_jt.dot(op)).real for r_jt in r_jlist]\
+               for r_jlist in rjt_mat ]
+
+# compute running average through time of a time series
+# -----------------------------------------------------
+def running_average(time_series, tol=0.1):
+
+    tmax = len(time_series)
+    n_equib = tmax*3/4.0
+    
+    eq_flag = 0
+    tot = 0
+    r_avg = [0]*tmax
+    for n, d in enumerate(time_series):
+        tot += d
+        r_avg[n] = tot/(n+1)
+        if n>1 and eq_flag==0:
+            if abs(r_avg[n-2] - r_avg[n-1]) < tol\
+                and abs(r_avg[n-1] - r_avg[n]) < tol:
+                n_equib = n
+                eq_flag=1 
+
+    val_equib = np.mean(time_series[n_equib::])
+
+    dval_equib = np.std(time_series[n_equib::])
+    return r_avg, n_equib, val_equib, dval_equib
+
+# apply network measures to list of networks; 
+# typ='avg' for time series, typ='st' for spatialy resolved measure
+# -----------------------------------------------------------------
+def measure_networks(nets, typ='avg'):
+    if typ=='avg':
+        measure_tasks=['ND', 'CC', 'Y']
+    if typ=='st':
+        measure_tasks=['EV', 'CC', 'Y']
+
     measures = {} 
-    for task in tasks:
+    for task in measure_tasks:
         measures[task] = np.asarray([ms.NMcalc(net, typ=typ,
-                                    tasks=tasks)[task] for net in nets])
+                                    tasks=measure_tasks)[task] for net in nets])
     return measures
 
 
+
+
+
+
+# Specific functions
+# ==================
 def make_net_dict(results, net_types=['nz', 'nx', 'mi']):
     net_dict = {}
     for net_typ in net_types:
@@ -55,15 +104,10 @@ def make_net_dict(results, net_types=['nz', 'nx', 'mi']):
         net_dict[net_typ] = network
     return net_dict
 
-
-def running_average(data):
-    tot = 0
-    r_avg = [0]*len(data)
-    for n, d in enumerate(data):
-        tot += d
-        r_avg[n] = tot/(n+1)
-    return r_avg
-
+def spatialnetworksQ(results, typ):
+    n_mats = results[typ]
+    corr, loc = get_offdiag_mats(n_mats), get_diag_vecs(n_mats)
+    return im.spatialnetworksQ(corr, loc)
 
 def make_comp_data(Cparams, Qparams, avg_tasks=['ND','CC','Y']):
     Cres = io.read_results(Cparams, typ='C')

@@ -130,7 +130,7 @@ def qubit(th, ph):
     return cos(th/2.0) * bvecs['0'] + exp(1j*ph) * sin(th/2) * bvecs['1']
 
 def qubits(L, config):
-    Tt, Pp = config.split('_')
+    Tt, Pp = config.split('-')
     ang_dict = {'T' : np.linspace(0.0,  pi*float(Tt[1:]), L),
                 't' : [float(Tt[1:])*pi/180.0]*L,
                 'P' : np.linspace(0.0, 2*pi*float(Pp[1:]), L),
@@ -143,6 +143,42 @@ def qubits(L, config):
         qubit_list[j] = qubit(th, ph)
     return mx.listkron(qubit_list)
 
+# Create a state with random single-qubit states
+# ----------------------------------------------
+def rand_state(L, config):
+
+    p_qex_qbg_conf = config.split('_')
+    p = float('.'+p_qex_qbg_conf[0])
+
+    if len(p_qex_qbg_conf)==1:
+        state_dict = {'ex':bvecs['1'], 'bg':bvecs['0']}
+
+    if len(p_qex_qbg_conf)==2:
+        ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
+        ex_th = pi/180.0*float(ex_th[1:]) 
+        ex_ph = pi/180.0*float(ex_ph[1:]) 
+
+        state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':bvecs['0']}
+    
+    if len(p_qex_qbg_conf)==3:
+        ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
+        ex_th = pi/180.0*float(ex_th[1:]) 
+        ex_ph = pi/180.0*float(ex_ph[1:]) 
+        
+        bg_th, bg_ph = p_qex_qbg_conf[2].split('-')
+        bg_th = pi/180.0*float(bg_th[1:]) 
+        bg_ph = pi/180.0*float(bg_ph[1:]) 
+
+        state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':qubit(bg_th, bg_ph)}
+     
+    prob = [p, 1.0 - p]
+    
+    distrib = np.random.choice(['ex','bg'], size=L, p=prob)
+    return mx.listkron([state_dict[i] for i in distrib])
+
+
+# kronecker the states in the distribution and return
+
 # Make the specified state
 # ------------------------
 smap = { 'd' : fock,
@@ -151,6 +187,7 @@ smap = { 'd' : fock,
          'a' : all_alive,
          'c' : center,
          'q' : qubits,
+         'r' : rand_state, 
          'G' : GHZ,
          'W' : W,
          'E' : entangled_list } 
@@ -175,24 +212,24 @@ def make_state (L, IC):
 if __name__ == '__main__':
     import measures as ms 
     import states as ss
-    L_list = [2]
-    IC_list = ['E0_1' ]
+    L_list = [10]
+    IC_list = ['qT1-p90']
     for L, IC in zip(L_list, IC_list):
         print()
         print ("L = ", str(L), " IC = ", str(IC) )
-        print('state')
         
+        
+        print('state vector')
         state = make_state(L, IC)
-        print(state)
-        
+        #print(state)
+        print() 
+        print('density matrix')
         rho = np.outer(state, mx.dagger(state))
-        print(rho)
-        
-        print(np.trace(rho.dot(mx.listkron([ss.ops['1'], ss.ops['I']]))))
-        print(np.trace(rho.dot(mx.listkron([ss.ops['I'], ss.ops['1']]))))
+        #print(rho)
     
         rho0 = mx.rdmr(rho, [0])
         rho1 = mx.rdmr(rho, [1])
-        print(np.trace(rho0.dot(ss.ops['1'])))
-        print(np.trace(rho1.dot(ss.ops['1'])))
-
+        
+        print(np.trace(rho0.dot(ss.ops['X'])).real)
+        print(np.trace(rho0.dot(ss.ops['Y'])).real)
+        print(np.trace(rho0.dot(ss.ops['Z'])).real)
