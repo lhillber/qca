@@ -20,20 +20,19 @@ import classical_eca     as eca
 
 eq = 1.0/sqrt(2.0)
 
-output_name = 'sweep_block'
+output_name = 'tmp'
 
 mode_list = ['sweep', 'block']
 
-QIC_list = [ 's0_12' ]
+QIC_list = [ 's11' ]
 
-R_list = [102,150]
+R_list = [150, 102]
 
-center_op_list = [['X'],['H']]
+center_op_list = [['X']]
 
+L_list = [19]
 
-L_list = [13]
-
-tmax_list = [70]
+tmax_list = [60]
 
 Qparams_list = [ 
         OrderedDict( [ 
@@ -53,7 +52,6 @@ Qparams_list = [
         for L    in L_list     \
         for tmax in tmax_list  ]
 
-
 # run independent simulations in parallel
 # ---------------------------------------
 if __name__ == '__main__':
@@ -66,7 +64,7 @@ if __name__ == '__main__':
             pt.plot_main(params)
             plt.clf
     plt.close('all')
-    
+
     '''
 Cparams_list = [ (output_name, R, IC, L, tmax) \
         for R    in R_list     \

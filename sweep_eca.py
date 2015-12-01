@@ -164,7 +164,6 @@ def run_sim(params, force_rewrite = False):
         fname_list[-5] = str(eval(fname[-5])+1)
         fname = ''.join(fname_list)
 
-    print(fname)
     if not isfile(fname) or force_rewrite:
         results = ms.simple_measure_sim(params, time_evolve(params))
         io.write_results(results, fname)

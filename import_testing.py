@@ -19,7 +19,7 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 # import results from the file path/name
 results = io.read_results( 
         fname
-        ='/home/lhillber/documents/qca/output/sweep_block/data/blockH_R102_ICqt90_P1_L13_tmax70.res' )
+        ='/home/lhillber/documents/qca/output/sweep_block/data/blockHXT_R150_ICs12_L15_tmax500_V0.res' )
 
 params = results['meta']['params']
        
@@ -37,8 +37,8 @@ ipr = results['ipr']
 
 
 
-dat = [[np.trace(rj.dot(ss.ops['Y'])).real for rj in rj_list] for rj_list in sd_list]
+dat = [[np.trace(rj.dot(ss.ops['Z'])).real for rj in rj_list] for rj_list in sd_list]
 
 
-pt.plot_spacetime_grid(dat,'ny')
+pt.plot_spacetime_grid(dat[0:15:1],'ny')
 plt.show()

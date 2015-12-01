@@ -212,24 +212,32 @@ def make_state (L, IC):
 if __name__ == '__main__':
     import measures as ms 
     import states as ss
-    L_list = [10]
-    IC_list = ['qT1-p90']
+    L_list = [4]
+
+    # spin down (or |1>) at sites 0 and 2 spin up (or |0>) at 1 and 3
+    IC_list = ['l0_2']
+
     for L, IC in zip(L_list, IC_list):
+        
         print()
+        
         print ("L = ", str(L), " IC = ", str(IC) )
-        
-        
-        print('state vector')
-        state = make_state(L, IC)
-        #print(state)
+        print('Expect spin down (or |1>) at sites 0 and 2. Spin up (or |0>) at 1 and 3')  
+       
         print() 
-        print('density matrix')
-        rho = np.outer(state, mx.dagger(state))
-        #print(rho)
-    
-        rho0 = mx.rdmr(rho, [0])
-        rho1 = mx.rdmr(rho, [1])
         
-        print(np.trace(rho0.dot(ss.ops['X'])).real)
-        print(np.trace(rho0.dot(ss.ops['Y'])).real)
-        print(np.trace(rho0.dot(ss.ops['Z'])).real)
+        print('state vector:')
+        state = make_state(L, IC)
+        print(state)
+        
+        print()
+
+        # reduced density matrix for each site calculated from the state
+        rho_list = [mx.rdms(state, [j]) for j in range(L)]
+       
+        # measure z projection at each site. Take real part because measurements
+        # of Hermitian ops always give a real result
+        meas_list = [np.trace(rho.dot(ss.ops['Z'])).real for rho in rho_list ] 
+       
+        print('measurement results along Z axis:')
+        print(meas_list)

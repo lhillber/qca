@@ -24,10 +24,13 @@ mpl.rc('font',**font)
 # plot time series
 # ---------------0
 def plot_time_series(time_series, title, label='', loc='lower right', fignum=1,
-        ax=111, color='B'):
+        ax=111, color='B', cut_first=0, linewidth=0.2, linestyle='-',
+        marker='', markersize=1.5, markeredgecolor='B'):
     fig = plt.figure(fignum)
     fig.add_subplot(ax)
-    plt.plot(range(len(time_series)), time_series, label=label, color=color)
+    plt.plot(range(cut_first, len(time_series)+cut_first), time_series,
+            label=label, color=color, linestyle=linestyle, linewidth=linewidth, 
+            marker=marker, markersize=markersize, markeredgecolor=color)
     plt.title(title)
     plt.legend(loc=loc)
     plt.tight_layout() 
@@ -51,9 +54,8 @@ def plot_average_time_series(time_series, title, label='', loc='lower right',
 # make Fourier transform of time series data
 # ------------------------------------------
 def make_ft(time_series, dt):
-    dt = 1 
     Nsteps = len(time_series)
-    times = range(Nsteps*dt)
+    times = [n*dt for n in range(Nsteps)]
     
     if Nsteps%2 == 1:
         time_sereis = np.delete(time_series,-1)
@@ -66,13 +68,12 @@ def make_ft(time_series, dt):
 
 # plot Fourier transform
 # ----------------------
-def plot_ft(time_series, dt, title, fignum=1, ax=111, color='B'):
+def plot_ft(freqs, amps, dt, title, fignum=1, ax=111, color='B'):
 
     #Nyquist criterion
     high_freq = 1.0/(2.0*dt)
-    low_freq = 2.0/(dt*len(time_series))
+    low_freq = 1.0/(dt*len(amps))
     
-    freqs, amps = make_ft(time_series, dt)
     amp_ave = np.mean(amps)
     fig = plt.figure(fignum)
     fig.add_subplot(ax)
@@ -249,13 +250,14 @@ def nm_time_series_plots(avg_data, title, tasks = ['ND', 'CC','Y'], fignum=1, to
         plot_time_series(dat, title, label=label, fignum=fignum, 
                 loc='upper right', color=color_list[i])
 
-def nm_ft_plots(avg_data, tasks = ['ND', 'CC','Y'], fignum=1):
+def nm_ft_plots(avg_data, dt, tasks = ['ND', 'CC','Y'], fignum=1):
     ax = 311 
     color_list=['B','G','R']
     for i, task in enumerate(tasks):
         title = task
         dat = avg_data[task]
-        plot_ft(dat, 1, title, fignum=fignum, ax=ax, color=color_list[i])
+        freqs_dat, amps_dat = make_ft(dat, dt)
+        plot_ft(freqs_dat, amps_dat, 1, title, fignum=fignum, ax=ax, color=color_list[i])
         ax += 1
 
 # call for time series plots
@@ -285,7 +287,7 @@ def plot_main(params,
     x_grid  = pp.local_exp_vals(rjt_mat, ss.ops['X'])
     y_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Y'])
     z_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Z'])
-    
+
     nm_spacetime_grids = pp.measure_networks(mi_nets, typ='st')
     nm_time_series = pp.measure_networks(mi_nets, typ='avg')
 
@@ -296,7 +298,7 @@ def plot_main(params,
     nm_time_series_plots(nm_time_series, 'Mutual information network measures', 
                         tasks=avg_tasks, fignum=2, tol=0.001)
 
-    nm_ft_plots(nm_time_series, fignum=3)
+    nm_ft_plots(nm_time_series, 1, fignum=3)
 
     nm_spacetime_plots(nm_spacetime_grids,   tasks=st_tasks , fignum=4)
 
@@ -305,11 +307,35 @@ def plot_main(params,
     board_plots(rjt_mat, sjt, fignum=6)
 
     plot_time_series(ipr, 'Inverse participation ratio', fignum=7, ax=211)
-    plot_ft(ipr, 1, '', fignum=7, ax=212)
+    
+    freqs_ipr, amps_ipr = make_ft(ipr, 1)
+    plot_ft(freqs_ipr, amps_ipr, 1, '', fignum=7, ax=212)
 
     plot_histogram_surface(mi_nets, 'Mutual information distribution', fignum=8,
             smoothing=2, bins=20)    
 
     io.multipage(io.file_name(output_name, 'plots', name, '.pdf'))    
-    return
 
+
+
+if __name__ == '__main__':
+    from math import sin, pi
+    T = 0.03
+    dt = 0.001
+    ts = [n*dt for n in range(100)]
+    ys = [sin(2*pi*t/T) for t in ts]
+
+    freqs, amps = make_ft(ys, dt) 
+    
+    max_index = np.argmax(amps)
+    max_amp   = amps[max_index]
+    max_freq  = freqs[max_index]
+
+    print(1.0/max_freq, T)
+
+    plot_time_series(ys, '', fignum=1, ax=211)
+
+
+    plot_ft(freqs, amps, dt, '', fignum = 1, ax=212)
+
+    plt.show()

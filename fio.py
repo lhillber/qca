@@ -121,6 +121,7 @@ def sim_name(params):
     sname = sname[:-1]
     return sname 
 
+
 # make an output directory
 # ------------------------
 def base_name(output_name, output_type):
@@ -130,8 +131,8 @@ def base_name(output_name, output_type):
 
 # full path to a file to be opened
 # --------------------------------
-def file_name(output_name, output_type, name, ext):
-    return base_name(output_name, output_type) + '/' + name +'_V0' + ext
+def file_name(output_name, output_type, name, ext, V=0):
+    return base_name(output_name, output_type) + '/' + name +'_V'+str(V) + ext
 
 # save simulation results
 # -----------------------
@@ -149,6 +150,8 @@ def read_results(params=None, fname=None):
     with open(fname, 'rb') as infile:
        results = infile.read().decode('UTF-8')
     return json_to_data(results)
+
+
 
 # save multi page pdfs of plots
 # -----------------------------
