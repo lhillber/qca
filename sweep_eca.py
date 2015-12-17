@@ -47,7 +47,7 @@ def local_update_op(R, center_op=ss.ops['X']):
     sxR[op_inds[3]] = 2
     '''
     sxR[sxR>0]=2
-    print(sxR) 
+    #print(sxR) 
     op = np.zeros((2**3, 2**3), dtype=complex)
 
     for Rel_num, sxR_el in enumerate(sxR):      # Rel_num -> sxR_el:  000 -> 1,

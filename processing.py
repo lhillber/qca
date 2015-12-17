@@ -3,6 +3,7 @@
 from cmath  import sqrt
 from math   import fabs, sin, pi
 from collections import OrderedDict
+from itertools import product
 import copy
 import csv
 import numpy as np
@@ -10,14 +11,15 @@ import information as im
 import fio as io
 import networkmeasures as nm
 import measures as ms
+import states as ss
 import matplotlib        as mpl
 import matplotlib.pyplot as plt
 import plotting as pt
-
+import matplotlib.gridspec as gridspec
 
 # default plot font to bold and size 16
 # -------------------------------------
-font = {'weight':'bold', 'size':16}
+font = {'family':'serif', 'size':9}
 mpl.rc('font',**font)
 
 eq = 1.0/sqrt(2.0)
@@ -49,29 +51,6 @@ def local_exp_vals(rjt_mat, op):
     return np.asarray([ [ np.trace(r_jt.dot(op)).real for r_jt in r_jlist]\
                for r_jlist in rjt_mat ])
 
-
-# compute running average through time of a time series
-# -----------------------------------------------------
-def running_average(time_series, tol=0.1):
-    tmax = len(time_series)
-    n_equib = tmax*3/4.0
-    
-    eq_flag = 0
-    tot = 0
-    r_avg = [0]*tmax
-    for n, d in enumerate(time_series):
-        tot += d
-        r_avg[n] = tot/(n+1)
-        if n>1 and eq_flag==0:
-            if abs(r_avg[n-2] - r_avg[n-1]) < tol\
-                and abs(r_avg[n-1] - r_avg[n]) < tol:
-                n_equib = n
-                eq_flag=1 
-
-    val_equib = np.mean(time_series[n_equib::])
-
-    dval_equib = np.std(time_series[n_equib::])
-    return r_avg, n_equib, val_equib, dval_equib
 
 # apply network measures to list of networks; 
 # typ='avg' for time series, typ='st' for spatialy resolved measure
@@ -229,6 +208,7 @@ def correlator_calc(mats):
 
 # Data comparisons
 # ----------------
+
 def make_params(output_name, mode, center_op, R, IC, L, tmax):
         params = OrderedDict( [ 
                 ('output_name', output_name), 
@@ -241,100 +221,433 @@ def make_params(output_name, mode, center_op, R, IC, L, tmax):
                 ] )
         return params
 
-def make_comp_title(params1, params2):
-    params = {}
-    labels = {}
-    title = ''
-    measures = {'ND':'network density', 'Y':'disparity',
-                'CC':'clustering coefficient', 'ipr':'inverse participation ratio'} 
+def concat_dicts(d1, d2):
+    d = d1.copy()
+    d.update(d2)
+    return d
+
+def dict_product(dicts):
+        return (dict(zip(dicts, x)) for x in product(*dicts.values()))
+
+def make_params_list_list(fixed_params_dict, var_params_dict):
+    unordered_params_dict_list = [0]*len(list(dict_product(fixed_params_dict)))
     
-    for key in params1.keys():
-        if params1[key] == params2[key]:
-            title = title + params1[key]
-        else:
-            labels[key] = (params1[key], params2[key])
-         
+    for index, fixed_dict in enumerate(dict_product(fixed_params_dict)):
+        unordered_params_dict_sublist = []
+        
+        for var_dict in dict_product(var_params_dict):
+            unordered_params_dict_sublist = unordered_params_dict_sublist + \
+                            [concat_dicts(fixed_dict, var_dict)]
+        
+        unordered_params_dict_list[index] = unordered_params_dict_sublist
+
+    params_list_list = [[make_params( unordered_params_dict['output_name'],
+                                unordered_params_dict['mode'],
+                                unordered_params_dict['center_op'],
+                                unordered_params_dict['R'],
+                                unordered_params_dict['IC'],
+                                unordered_params_dict['L'],
+                                unordered_params_dict['tmax'])
+                    for unordered_params_dict in
+                    unordered_params_dict_sublist ]
+                    for unordered_params_dict_sublist in
+                    unordered_params_dict_list ] 
+    return params_list_list
+
+
+def inner_title(ax, title, l=0.1, u=0.95):
+    return ax.text(l, u, str(title), horizontalalignment='left', transform=ax.transAxes)
+
+def make_measures_dict_list(res_list):
+    mi_nets_list = [res['mi'] for res in res_list]
+    ipr_list = [res['ipr'] for res in res_list]
+    measures_dict_list = [ 
+            concat_dicts(measure_networks(mi_nets, typ='avg', cut_first=0), {'ipr':ipr})
+            for (mi_nets, ipr) in zip(mi_nets_list, ipr_list)
+            ]
+    return measures_dict_list
+
+# compute running average through time of a time series
+# -----------------------------------------------------
+def equib_calc(time_series, tol=0.1):
+    tmax = len(time_series)
+    n_equib = tmax*3/4.0
+    
+    eq_flag = 0
+    tot = 0
+    r_avg = [0]*tmax
+    for n, d in enumerate(time_series):
+        tot += d
+        r_avg[n] = tot/(n+1)
+        if n>1 and eq_flag==0:
+            if abs(r_avg[n-2] - r_avg[n-1]) < tol\
+                and abs(r_avg[n-1] - r_avg[n]) < tol:
+                n_equib = n
+                eq_flag=1 
+
+    val_equib = np.mean(time_series[n_equib::])
+
+    dval_equib = np.std(time_series[n_equib::])
+    return r_avg, n_equib, val_equib, dval_equib
+
+
+def measures_comp_plot(res_list, var_params_dict, suptitle = 'suptitle',
+        fignum=1, FT='True', meas_tasks = ['CC', 'Y', 'ipr']):
+    start_t = 0 
+    end_t = 1000
+    dt = 1
+    cut_first = 100
+    
+    meas_labels = {'ND':'ND', 'CC':'CC', 'Y':'Y', 'ipr':'IPT'}
+    
+    colors = ["0.0", "0.3", ".6"]
+    curve_labels = [''.join(var_params_dict['center_op'][i])
+            for i in range(len(var_params_dict['center_op']))]
+
+    nrow = len(meas_tasks)
+
+    if FT == 'True':
+        ncol = 2
+
+    elif FT == 'False' or FT == 'Only':
+        ncol = 1
+
+    measures_dict_list = make_measures_dict_list(res_list)
+    
+    fig = plt.figure(fignum) 
+    gs = gridspec.GridSpec(nrow, 1)
+    gs.update(left=0.1, hspace = 0.1)
+
+    gs_list = np.asarray([gridspec.GridSpecFromSubplotSpec(1, ncol,
+        subplot_spec=gs[k], wspace=0.25) for k in range(nrow)])
+
+    ymax = 0 
+    ymin = 1E10 
+    ax_list = []
+    for meas_ind, (pair_gs, meas_task) in enumerate(zip(gs_list, meas_tasks)):
+        for ind, (measures_dict, color, curve_label) in \
+            enumerate(zip(measures_dict_list, colors, curve_labels)):
+            if ind == 0:
+
+                if FT == 'True': 
+                    time_meas_ax = fig.add_subplot(pair_gs[0])
+                    freq_meas_ax = fig.add_subplot(pair_gs[1])
+                    ax_pair = (time_meas_ax, freq_meas_ax)
+                    ax_list.append(ax_pair) 
+
+                elif FT == 'False':
+                    time_meas_ax = fig.add_subplot(pair_gs[0])
+                    ax_pair = [time_meas_ax]
+                    ax_list.append(ax_pair) 
+
+                elif FT == 'Only':
+                    freq_meas_ax = fig.add_subplot(pair_gs[0])
+                    ax_pair = [freq_meas_ax]
+                    ax_list.append(ax_pair) 
+
+             
+            meas_vals = measures_dict[meas_task][start_t : end_t : dt]
+            meas_times = np.arange(start_t,end_t,dt)
+
+            
+            if FT in ('True', 'Only'):
+                meas_freqs, meas_amps = pt.make_ft(meas_vals[cut_first::], 1) 
+                freq_meas_ax.semilogy(meas_freqs, meas_amps, linewidth=0.1,
+                        color=color, label = curve_label) 
+                freq_meas_ax.set_ylabel(r'$\mathcal{F}$'+'('+meas_labels[meas_task]+')')
+                if meas_ind == nrow-1:
+                    freq_meas_ax.set_xlabel('frequency')
+
+                #Nyquist criterion
+                high_freq = 1.0/(2.0*dt * (2.0*pi))
+                low_freq = 1.0/(dt*len(meas_amps) * (2.0*pi))
+                freq_meas_ax.set_xlim([low_freq, high_freq])
+                freq_meas_ax.set_ylim([np.mean(meas_amps)/1000., 10.*meas_amps.max()])
+
+
+            if FT in ('True', 'False'):
+                time_meas_ax.plot(meas_times, meas_vals, linewidth=0.1, color=color, label = curve_label)
+                time_meas_ax.set_ylabel(meas_labels[meas_task])
+                if meas_ind == nrow-1:
+                    time_meas_ax.set_xlabel('iterations')
+
+                curr_ymax = meas_vals[cut_first::].max()
+                curr_ymin = meas_vals[cut_first::].min()
+                if ymin > curr_ymin:
+                    ymin = curr_ymin
+                if ymax < curr_ymax:
+                    ymax = curr_ymax
+                time_meas_ax.set_xlim([start_t, end_t])
+                time_meas_ax.set_ylim(ymin*(1-1/10), ymax*(1+1/10))
+                if meas_task == 'ipr':
+                    time_meas_ax.set_ylim(3.0, ymax*(1+1/50))
+
+    flat_ax_list = (a for pair_ax in ax_list for a in pair_ax)
+    #plt.setp([a.xaxis.set_ticks(range(0, 0.1, 0.01) for a in flat_ax_list])
+    #plt.setp([a.yaxis.set_ticks(range(0, 4, .1)) for a in flat_ax_list])
+    no_xlabel_ax = [ax_list[k][j] for j in range(ncol) for k in range(nrow-1)]
+    plt.setp([a.get_xticklabels() for a in no_xlabel_ax], visible=False)
+    plt.setp([a.grid( 'on' ) for a in flat_ax_list])
+    
+    
+    if FT == 'Only':
+        freq_meas_ax.legend(loc='lower right', ncol=3)
+    else:
+        time_meas_ax.legend(loc='lower right', ncol=3)
+    
+    plt.suptitle(str(suptitle))
+
+    #time_meas_ax.legend(bbox_to_anchor=(1.05, 0), loc='lower left', borderaxespad=0.)
+    #plt.setp([inner_title(a, title) for (a, title) in title_ax], visible=True)
+
+def space_time_comp_plot(res_list, fignum=1):
+    plot_tmax = 60
+    
+    rjt_mat_list = [make_rjt_mat(res)[0:plot_tmax:] for res in res_list]
+    x_grid_list  = [local_exp_vals(rjt_mat, ss.ops['X']) 
+                    for rjt_mat in rjt_mat_list ]
+    y_grid_list  = [local_exp_vals(rjt_mat, ss.ops['Y'])
+                    for rjt_mat in rjt_mat_list ]
+    z_grid_list  = [local_exp_vals(rjt_mat, ss.ops['Z'])
+                    for rjt_mat in rjt_mat_list ]
+    
+    grid_axarr=[]
+    for j, grid_data_list in enumerate(zip(x_grid_list, y_grid_list, z_grid_list)):
+
+        im, im_axlist = pt.plot_projections(grid_data_list, fignum=fignum,
+                ax=231+j, cmap=plt.cm.gray)
+
+        grid_axarr.append(im_axlist)
+
+    grid_axarr=np.asarray(grid_axarr)
+
+    no_xlabel_ax = [grid_axarr[k,j] for j in [0, 1, 2] for k in [0, 1, 2]]
+    no_ylabel_ax = [grid_axarr[k,j] for j in [0, 1, 2] for k in [1, 2, 4, 5]]
+    title_ax = [(grid_axarr[k,j], tit) for (j, tit) in zip([0, 1, 2],
+        [r'$\sigma_x$', r'$\sigma_y$', r'$\sigma_z$']) for k in [0, 1, 2]]
+
+    cax = plt.figure(fignum).add_axes([0.915, 0.117, 0.015, 0.765])
+    plt.colorbar(im, cax=cax)
+
+    plt.setp([a.get_xticklabels() for a in no_xlabel_ax], visible=False)
+    plt.setp([a.get_yticklabels() for a in no_ylabel_ax], visible=False)
+    plt.setp([inner_title(a, title) for (a, title) in title_ax], visible=True)
+    plt.figure(fignum).subplots_adjust(hspace = -0.04, wspace=0.06, left=0.05)
+
+
+def equib_comp_plots(res_list, fignum=1, fmt='--s', label=''):
+    start_t = 500
+    end_t = 1000
+    dt = 1
+    
+    fig = plt.figure(fignum) 
+    meas_task_list = ['ND', 'CC', 'Y', 'ipr']
+
+    measures_dict_list = make_measures_dict_list(res_list)
+    params_list = [res['meta']['params'] for res in  res_list]
+   
+    val_dict = {}
+    for meas_task in meas_task_list:
+        val_dict[meas_task] = []
+        for params, measures_dict in zip(params_list, measures_dict_list):
+            center_op = params['center_op'] 
+            R = params['R']
+            mode = params['mode']
+            meas_vals = measures_dict[meas_task][start_t : end_t : dt]
+            r_avg, n_equib, val_equib, dval_equib = equib_calc(meas_vals)
+            val_dict[meas_task].append((val_equib, dval_equib, center_op, R, mode))
+
+    for ind, meas_task in enumerate(meas_task_list):
+        ax = fig.add_subplot(221+ind)
+        vals = [val_dict[meas_task][j][0] for j in range(len(val_dict[meas_task]))]
+        dvals = [val_dict[meas_task][j][1] for j in range(len(val_dict[meas_task]))]
+        xs = np.arange(len(val_dict[meas_task]))
+
+        ax.errorbar(xs, vals , yerr=dvals, fmt=fmt, label=label)
+        
+        ax.set_xlim([-0.3, 2+0.3])
+        ax.set_ylim([0.0, 0.2])
+        plt.setp(ax, xticks=[0, 1, 2], xticklabels=['H', 'HT', 'HXT'])
+        plt.setp(ax.grid( 'on' ) )
+
+        if ind != 3 and ind != 2:
+            plt.setp(inner_title(ax, r'$'+str(meas_task)+'$', l=0.02, u=0.93), visible=True)
+
+        if ind == 2:
+            plt.setp(inner_title(ax, r'$'+str(meas_task)+'$', l=0.045, u=0.93), visible=True)
+
+        if ind == 3:
+            ax.set_ylim([3.5, 4.05])
+            plt.setp(inner_title(ax, r'$IPT$', l=0.02, u=0.93), visible=True)
+            #ax.yaxis.tick_right()
+
+        #if ind == 1:
+            #plt.setp(ax.get_yticklabels(), visible=False)
+
+        if ind == 0 or ind == 1:
+            plt.setp(ax.get_xticklabels(), visible=False)
+        plt.subplots_adjust(wspace=0.2, hspace=0.1)
+
+def R_meas_comp_plots(res_list, fignum=1, label=''):
+    start_t = 0
+    end_t = 1000
+    dt = 1
+
+    meas_times = range(start_t, end_t)
+    fig = plt.figure(fignum) 
+    meas_tasks = ['CC','ipr']
+
+    measures_dict_list = make_measures_dict_list(res_list)
+    params_list = [res['meta']['params'] for res in  res_list]
+
+    for meas_ind, meas_task in enumerate(meas_tasks):
+        for ind, measures_dict in enumerate(measures_dict_list):
+            meas_vals = measures_dict[meas_task][start_t : end_t : dt]
+            meas_times = np.arange(start_t,end_t,dt)
+
+            ax = fig.add_subplot(221+ind)
+
+            ax.plot(meas_times, meas_vals, linewidth=0.1)
+            ''' 
+            ax.set_xlim([-0.3, 2+0.3])
+            ax.set_ylim([0.0, 0.2])
+            plt.setp(ax, xticks=[0, 1, 2], xticklabels=['H', 'HT', 'HXT'])
+            plt.setp(ax.grid( 'on' ) )
+
+            if ind != 3 and ind != 2:
+                plt.setp(inner_title(ax, r'$'+str(meas_task)+'$', l=0.02, u=0.93), visible=True)
+
+            if ind == 2:
+                plt.setp(inner_title(ax, r'$'+str(meas_task)+'$', l=0.045, u=0.93), visible=True)
+
+            if ind == 3:
+                ax.set_ylim([3.5, 4.05])
+                plt.setp(inner_title(ax, r'$IPT$', l=0.02, u=0.93), visible=True)
+                #ax.yaxis.tick_right()
+
+            #if ind == 1:
+                #plt.setp(ax.get_yticklabels(), visible=False)
+
+            if ind == 0 or ind == 1:
+                plt.setp(ax.get_xticklabels(), visible=False)
+            plt.subplots_adjust(wspace=0.2, hspace=0.1)
+            '''
+def make_R_meas_comp_plot(name):
+    plt.clf
+    plt.close('all')
+    fixed_params_dict =  OrderedDict( [ 
+                                        ('output_name', ['sweep_block4']),
+                                        ('IC', ['s18']),
+                                        ('L', [19]),
+                                        ('tmax', [1000]),
+                                        ('mode', ['sweep', 'block']),
+                                        ] )
+
+    var_params_dict = OrderedDict( [ 
+                                    ('R', [150, 102]),
+                                    ('center_op', [['H'], ['H','T'], ['H','X','T']]),
+                                     ] )
+
+    params_list_list = make_params_list_list(fixed_params_dict, var_params_dict)
+    fignum=10
+    
+    for ind, params_list in enumerate(params_list_list):
+        res_list = [io.read_results(params) for params in params_list]
+        R_meas_comp_plots(res_list, fignum)
+
+    output_name = params_list[0]['output_name']
+    plt.savefig(io.file_name(output_name, 'plots/comps', name, '.pdf'))
+
+def make_measures_comp_plot(name, FT='True', meas_tasks = ['ND', 'CC', 'Y', 'ipr']):
+    plt.clf
+    plt.close('all')
+    fixed_params_dict =  OrderedDict( [ 
+                                        ('output_name', ['sweep_block4']),
+                                        ('IC', ['s18']),
+                                        ('L', [19]),
+                                        ('tmax', [1000]),
+                                        ('R', [150, 102]),
+                                        ('mode', ['sweep', 'block']),
+                                        ] )
+
+    var_params_dict = OrderedDict( [ 
+                                     ('center_op', [['H'], ['H','T'], ['H','X','T']])
+                                     ] )
+
+    params_list_list = make_params_list_list(fixed_params_dict, var_params_dict)
+
+    fignum=3
+    for plot_num, params_list in enumerate(params_list_list):
+            suptitle = params_list[0]['mode']+' '+str(params_list[0]['R'])
+            res_list = [io.read_results(params) for params in params_list]
+
+            measures_comp_plot(res_list, var_params_dict, fignum=fignum,
+                    suptitle = suptitle, FT=FT, meas_tasks=meas_tasks)
+
+            fignum=fignum + 1
+
+    output_name = params_list[0]['output_name']
+    io.multipage(io.file_name(output_name, 'plots/comps', name, '.pdf'))    
+
+
+def make_equib_comp_plot(name):
+    plt.clf
+    plt.close('all')
+    fixed_params_dict =  OrderedDict( [ 
+                                        ('output_name', ['sweep_block4']),
+                                        ('IC', ['s18']),
+                                        ('L', [19]),
+                                        ('tmax', [1000]),
+                                        ('R', [150, 102]),
+                                        ('mode', ['sweep', 'block'])
+                                        ] )
+
+    var_params_dict = OrderedDict( [ 
+                                     ('center_op', [['H'], ['H','T'], ['H','X','T']]),
+                                     ] )
+    params_list_list = make_params_list_list(fixed_params_dict, var_params_dict)
+    fignum=10
+    label_list = ['sweep 150', 'block 150', 'sweep 102', 'block 102']
+    for ind, params_list in enumerate(params_list_list):
+        fmt_list = ['-^k','--^k','-sk','--sk']
+        res_list = [io.read_results(params) for params in params_list]
+        equib_comp_plots(res_list, fignum, fmt=fmt_list[ind],
+                label=label_list[ind])
+
+    plt.figure(fignum).subplots_adjust(top=.97)
+    plt.legend(bbox_to_anchor=(0.0, 0.0), loc='lower left', borderaxespad=0.,
+            ncol=2)
+    output_name = params_list[0]['output_name']
+    plt.savefig(io.file_name(output_name, 'plots/comps', name, '.pdf'))
+
 
 
 
 if __name__ == '__main__':
+    #make_space_time_comp_plot()
+    #make_measures_comp_plot('all_meas_and_FT', FT='True', meas_tasks=['ND','CC','Y','ipr'])
+    make_measures_comp_plot('all_FT', FT='Only', meas_tasks=['ND','CC','Y','ipr'])
+    #make_equib_comp_plot('equib')
 
-    for mode in ['sweep', 'block']:
-        for R in [150, 102]:
-            params_list = [make_params('sweep_block4', mode, center_op, R, 's18', 19, 1000)
-                        for center_op in [['H'],['H','T'],['H','X','T']]]
+    #make_R_meas_comp_plot('102_150102_150_CC_IPT')
 
-            name_list = [io.sim_name(params) for params in params_list]
-            
-            output_name = params_list[0]['output_name']
-
-            task_name = {'ND':' network density', 'CC': ' clustering coefficient',
-                    'Y':' disparity', 'ipr': ' inverse participation ratio' }
-
-            res_list = [io.read_results(params) for params in params_list]
-
-            mi_nets_list = [res['mi'] for res in res_list]
-
-            ipr_list = [res['ipr'] for res in res_list]
-
-            nm_time_series_list = [measure_networks(mi_nets, typ='avg', cut_first=0)
-                    for mi_nets in mi_nets_list]
-
-            fignum = 1
-            for task in ['ND','CC','Y', 'ipr']:
-                if task != 'ipr':
-                    d0 = nm_time_series_list[0][task] 
-                    d1 = nm_time_series_list[1][task] 
-                    d2 = nm_time_series_list[2][task] 
-
-                elif task == 'ipr':
-                    d0 = ipr_list[0]
-                    d1 = ipr_list[1]
-                    d2 = ipr_list[2]
-
-                d0_freqs, d0_amps = pt.make_ft(d0, 1) 
-                d1_freqs, d1_amps = pt.make_ft(d1, 1) 
-                d2_freqs, d2_amps = pt.make_ft(d2, 1) 
-                
-                max_index = 100 + np.argmax(d2_amps[100::])
-                max_amp = d2_amps[max_index]
-                max_freq = d2_freqs[max_index]
-
-                print(max_freq)
-
-                pt.plot_time_series(d0, '', cut_first=0,
-                        fignum=fignum, label='H', color='B',
-                        marker='o')
-                
-                pt.plot_time_series(d1, '', cut_first=0,
-                        fignum=fignum, label='HT', color='G',
-                        marker='^')
-
-                title = mode+' update rule '+str(R) + task_name[task]
-                pt.plot_time_series(d2, title, 
-                        cut_first=0, fignum=fignum, label='HXT', color='R',
-                        marker='s', loc='upper right')
-
-                pt.plot_ft(d0_freqs, d0_amps, 1, '', fignum = fignum+1, color='B')
-                pt.plot_ft(d1_freqs, d1_amps, 1, '', fignum = fignum+1, color='G')
-                pt.plot_ft(d2_freqs, d2_amps, 1, task_name[task]+' spectrum', fignum = fignum+1, color='R')
-
-                #plt.scatter(max_freq, max_amp, color='B')
-                fignum = fignum + 10
-
-
-                name = str(mode)+'_measures_R'+str(R)+'_L19'
-                for i in range(3):
-                    data_fname = io.file_name(output_name, 'data/comps', name, '.'+task, V=0)
-                    with open(data_fname, 'w') as outfile:
-                        writer = csv.writer(outfile)
-                        writer.writerows(zip(['H'], ['HT'], ['HXT']))
-                        writer.writerows(zip(d0, d1, d2))
-
-            io.multipage(io.file_name(output_name, 'plots/comps', name, '.pdf'))    
+    
+    
+    #name = str(mode)+'_measures_R'+str(R)+'_L19'
+    ''' 
+    for i in range(3):
+        data_fname = io.file_name(output_name, 'data/comps', name, '.'+task, V=0)
+        with open(data_fname, 'w') as outfile:
+            writer = csv.writer(outfile)
+            writer.writerows(zip(['H'], ['HT'], ['HXT']))
+            writer.writerows(zip(d0, d1, d2))
+    '''
             
 
-with open('some.csv', 'wb') as f:
+
+
+
+
 
     '''
     import run_ham as run 

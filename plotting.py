@@ -8,13 +8,15 @@ import scipy.stats       as sts
 import scipy.fftpack     as spf
 import matplotlib.pyplot as plt
 import fio               as io
-
+from math import pi
 from scipy.ndimage import zoom
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.axes_grid1 import ImageGrid
 
-# default plot font to bold and size 16
-# -------------------------------------
-font = {'family':'normal', 'weight':'bold', 'size':14}
+# default plot font
+# -----------------
+font = {'size':12}
+#font = {'family':'normal', 'weight':'bold', 'size':12}
 mpl.rc('font',**font)
 
 
@@ -22,7 +24,7 @@ mpl.rc('font',**font)
 # ==========================
 
 # plot time series
-# ---------------0
+# ----------------
 def plot_time_series(time_series, title, label='', loc='lower right', fignum=1,
         ax=111, color='B', cut_first=0, linewidth=0.2, linestyle='-',
         marker='', markersize=1.5, markeredgecolor='B'):
@@ -54,6 +56,7 @@ def plot_average_time_series(time_series, title, label='', loc='lower right',
 # make Fourier transform of time series data
 # ------------------------------------------
 def make_ft(time_series, dt):
+    time_series = np.nan_to_num(time_series)
     Nsteps = len(time_series)
     times = [n*dt for n in range(Nsteps)]
     
@@ -62,8 +65,8 @@ def make_ft(time_series, dt):
         Nsteps = Nsteps - 1
     
     time_series = time_series - np.mean(time_series)
-    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])
-    freqs = np.linspace(0.0,1.0/(2.0*dt),Nsteps/2)
+    amps =  (2.0/Nsteps)*np.abs(spf.rfft(time_series)[0:Nsteps/2])
+    freqs = np.linspace(0.0,1.0/(2.0*dt * (2.0*pi)),Nsteps/2)
     return freqs, amps
 
 # plot Fourier transform
@@ -71,8 +74,8 @@ def make_ft(time_series, dt):
 def plot_ft(freqs, amps, dt, title, fignum=1, ax=111, color='B'):
 
     #Nyquist criterion
-    high_freq = 1.0/(2.0*dt)
-    low_freq = 1.0/(dt*len(amps))
+    high_freq = 1.0/(2.0*dt * (2.0*pi))
+    low_freq = 1.0/(dt*len(amps) * (2.0*pi))
     
     amp_ave = np.mean(amps)
     fig = plt.figure(fignum)
@@ -133,6 +136,40 @@ def plot_spacetime_grid(grid_data, title, cmap=plt.cm.jet, norm=None, fignum=1,
     plt.title(title)
     plt.colorbar()
     plt.tight_layout() 
+
+
+def plot_projections(grid_data_list, fignum=1, ax = 111, cmap=plt.cm.jet,
+        nx_ticks=3, ny_ticks=10):
+
+    n_plots = len(grid_data_list)
+
+    fig = plt.figure(fignum) 
+    grid = ImageGrid(fig, ax, 
+            nrows_ncols=(1,3), axes_pad = 0.03, share_all=True, 
+            label_mode = "L")
+
+    vmin = -1
+    vmax = 1
+    im_ax_list=[]
+    for plt_grid, dat in zip(grid, grid_data_list):
+        im = plt_grid.imshow( dat,
+                        vmin = vmin,
+                        vmax = vmax,
+                        cmap = cmap,
+                        interpolation = 'none',
+                        aspect = 'auto',
+                        rasterized = True)
+
+        im_ax = im.get_axes( )
+        im_ax.grid( 'on' )
+        im_ax.locator_params(axis='x', nbins=nx_ticks)
+        im_ax.locator_params(axis='y', nbins=ny_ticks)
+        im_ax.xaxis.set_ticks([0,6,12]) 
+        im_ax_list.append(im_ax)
+
+    return im, im_ax_list
+
+    
 
 def make_edge_strength_hist(mat, bins=30):
     edges = [m for mj in mat for m in mj]
@@ -283,24 +320,30 @@ def plot_main(params,
     ipr = results['ipr'] 
     sjt = pp.make_local_vn_entropy(results)
     
-    rjt_mat = pp.make_rjt_mat(results) 
+    
+    plot_tmax = 60
+    
+    rjt_mat = pp.make_rjt_mat(results)[0:plot_tmax:]
+   
     x_grid  = pp.local_exp_vals(rjt_mat, ss.ops['X'])
     y_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Y'])
     z_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Z'])
 
-    nm_spacetime_grids = pp.measure_networks(mi_nets, typ='st')
+    #nm_spacetime_grids = pp.measure_networks(mi_nets, typ='st')
     nm_time_series = pp.measure_networks(mi_nets, typ='avg')
 
-    plot_spacetime_grid(x_grid, 'X projection', fignum=1, ax=131)
-    plot_spacetime_grid(y_grid, 'Y projection', fignum=1, ax=132)
-    plot_spacetime_grid(z_grid, 'Z projection', fignum=1, ax=133)
+    plot_projections([x_grid, y_grid, z_grid])
+    
+    # plot_spacetime_grid(x_grid, 'X projection', fignum=1, ax=131)
+    # plot_spacetime_grid(y_grid, 'Y projection', fignum=1, ax=132)
+    # plot_spacetime_grid(z_grid, 'Z projection', fignum=1, ax=133)
 
     nm_time_series_plots(nm_time_series, 'Mutual information network measures', 
                         tasks=avg_tasks, fignum=2, tol=0.001)
 
     nm_ft_plots(nm_time_series, 1, fignum=3)
 
-    nm_spacetime_plots(nm_spacetime_grids,   tasks=st_tasks , fignum=4)
+    #nm_spacetime_plots(nm_spacetime_grids,   tasks=st_tasks , fignum=4)
 
     cut_entropy_plots(results, L, 'R '+str(R), fignum=5) 
 
@@ -311,8 +354,8 @@ def plot_main(params,
     freqs_ipr, amps_ipr = make_ft(ipr, 1)
     plot_ft(freqs_ipr, amps_ipr, 1, '', fignum=7, ax=212)
 
-    plot_histogram_surface(mi_nets, 'Mutual information distribution', fignum=8,
-            smoothing=2, bins=20)    
+    #plot_histogram_surface(mi_nets, 'Mutual information distribution', fignum=8,
+    #        smoothing=2, bins=20)    
 
     io.multipage(io.file_name(output_name, 'plots', name, '.pdf'))    
 

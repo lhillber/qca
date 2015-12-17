@@ -19,6 +19,8 @@ from collections import namedtuple, Iterable, OrderedDict
 from numpy import sin, cos, log, pi
 import matrix as mx
 import states as ss
+import processing as pp
+import fio as io
 import sweep_eca as sweep
 
 init_state = ss.make_state(3 ,[('E0_1', 1.0)])
@@ -75,7 +77,7 @@ G = np.array([[0,1,0,0,0,0,0,0],
               [1,0,0,0,0,0,0,0]])
 
 for R in range(256):
-    T = sweep.general_local_update_op(R, th=pi/2.0)
+    T = sweep.local_update_op(R)
     I = np.eye(8)
     Tdag = mx.dagger(T)
     TdT = Tdag.dot(T)
@@ -84,15 +86,61 @@ for R in range(256):
     if unitaryQ is True:
         TG = T.dot(G)
         GT = G.dot(T)
-        #print(np.array_equal(TG,GT))
         print(R, mx.dec_to_bin(R^204,8))
+        print(T)
 
 
 
-for t in range(4):
-    if t%2==0:
-        for j in range(5):
-            print(j)
-    elif t%2==1:
-        for j in range(3,0,-1):
-            print(j)
+
+
+fixed_params_dict = { 'output_name' : ['sweep_block_4'],
+                             'mode' : ['sweep', 'block'],
+                                'R' : [150, 102],
+                               'IC' : ['s18'],
+                                'L' : [19],
+                             'tmax' : [1000] }
+
+var_params_dict = {'center_op' : [['H'], ['H','T'], ['H','X','T']]}
+
+def concat_dicts(d1, d2):
+    d = d1.copy()
+    d.update(d2)
+    return d
+
+def dict_product(dicts):
+        return (dict(zip(dicts, x)) for x in product(*dicts.values()))
+
+def import_for_comp(fixed_params_dict, var_params_list):
+    
+    unordered_params_dict_list = [0]*len(list(dict_product(fixed_params_dict)))
+    for index, fixed_dict in enumerate(dict_product(fixed_params_dict)):
+        unordered_params_dict_sublist = []
+        for var_dict in dict_product(var_params_dict):
+            unordered_params_dict_sublist = unordered_params_dict_sublist + \
+                            [concat_dicts(fixed_dict, var_dict)]
+        unordered_params_dict_list[index] = unordered_params_dict_sublist
+
+    params_list_list = [[pp.make_params( unordered_params_dict['output_name'],
+                                unordered_params_dict['mode'],
+                                unordered_params_dict['center_op'],
+                                unordered_params_dict['R'],
+                                unordered_params_dict['IC'],
+                                unordered_params_dict['L'],
+                                unordered_params_dict['tmax'])
+
+
+                    for unordered_params_dict in
+                    unordered_params_dict_sublist ]
+                    
+                    for unordered_params_dict_sublist in
+                    unordered_params_dict_list ] 
+                    
+
+    name_list = [[io.sim_name(params) 
+        for params in params_list]
+        for params_list in params_list_list]
+
+    # res_list = [io.read_results(params) for params in params_list]
+    #print(name_list) 
+
+#import_for_comp(fixed_params_dict, var_params_dict)

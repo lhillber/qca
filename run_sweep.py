@@ -20,19 +20,19 @@ import classical_eca     as eca
 
 eq = 1.0/sqrt(2.0)
 
-output_name = 'tmp'
+output_name = 'sweep_block4'
 
 mode_list = ['sweep', 'block']
 
-QIC_list = [ 's11' ]
+QIC_list = [ 's18' ]
 
 R_list = [150, 102]
 
-center_op_list = [['X']]
+center_op_list = [['H'],['H','T'],['H','X','T']]
 
 L_list = [19]
 
-tmax_list = [60]
+tmax_list = [1000]
 
 Qparams_list = [ 
         OrderedDict( [ 
