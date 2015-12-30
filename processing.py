@@ -44,7 +44,6 @@ def make_local_vn_entropy(results):
 def make_rjt_mat(results):
     return results['sdr'] + 1.0j*results['sdi'] 
 
-
 # exp vals of op wrt all single site density matricies in space and time
 # ----------------------------------------------------------------------
 def local_exp_vals(rjt_mat, op):
@@ -148,7 +147,7 @@ def make_long_time_avgs(Cparams_list, Qparams_list, win_len=10):
                     d = stats[stat](r_avg[-win_len:])
                     dat[typ][task][stat] = d
         data.append(dat)
-   
+
     res = {}
     for typ in avg_meas_dict.keys():
         res[typ] ={}
@@ -156,7 +155,7 @@ def make_long_time_avgs(Cparams_list, Qparams_list, win_len=10):
             res[typ][task] = {}
             for stat in ('avg', 'std'):
                 res[typ][task][stat] = [data[n][typ][task][stat] for n in range(N)]
-                 
+
     return res
 
 
@@ -410,7 +409,7 @@ def space_time_comp_plot(res_list, fignum=1):
                     for rjt_mat in rjt_mat_list ]
     z_grid_list  = [local_exp_vals(rjt_mat, ss.ops['Z'])
                     for rjt_mat in rjt_mat_list ]
-    
+
     grid_axarr=[]
     for j, grid_data_list in enumerate(zip(x_grid_list, y_grid_list, z_grid_list)):
 

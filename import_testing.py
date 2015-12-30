@@ -17,10 +17,10 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 # import results from the file path/name
-results = io.read_results( 
-        fname
-        ='/home/lhillber/documents/qca/output/sweep_block/data/blockHXT_R150_ICs12_L15_tmax500_V0.res' )
+states = io.read_results( 
+        fname = '/home/lhillber/documents/qca/scripts/TEST.dat')
 
+'''
 params = results['meta']['params']
        
 # reform single site density matricies with the real and imaginary parts
@@ -42,3 +42,4 @@ dat = [[np.trace(rj.dot(ss.ops['Z'])).real for rj in rj_list] for rj_list in sd_
 
 pt.plot_spacetime_grid(dat[0:15:1],'ny')
 plt.show()
+'''
