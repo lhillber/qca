@@ -5,6 +5,8 @@ import numpy as np
 import scipy.odr.odrpack as odrpack
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from scipy import interpolate
+import plotting as pt
 
 font = {'family':'normal', 'weight':'bold', 'size':16}
 mpl.rc('font',**font)
@@ -20,7 +22,10 @@ def fpow(B, x):
     return B[0]*x**B[1] + B[2]
 
 def fexp(B, x):
-    return B[0]*B[1]**(x) +B[2]
+    return B[0]*B[1]**(x) + B[2]
+
+def fsexp(B, x):
+    return B[0]*B[1]**(x**B[2]) + B[3]
 
 def do_odr(f, x, xe, y, ye, estimates):
     model = odrpack.Model(f)
@@ -55,3 +60,69 @@ def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error = None
     ax.set_yscale('log', basey=2)
     return
 
+
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    import fio as io
+    import measures as ms
+    import time_evolve 
+    import matplotlib.pyplot as plt
+    import plotting as ptt 
+    params =  {
+                    'output_dir' : 'testing/state_saving',
+
+                    'L'    : 12,
+                    'T'    : 100,
+                    'mode' : 'block',
+                    'R'    : 150,
+                    'V'    : ['H'],
+                    'IC'   : 'l0'
+                                    }
+
+    time_evolve.run_sim(params, force_rewrite=False)
+    ms.measure(params)
+
+    fname = io.file_name(params)
+    x_grid, y_grid, z_grid =\
+            map(ms.get_diag_vecs, io.read_hdf5(fname, ['xx', 'yy', 'zz']))
+
+    def fit_speed(grid):
+        fig = plt.figure(1)
+        ax = fig.add_subplot(111)
+
+        img = (1.0-grid)/2
+        
+
+        ptt.plot_grid(grid, ax)
+
+        L = params['L']
+        
+        # block 150 12 H
+        ks = [0, 11, 21, 31, 41]
+
+        # sweep 150 12 H
+        #ks = [0, 7, 21, 27, 40]
+
+        for p in range(len(ks)-1):
+            pimg = img[ks[p]:ks[p+1], 0:L]
+            j = np.argmax(pimg, axis=1)
+            pt = range(ks[p], ks[p+1]) 
+            z = img[(pt, j)]
+            dz = 1/z
+            ax.errorbar(j, pt, xerr=dz, yerr=dz)
+            js = np.linspace(0, L-1, 150)
+            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, x_error=dz, y_error=dz) 
+            print(1/Bs[0])
+            ax.plot(js, flin(Bs, js),  color='k')
+        ax.set_ylim([-0.5, 75.5])
+        ax.set_xlim([-0.5, (L-1)+0.5])
+        plt.show()
+    
+    fit_speed(z_grid)

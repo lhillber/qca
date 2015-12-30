@@ -1,227 +1,282 @@
 #!/usr/bin/python
 
-from math import log
+# =============================================================================
+# This script process the data saved by time_evolve
+#
+# By Logan Hillberry
+# =============================================================================
 
+from math import log
+import copy
 import numpy           as np
 import scipy           as sp
 import states          as ss
 import matrix          as mx
+import fio             as io
+import h5py
 import networkmeasures as nm
 
 # Measures
 # ========
 
-# probability of finding state at site j in state proj
-# --------------------------------------------------
-def n_j(state, j, proj = '1'):
-    L = int(log(len(state), 2)) 
-    proj = ss.brhos[proj]
-    op_state = mx.op_on_state(proj, [j], state) 
-    return state.conj().dot(op_state).real 
-
-def n_in_j(state, i, j, proj_list = ['1', '1']):
-    L = int( log(len(state), 2) ) 
-    proj = mx.listkron( [ss.brhos[proj] for proj in proj_list] )
-    op_state = mx.op_on_state(proj, [i, j], state) 
-    return state.conj().dot(op_state).real 
-
-# von Neumann entropy of reduced density matrix keeping klist from state
-# ----------------------------------------------------------------------
-def vn_entropy(rdm):
-    evals = sp.linalg.eigvalsh(rdm)
-    s = -sum(el*log(el,2) if el >= 1e-14 else 0.0  for el in evals)
+# von Neumann entropy of reduced density matrix rho
+# -------------------------------------------------
+def vn_entropy(rho, tol=1e-14):
+    evals = sp.linalg.eigvalsh(rho)
+    s = -sum(el*log(el, 2) if el >= tol else 0.0  for el in evals)
     return s
-        
 
-# entropy of the smaller of all bi-partitions of the lattice
-# ----------------------------------------------------------
-def entropy_of_cut(state):
-    L = int(log(len(state),2))-1
-    js = [ [i for i in range(mx)] if mx <= round(L/2) 
-            else np.setdiff1d(np.arange(L), [i for i in range(mx)]).tolist() 
-            for mx in range(1,L)]
-    return [vn_entropy(mx.rdms(state, ks)) for ks in js ]
+# compute spacetime grid of local von Neumann entropy
+# ---------------------------------------------------
+def stj_calc(one_site, L, T):
+    stj = np.array( [[vn_entropy(one_site[t, j]) 
+          for j in range(L)] for t in range(T+1)] )
+    return stj
 
-# compute mutual information network for state rho given a list of all
-# single-site entropies (ss_entropy) ordered 0 to L
-# --------------------------------------------------------------------
-'''
+# compute mutual information adjacency matrix at each time step
+# -------------------------------------------------------------
+def mtjk_calc(stj, two_site, L, T):
+        mtjk = np.zeros((T+1, L, L))
+        for t in range(T+1):
+            for j in range(L):
+                for k in range(j, L):
+                    stjk = vn_entropy(two_site[t, j, k])
+                    if j == k:
+                        mtjk[t, j, j] = 0.0
+                    else:
+                        mtjk[t, j, k ] = mtjk[t, k, j] = \
+                                0.5*(stj[t, j] + stj[t, k] - stjk)
 
-def MInetwork(state, ss_entropy):
-    L = int(log(len(state),2)) 
-    MInet = np.zeros((L,L))
-    for i in range(L):
-        MI = 0.0
-        MInet[i][i] = MI
-        for j in range(i,L):
-            if i != j:
-                MI = 0.5 * (ss_entropy[i] + ss_entropy[j] - vn_entropy(state, [i,j]))
-                if MI > 1e-14:
-                    MInet[i][j] = MI
-                    MInet[j][i] = MI
-                if MI<= 1e-14:
-                    MInet[i][j] = 1e-14
-                    MInet[j][i] = 1e-14
-    return MInet
-'''
+        return mtjk
 
-# calculate network measures on state state
-# -----------------------------------------
+# wrappers for nm calculations
+# ----------------------------
 def invharmoniclen(net):
     return nm.harmoniclength(nm.distance(net))
 
 def eveccentrality(net):
     return list(nm.eigenvectorcentralitynx0(net).values())
 
-def NMcalc(net, typ = 'avg', tasks=['CC', 'ND']):
-    
-    NM_dict = { 'avg' : {
+# calculate network measures on state
+# -----------------------------------
+def nm_calc(mtjk, typ = 'scalar', m_tasks=['ND', 'CC', 'Y']):
+    nm_func_dict = { 'scalar' : {
                          'CC'  : nm.clustering,
                          'ND'  : nm.density,
                          'Y'   : nm.disparity,
                          'IHL' : invharmoniclen,
                         },
-                'st'  : { 
+
+                'vector'  : { 
                          'CC'  : nm.localclustering,
                          'Y'   : nm.disparitylattice,
                          'EV'  : eveccentrality,
                          }
               }
-    
-    measures = {} 
-    for key in tasks:
-        measures[key] = NM_dict[typ][key](net)
-    return measures
-    
+    nm_dict = {} 
+    for key in m_tasks:
+        nm_dict[key] = np.array([nm_func_dict[typ][key](mjk) for mjk in mtjk])
+    return nm_dict
 
-# compute the inverse participation ratio
-# ---------------------------------------
+# pull diagonals from a list of matrices
+# --------------------------------------
+def get_diag_vecs(mats):
+    return np.array([mat.diagonal() for mat in mats])
 
-def inv_participation_ratio(L, state):
-    ipr = 0.0
-    for basis_num in range(2**(L+1)):
-        ipr = ipr + abs(state[basis_num])**4
-    if ipr == 0.0:
-        return 0.0
-    return 1.0 / ipr
+# zero out the diagonal of list of matrices
+# -----------------------------------------
+def get_offdiag_mats(mats):
+    L = len(mats[0])
+    mats_out = copy.deepcopy(mats)
+    for t, mat in enumerate(mats_out): 
+        mat[np.arange(L), np.arange(L)] = 0.0
+        mats_out[t] = mat
+    return mats_out
 
+# pull row of constant j from a list of matrices
+# ----------------------------------------------
+def get_row_vecs(mats, j=0):
+    return np.array([mat[j, ::] for mat in mats])
 
-# Measure each state of the time evolution
-# ----------------------------------------
-def simple_measure_sim(params, state_gen, tol=1e-14): 
-    L    = params[ 'L'   ]
-    tmax = params[ 'tmax']
+# extract one and two point correlators
+# -------------------------------------
+def make_moments(moment):
+    one_moment = get_diag_vecs(moment)
+    two_moment = get_offdiag_mats(moment)
+    return one_moment, two_moment
 
-    measures = [0]*(tmax+1)
-    for t, state in enumerate(state_gen): 
+# compute the correlator g_jk(t)
+# ------------------------------
+def gtjk(c1tj, c1tk, c2tjk):
+    gtjk = c1tj * c1tk - c2tjk
+    return gtjk 
 
-        mi_mat = np.zeros((L,L))
-        sjk_mat = np.zeros((L,L))
-        sd_real = [0.0]*L
-        sd_imag = [0.0]*L
-        measure = {} 
+# make spacetime grid of g_jk(t) with fixed j
+# -------------------------------------------
+def g_calc(moment_dict, L, T, g_tasks = {'xx', 'yy', 'zz'}):
+    # initialize dictionary of arrays to hold results 
+    g_dict = {}
+    for task, moment in moment_dict.items():
+        g_dict['g'+task] = np.zeros((T+1, L, L))
 
-        ipr = inv_participation_ratio(L, state) 
+        # extract moments
+        one_moment, two_moment = make_moments(moment)
 
+        for t in range(T+1):
+            for j in range(L):
+               
+                # second loop through the lattice fills g_jk symmetrically
+                for k in range(j, L):
+                    g_dict['g'+task][t, j, k] = g_dict['g'+task][t, k, j] =\
+                          gtjk(one_moment[t, j], one_moment[t, k], two_moment[t, j, k])
+    return g_dict
+
+# calculate the marix of spin moments
+# -----------------------------------
+def moments_calc(one_site, two_site, L, T, moment_tasks=['xx', 'yy', 'zz'] ):
+    # construct 2pt ops for second order moment calculations
+    twopt_ops = {task : mx.listkron([ss.ops[s.upper()]
+        for s in task]) for task in moment_tasks}
+
+    # initialize dictionary of arrays to hold results 
+    moment_dict = {}
+    for task in moment_tasks: 
+        moment_dict[task] = np.zeros((T+1, L, L))
+
+    for t in range(T+1):
         for j in range(L):
-            rj = mx.rdms(state, [j])
-            sd_real[j] = rj.real
-            sd_imag[j] = rj.imag
-
-            sj = vn_entropy(rj)
-            sjk_mat[j,j] = sj
-
-        for j in range(L):
-            for k in range(j+1, L):
-                rjk = mx.rdms(state, [j, k])
-                sjk = vn_entropy(rjk)
-                sjk_mat[j, k] = sjk_mat[k, j] = sjk.real
-                mi_mat[j, k] = mi_mat[k, j] = 0.5 * (sjk_mat[j, j] + sjk_mat[k, k] - sjk).real
-
-        # set small elements to tol 
-        mi_mat = mx.edit_small_vals(mi_mat)
-        s_cuts = mx.edit_small_vals(entropy_of_cut(state), tol=tol )
-        mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
-
-        measure['sdr'] = np.array(sd_real)
-        measure['sdi'] = np.array(sd_imag)
-
-        measure['sjk'] = sjk_mat
-        measure['ipr'] = ipr
-        measure['ec']  = s_cuts
-        measure['mi']  = mi_mat
-        measure['t' ]  = t
-
-        measures[t] = measure
-    
-    results = { 'meta' : {'params':params, 'add_L':1, 'add_R':1} }
-    for key in measure.keys(): 
-        results[key] = np.array([measures[t][key] for t in range(tmax)]) 
-    return results
-
-
-def measure_sim(params, state_gen, tol=1e-14): 
-    L    = params[ 'L'   ]
-    tmax = params[ 'tmax']
-    
-    nz = ss.brhos['1']
-    measures = [0]*(tmax+1)
-
-    r = int(L/4)
-
-    a  = [i for i in range(0, r)]
-    b1 = [i for i in range(r, 2*r)]
-    c  = [i for i in range(2*r, 3*r)]
-    b2 = [i for i in range(3*r, 4*r)]
-    b  = b1 + b2
-
-    for t, state in enumerate(state_gen): 
-        sab = vn_entropy( mx.rdms(state, a+b) )
-        sbc = vn_entropy( mx.rdms(state, b+c) )
-        sb  = vn_entropy( mx.rdms(state, b  ) )
-        sabc = 0.0
-        s_t_topo = sab + sbc - sb - sabc 
-        
-        sr_mat = np.zeros((L,L)) 
-        nz_mat = np.zeros((L,L))
-        mi_mat = np.zeros((L,L))
-        for j in range(L):
-            rj  = mx.rdms(state, [j])
-            sj = vn_entropy(rj)
-            nzj = np.trace( rj.dot(nz) )
+            rtj = one_site[t, j]
             
-            sr_mat[j,j] = sj.real
-            nz_mat[j,j] = nzj.real
-            for k in range(j+1, L):
-                rjk  = mx.rdms(state, [j, k])
-                rk   = mx.rdms(state, [k])
+            # second loop through the lattice fills upper triangle
+            for k in range(j, L):
 
-                sjk  = vn_entropy(rjk)
-                sk   = vn_entropy(rk)
-                nzjk = np.trace( rjk.dot( np.kron(nz, nz) ) )
+                # store one-point moments on diagonals for non-cross correlators
+                if j == k:
+                    if 'xx' in moment_tasks:
+                        moment_dict['xx'][t, j, j] =\
+                                np.trace(rtj.dot(ss.ops['X'])).real
+                    if 'yy' in moment_tasks:
+                        moment_dict['yy'][t, j, j] =\
+                                np.trace(rtj.dot(ss.ops['Y'])).real
+                    if 'zz' in moment_tasks:
+                        moment_dict['zz'][t, j, j] =\
+                                np.trace(rtj.dot(ss.ops['Z'])).real
 
-                sr_mat[j,k] = sr_mat[k,j] = sjk.real
-                nz_mat[j,k] = nz_mat[k,j] = nzjk.real
-                mi_mat[j,k] = mi_mat[k,j] = 0.5 * (sj + sk - sjk).real
+                # store two-point moments symmetrically on off diagonals
+                else:
+                    rtjk = two_site[t, j, k]
 
-        # set small elements to tol 
-        mi_mat = mx.edit_small_vals( mi_mat, tol=tol, replacement=tol)
-        s_cuts = mx.edit_small_vals( entropy_of_cut(state), tol=tol )
-        sr_mat = mx.edit_small_vals( sr_mat, tol=tol )
-        nz_mat = mx.edit_small_vals( nz_mat, tol=tol, replacement=tol )
-        mi_mat[np.arange(L), np.arange(L)] = 0.0   #set diagonals of mi to 0
-        measure = {} 
-        measure['ec'] = s_cuts
-        measure['sr'] = sr_mat
-        measure['nz'] = nz_mat
-        measure['mi'] = mi_mat
-        measure['st'] = s_t_topo
-        measure['t' ] = t
-        measures[t] = measure
-    
-    results = {}
-    for key in measure.keys(): 
-        results[key] = np.array([measures[t][key] for t in range(tmax)])
-    return results
+                    for task in moment_tasks:
+                        moment_dict[task][t, j, k] = moment_dict[task][t, k, j] =\
+                                np.trace( rtjk.dot(twopt_ops[task]) ).real
+    return moment_dict
+
+def stc_calc(bi_partite, L, T, fname):
+    stc = np.zeros((T+1, L-1))
+    for t in range(T+1):
+        for c in range(L-1):
+            rct = bi_partite[c][t]
+            stc[t, c] = vn_entropy(rct)
+    return stc
+
+# measure reduced density matrices. Includes making MI nets and measures
+# -------------------------------------------------------------------------
+def measure(params, force_rewrite = False,
+        moment_tasks = ['xx', 'yy', 'zz'], g_tasks = ['xx', 'yy', 'zz']):
+
+    # detemine if measures have been made for this simulation yet
+    fname = io.file_name(params)
+    f = h5py.File(fname, 'r')
+    meas_ran = 'zz' in f
+    f.close()
+
+    if force_rewrite or not meas_ran:
+        print('Measuring simulation...')
+
+        # ensure zz moment is calculated. That is how the meas_ran is determined
+        if 'zz' not in moment_tasks:
+            moment_tasks.append('zz')
+
+        fname = io.file_name(params)
+        L = params['L']
+        T = params['T']
+        # fname must be populated with one and two site density matricies
+        one_site, two_site, bi_partite = \
+                io.read_hdf5(fname, ['one_site', 'two_site', 'bi_partite'])
+
+        # calculate local von Neumann entropy at each time step t and site j
+        stj = stj_calc(one_site, L, T)
+
+        # calculate local von Neumann entropy of the smaller of each bi-partitioning
+        # of the lattice (cut c) at each time step t.
+        stc = stc_calc(bi_partite, L, T, fname)
+
+        # calculate mutual information adjacency matices (with site indices j, k) at
+        # each time step t.
+        mtjk = mtjk_calc(stj, two_site, L, T)
+
+        # calculate moment matrices (with site indices j, k) j=k holds the one point
+        # correlator. j != k holds the two point correlator.
+        moment_dict = moments_calc(one_site, two_site, L, T, 
+                moment_tasks = ['xx', 'yy', 'zz'])
+
+        # calculate two point correlator matricies. g_tasks must be a subset of moment_tasks
+        g_dict = g_calc(moment_dict, L, T, 
+                g_tasks = ['xx', 'yy', 'zz']) 
+
+        # store von Neumann entropy as a dictonary
+        stj_dict = {'s' : stj}
+
+        # store cut entropy as a dictonary
+        stc_dict = {'sc' : stc}
+
+        # store mutual info matrices as a dictonary
+        mtjk_dict = {'m' : mtjk}
+
+        # apply mutual information measures to the matrices
+        nm_dict = nm_calc(mtjk)
+
+        # collect all results in a single dictionary
+        results = mx.listdicts([moment_dict, g_dict, stj_dict,stc_dict,  mtjk_dict, nm_dict])
+
+        # write the results to the same file
+        io.write_hdf5(fname, results, force_rewrite=force_rewrite)
+    elif not force_rewrite:
+        pass
+    return
+
+if __name__ == "__main__":
+    import fio as io
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    import plotting as pt
+    import time_evolve
+
+    font = {'family':'serif', 'size':10}
+    mpl.rc('font',**font)
+
+    params =  {
+                    'output_dir' : 'testing/state_saving',
+
+                    'L'    : 11,
+                    'T'    : 100,
+                    'mode' : 'block',
+                    'R'    : 150,
+                    'V'    : ['H','T'],
+                    'IC'   : 's10'
+                                    }
+
+    time_evolve.run_sim(params)
+
+    measure(params, force_rewrite=False)
+
+    fname = io.file_name(params)
+
+
+    fig = plt.figure(1)
+    ax = fig.add_subplot(111) 
+    sc = io.read_hdf5(fname, 'sc')
+    pt.plot_grid(sc, ax, title='S_c(i,t)', span=[0, 60], xlabel='cut')
+    plt.show()
 
 

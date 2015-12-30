@@ -212,15 +212,13 @@ def make_state (L, IC):
 if __name__ == '__main__':
     import measures as ms 
     import states as ss
+
     L_list = [4]
 
     # spin down (or |1>) at sites 0 and 2 spin up (or |0>) at 1 and 3
     IC_list = ['l0_2']
 
     for L, IC in zip(L_list, IC_list):
-        
-        print()
-        
         print ("L = ", str(L), " IC = ", str(IC) )
         print('Expect spin down (or |1>) at sites 0 and 2. Spin up (or |0>) at 1 and 3')  
        
@@ -239,5 +237,5 @@ if __name__ == '__main__':
         # of Hermitian ops always give a real result
         meas_list = [np.trace(rho.dot(ss.ops['Z'])).real for rho in rho_list ] 
        
-        print('measurement results along Z axis:')
+        print('expectation value along Z axis:')
         print(meas_list)

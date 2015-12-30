@@ -43,13 +43,10 @@ def clustering(matrix):
     #if there are no closed paths of length
     #three the clustering is automatically
     #set to zero.
-    C = numerator/denominator
-    if numerator==0.0:
-        C = 0.0
-    if C < 1.5:
-        return C
+    if numerator==0.:
+        return 0.
     else:
-        return 0.0
+        return numerator/denominator
 
 def localclustering(matrix):
     l=len(matrix)
@@ -60,9 +57,8 @@ def localclustering(matrix):
         for j in range(l):
             for k in range(j):
                 squaretmp+=matrix[i][j]*matrix[i][k]
-        LC = 0.5*matrixcube[i][i]/squaretmp
-        if LC < 1.5:
-            localclustering.append(LC)
+        if squaretmp!=0:
+            localclustering.append(0.5*matrixcube[i][i]/squaretmp)
         else:
             localclustering.append(0)
         squaretmp=0
@@ -139,7 +135,7 @@ def disparity(matrix):
     denominator=denominator[logos]
     denominator=denominator**2 
     #Check for zero denominator.
-    if sum(denominator)==0.:
+    if sum(denominator)<1e-14:
         return np.nan
     else: 
         return sum(numerator/denominator)

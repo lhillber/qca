@@ -2,383 +2,361 @@
 
 import numpy             as np
 import states            as ss
-import processing        as pp
 import matplotlib        as mpl
 import scipy.stats       as sts
 import scipy.fftpack     as spf
 import matplotlib.pyplot as plt
 import fio               as io
+import measures
+
 from math import pi
-from scipy.ndimage import zoom
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.axes_grid1 import ImageGrid
+from collections import OrderedDict
+import matplotlib.gridspec as gridspec
 
 # default plot font
 # -----------------
-font = {'size':12}
-#font = {'family':'normal', 'weight':'bold', 'size':12}
+font = {'family':'serif','size':12}
 mpl.rc('font',**font)
 
 
-# General plotting utilities
-# ==========================
+# plot spacetime grid on an axis
+# ------------------------------
+def plot_grid(data, ax, nc=1,
+        title='', ylabel='Iteration', xlabel='Site', 
+        xtick_labels=True, ytick_labels=True,
+        nx_ticks=4, ny_ticks=10, wspace=-0.25,
+        cbar=True, cmap=plt.cm.jet, plot_kwargs={}, span=None):
 
-# plot time series
-# ----------------
-def plot_time_series(time_series, title, label='', loc='lower right', fignum=1,
-        ax=111, color='B', cut_first=0, linewidth=0.2, linestyle='-',
-        marker='', markersize=1.5, markeredgecolor='B'):
+    if span is None:
+        span = [0, len(data)]
+
+    L = len(data[0])
+    fig = plt.gcf()
+    im = ax.imshow( data[span[0]:span[1],::],
+                origin = 'lower',
+                cmap = cmap,
+                interpolation = 'none',
+                aspect = '1',
+                rasterized = True,
+                extent=[0, L-1, span[0], span[1]],
+                **plot_kwargs)
+
+    ax.set_title(title)
+    ax.set_ylabel(ylabel) 
+    ax.set_xlabel(xlabel) 
+    ax.xaxis.set_ticks([0, int(L/4), int(2*L/4), int(3*L/4)]) 
+    ax.yaxis.set_ticks(range(span[0], span[1])) 
+    ax.locator_params(axis='x', nbins=nx_ticks)
+    ax.locator_params(axis='y', nbins=ny_ticks)
+    ax.grid( 'on' )
+
+    fig.subplots_adjust(top=0.9, wspace=wspace)
+    if cbar is True:
+        box = ax.get_position()
+        cax = plt.axes([box.x1+wspace/nc, box.y0, 0.01, box.height])
+        cb = plt.colorbar(im, cax = cax)
+        cb.ax.tick_params(labelsize=9) 
+    if not ytick_labels:
+        plt.setp([ax.get_yticklabels()], visible=False)
+    if not xtick_labels:
+        plt.setp([ax.get_xticklabels()], visible=False)
+
+# plot multiple spacetime grids as subplots
+# -----------------------------------------
+def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
+        titles=None, xlabels=None, ylabel='Iteration', suptitle=''):
+    nc = len(grid_data)
+    if titles is None:
+        titles = ['']*nc
+    if xlabels is None:
+        xlabels = ['']*nc
+    gs = gridspec.GridSpec(1, nc)
     fig = plt.figure(fignum)
-    fig.add_subplot(ax)
-    plt.plot(range(cut_first, len(time_series)+cut_first), time_series,
-            label=label, color=color, linestyle=linestyle, linewidth=linewidth, 
-            marker=marker, markersize=markersize, markeredgecolor=color)
-    plt.title(title)
-    plt.legend(loc=loc)
-    plt.tight_layout() 
+    for c, (grid, title, xlabel) in \
+            enumerate(zip(grid_data, titles, xlabels)):
+        ax = fig.add_subplot(gs[c])
+        ytick_labels=False
+        ylabel = ''
+        if c is 0:
+            ytick_labels=True
+            ylabel = ylabel
+        plot_grid(grid, ax, 
+                nc=nc,
+                ylabel=ylabel, 
+                xlabel=xlabel,
+                title=title,
+                ytick_labels=ytick_labels,
+                wspace=wspace,
+                span=span)
+    fig.suptitle(suptitle)
 
-def plot_average_time_series(time_series, title, label='', loc='lower right', 
-        fignum=1, ax=111, tol=.1, color='B'):
 
-    r_avg, n_equib, val_equib, dval_equib = \
-            pp.running_average(time_series, tol=tol)
+# plot time series on an axis
+# ---------------------------
+def plot_time_series(time_series, ax,
+        title='', ylabel='Measure', xlabel='Iteration', 
+        xtick_labels=True, ytick_labels=True, 
+        loc=None, plot_kwargs=None, span=None):
     
-    ts = [n_equib, len(time_series)]
-    ys = [val_equib]*2
-    yerr=[dval_equib, 0]
-    fig = plt.figure(fignum)
-    fig.add_subplot(ax)
-    plt.errorbar(ts, ys, yerr=yerr, marker='o', fmt='-', ms=5, color=color)
-    plt.title(title)
-    plt.legend(loc=loc)
+    if span is None:
+        span = [0, len(time_series)]
+    if plot_kwargs is None:
+        plot_kwargs = {'label':'', 'color':'B',
+                'linewidth':1, 'linestyle':'-', 
+                'marker':'s', 'markersize':1.5, 'markeredgecolor':'B'}
+
+    ax.plot(range(span[0], span[1]), time_series[span[0]:span[1]], **plot_kwargs)
+
+    ax.set_title(title)
+    ax.set_ylabel(ylabel) 
+    ax.set_xlabel(xlabel) 
+
+    if loc is not None:
+        ax.legend(loc=loc)
+    if not ytick_labels:
+        plt.setp([ax.get_yticklabels()], visible=False)
+    if not xtick_labels:
+        plt.setp([ax.get_xticklabels()], visible=False)
     plt.tight_layout() 
 
 # make Fourier transform of time series data
 # ------------------------------------------
-def make_ft(time_series, dt):
+def make_ft(time_series, dt=1):
     time_series = np.nan_to_num(time_series)
     Nsteps = len(time_series)
     times = [n*dt for n in range(Nsteps)]
-    
+
     if Nsteps%2 == 1:
         time_sereis = np.delete(time_series,-1)
         Nsteps = Nsteps - 1
-    
+
+    # dt = 2*pi*dt
     time_series = time_series - np.mean(time_series)
-    amps =  (2.0/Nsteps)*np.abs(spf.rfft(time_series)[0:Nsteps/2])
-    freqs = np.linspace(0.0,1.0/(2.0*dt * (2.0*pi)),Nsteps/2)
+    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])
+    freqs = np.linspace(0.0,1.0/(2.0*dt), Nsteps/2)
     return freqs, amps
 
-# plot Fourier transform
-# ----------------------
-def plot_ft(freqs, amps, dt, title, fignum=1, ax=111, color='B'):
+# plot Fourier transform on an axis
+# ---------------------------------
+def plot_ft(freqs, amps, ax, dt=1,
+        title='', ylabel='Intensity', xlabel='Frequency', 
+        xtick_labels=True, ytick_labels=True, loc=None, plot_kwargs=None):
+
+    if plot_kwargs is None:
+        plot_kwargs = {'label':'', 'color':'B',
+                'linewidth':1, 'linestyle':'-', 
+                'marker':'', 'markersize':1, 'markeredgecolor':'B'}
 
     #Nyquist criterion
-    high_freq = 1.0/(2.0*dt * (2.0*pi))
-    low_freq = 1.0/(dt*len(amps) * (2.0*pi))
-    
+    #dt = 2*pi*dt
+    high_freq = 1.0/(2.0*dt)
+    low_freq = 1.0/(dt*len(amps))
+
     amp_ave = np.mean(amps)
-    fig = plt.figure(fignum)
-    fig.add_subplot(ax)
-    
     if amp_ave>1e-14:
-        plt.semilogy(freqs, amps, color=color)
+        ax.semilogy(freqs, amps, **plot_kwargs)
     else:
-        plt.plot(freqs, amps, color=color)
+        ax.plot(freqs, amps, color=color)
     
-    plt.title(title)
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.set_xlim([low_freq, high_freq])
+    ax.set_ylim(amp_ave/100., 10.*amps.max())
     
-    plt.xlabel('Frequency')
-    plt.xlim([low_freq, high_freq])
-   
-    plt.ylabel('Intensity')
-    plt.ylim(amp_ave/100., 10.*amps.max())
-    
-    #plt.fill_between(freqs, 0, amps)
+    if loc is not None:
+        ax.legend(loc=loc)
+    if not ytick_labels:
+        plt.setp([ax.get_yticklabels()], visible=False)
+    if not xtick_labels:
+        plt.setp([ax.get_xticklabels()], visible=False)
     plt.tight_layout()
 
 
-# plot space time grids
-# ---------------------
-def plot_spacetime_grid(grid_data, title, cmap=plt.cm.jet, norm=None, fignum=1,
-        ax=111, nx_ticks=4, ny_ticks=15):
-
-    vmin, vmax = 0.0, 1.0
-    if np.max(grid_data) > 1.0:
-        vmax = np.max(grid_data)
-    if np.min(grid_data) < 0.0:
-        vmin = np.min(grid_data)
- 
-    x_min = 0
-    x_max = len(grid_data[0])
-    y_min = 0
-    y_max = len(grid_data)
-
-    xtick_lbls = range(x_min, x_max)[::int(x_max/nx_ticks)]
-    xtick_locs = xtick_lbls 
-
-    ytick_lbls = range(y_min, y_max)[::int(y_max/ny_ticks)]
-    ytick_locs = ytick_lbls
+# plot time series of many measures
+# ---------------------------------
+def plot_measures(meas_dict, fignum=1):
+    nr = len(list(meas_dict.keys()))
+    gs = gridspec.GridSpec(nr, 1)
     fig = plt.figure(fignum)
-    fig.add_subplot(ax)
-    plt.imshow(grid_data,
-                    vmin = vmin,
-                    vmax = vmax,
-                    cmap = cmap,
-                    norm = norm,
-                    interpolation = 'none',
-                    aspect = 'auto',
-                    rasterized = True)
-   
-    plt.xticks(xtick_locs, xtick_lbls)
-    plt.yticks(ytick_locs, ytick_lbls)
 
-    plt.title(title)
-    plt.colorbar()
-    plt.tight_layout() 
+    for r, (name, vals) in enumerate(meas_dict.items()):
+        ax = fig.add_subplot(gs[r])
+        xtick_labels=False
+        xlabel = ''
+
+        if r is nr-1:
+            xtick_labels=True
+            xlabel = 'Iteration'
+
+        plot_time_series(vals, ax, 
+                xlabel=xlabel, 
+                ylabel=name, 
+                xtick_labels=xtick_labels)
+
+        ax.grid( 'on' )
+    plt.tight_layout()
 
 
-def plot_projections(grid_data_list, fignum=1, ax = 111, cmap=plt.cm.jet,
-        nx_ticks=3, ny_ticks=10):
+# plot Fourier transform of many measures
+# ---------------------------------------
+def plot_measure_FTs(meas_dict, fignum=1):
+    nr = len(list(meas_dict.keys()))
+    gs = gridspec.GridSpec(nr, 1)
+    fig = plt.figure(fignum)
 
-    n_plots = len(grid_data_list)
+    for r, (name, vals) in enumerate(meas_dict.items()):
+        ax = fig.add_subplot(gs[r])
+        xtick_labels=False
+        xlabel = ''
 
-    fig = plt.figure(fignum) 
-    grid = ImageGrid(fig, ax, 
-            nrows_ncols=(1,3), axes_pad = 0.03, share_all=True, 
-            label_mode = "L")
+        if r is nr-1:
+            xtick_labels=True
+            xlabel = 'Frequency'
 
-    vmin = -1
-    vmax = 1
-    im_ax_list=[]
-    for plt_grid, dat in zip(grid, grid_data_list):
-        im = plt_grid.imshow( dat,
-                        vmin = vmin,
-                        vmax = vmax,
-                        cmap = cmap,
-                        interpolation = 'none',
-                        aspect = 'auto',
-                        rasterized = True)
+        freqs, amps = make_ft(vals)
+        plot_ft(freqs, amps, ax,
+                xlabel=xlabel,
+                ylabel=r'$\mathcal{F}$('+name+')', 
+                xtick_labels=xtick_labels)
 
-        im_ax = im.get_axes( )
-        im_ax.grid( 'on' )
-        im_ax.locator_params(axis='x', nbins=nx_ticks)
-        im_ax.locator_params(axis='y', nbins=ny_ticks)
-        im_ax.xaxis.set_ticks([0,6,12]) 
-        im_ax_list.append(im_ax)
+        ax.grid( 'on' )
+    plt.tight_layout()
 
-    return im, im_ax_list
 
-    
-
-def make_edge_strength_hist(mat, bins=30):
-    edges = [m for mj in mat for m in mj]
-    hist = sts.binned_statistic(edges, edges, statistic='count', bins=bins)[0]
+# make histogram of mutual information adjacency matrix
+# -----------------------------------------------------
+def make_edge_strength_hist(mjk, bins=30, rng=(0,1)):
+    edges = [m for mj in mjk for m in mj]
+    hist, binedges, binnumbers = sts.binned_statistic(edges, edges, 
+            statistic='count', bins=bins, range=rng)
     return hist
 
-def plot_histogram_surface(mi_nets, title, cmap=plt.cm.jet, fignum=1, ax=111,
-        bins=30, smoothing=2):
+# plot histogram of mutual information through time as a contour plot
+# -------------------------------------------------------------------
+def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
+        fignum=1, cmap=plt.cm.jet,
+        title='Mutual information edge strength'):
 
-    tmax = len(mi_nets) 
-    Z = np.asarray([make_edge_strength_hist(mi_nets[t], bins=bins) for t in range(tmax)])
     fig = plt.figure(fignum)
-    axe=fig.add_subplot(ax, projection='3d')
-
-    X = np.linspace(0, 1, bins)
-    Y = np.arange(0, tmax, 1)
-
+    ax = fig.add_subplot(111)
+    
+    T = len(mtjk) 
+    X = np.linspace(rng[0], rng[1], bins)
+    Y = range(0, T, 1)
+    Z = np.asarray([make_edge_strength_hist(mtjk[t], bins=bins, rng=rng) for t in range(T)])
     X, Y = np.meshgrid(X, Y)
-
-    Z = zoom(Z, smoothing)
-    X = zoom(X, smoothing)
-    Y = zoom(Y, smoothing)
-
-    axe.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=plt.cm.jet, 
-                     linewidth=0, antialiased=False)
-
-    zmax = 80
-    axe.set_zlim3d(0,zmax)
-    plt.xlabel('Mutual information')
-    plt.ylabel('time')
-    #plt.zlabel('occurrences')
-
-
-
-# Specific plotting utilities
-# ===========================
-
-# plot probability, discretized probability, and single-site entropy
-# ------------------------------------------------------------------
-def board_plots(rjt, sjt, fignum=1, axs=(131, 132, 133)):
-    n_res      = pp.local_exp_vals(rjt, ss.ops['1'])
-    sj_res     = sjt 
-    disc_n_res = [ [0 if p < 0.5 else 1 for p in p_vec] for p_vec in n_res]
     
-    disc_cmap = mpl.colors.ListedColormap([plt.cm.jet(0.), plt.cm.jet(1.)])
-    bounds = [0,0.5,1]
-    disc_norm = mpl.colors.BoundaryNorm(bounds, disc_cmap.N)
-    
-    titles = [ r'$ \langle n_j \rangle $', \
-               r'$ \lfloor \langle n_j \rangle + 0.5 \rfloor $', \
-               r'$ s_j $' ]
-    
-    results = [n_res, disc_n_res, sj_res]
-    mycmaps = [plt.cm.jet, disc_cmap, plt.cm.jet]
-    norms = [None, disc_norm, None]
-    fig = plt.figure(fignum)
-    for title, res, cmap, norm, ax in zip(titles, results, mycmaps, norms, axs):
-        kwargs = {'cmap': cmap, 'norm': norm, 'fignum' : fignum, 'ax' : ax} 
-        fig.add_subplot(ax)
-        plot_spacetime_grid(res, title, **kwargs)
-        plt.title(title)
-        plt.xlabel('Site number')
-     #   plt.xticks(xtick_locs, xtick_lbls)
-        plt.ylabel('Time')
-    plt.tight_layout() 
+    levels = np.linspace(0, emax, 100)
+    cs = ax.contourf(X, Y, Z, 
+            levels=levels, 
+            origin='lower', 
+            cmap=cmap,
+            rasterize=True)
 
+    fig.colorbar(cs)
+    ax.set_xlabel('Edge strength')
+    ax.set_ylabel('Iteration')
+    ax.set_title('Mutual information edge strength')
 
-# plot entropy of all bi-partite cuts
-# -----------------------------------
-def cut_entropy_plots(results, L, suptitle, fignum=1, axs=(121, 122)):
+# call plotting sequence
+# ----------------------
+def plot(params, j=0):
+    print('Plotting measures...')
+    fname = io.file_name(params)
 
-#    xtick_locs = range(0,L-1,2)
-#    xtick_lbls = xtick_locs
-     
-    EC_res         = results['ec']
-    center_cut_res = (np.array(EC_res).transpose()[int(L/2)]).transpose()
+    # get correlators at constant row j
+    x_g2grid, y_g2grid, z_g2grid =\
+            map(lambda mats: measures.get_row_vecs(mats, j=j), io.read_hdf5(fname, ['gxx', 'gyy', 'gzz']))
 
-    fig =  plt.figure(fignum)
+    # get spin projections along x, y, and z
+    x_grid, y_grid, z_grid =\
+            map(measures.get_diag_vecs, io.read_hdf5(fname, ['xx', 'yy', 'zz']))
 
-    fig.add_subplot(axs[0]) 
-    plot_spacetime_grid(EC_res, 'Entropy of bi-partite cuts', 
-                         cmap=plt.cm.jet, norm=None, fignum=fignum, ax=axs[0])
-    plt.xlabel('Cut number')
-#    plt.xticks(xtick_locs, xtick_lbls)
-    plt.ylabel('Time')
-    
-    fig.add_subplot(axs[1])
-    plot_time_series(center_cut_res, 'Entropy of cut'+str(int(L/2)), 
-                     fignum=fignum, ax = axs[1])
-    plt.xlabel('time')
-    plt.ylabel('Entropy')
-    
-    plt.suptitle(suptitle) 
-    plt.tight_layout() 
+    # get mi measure results and place in ordered dict for plotting
+    nm_keys = ['ND', 'CC', 'Y']
+    meas_list = io.read_hdf5(fname, nm_keys) 
+    meas_dict = OrderedDict( (key,data) 
+            for key, data in zip(nm_keys, meas_list))
 
-# plot network measures
-# ---------------------
-def nm_spacetime_plots(st_data, tasks = ['EV', 'CC', 'Y'], fignum=1):
-    ax = 131 
-    for i, task in enumerate(tasks):
-        dat = st_data[task]
-        title = task
-        plot_spacetime_grid(dat, title, fignum=fignum, ax=ax)
-        plt.ylabel('Time')
-        plt.xlabel('Site number')
-        ax += 1
+    # get local and bond entropies
+    stj = io.read_hdf5(fname, 's')
+    stc = io.read_hdf5(fname, 'sc')
 
-def nm_time_series_plots(avg_data, title, tasks = ['ND', 'CC','Y'], fignum=1, tol=0.1):
-    color_list=['B','G','R']
-    for i, task in enumerate(tasks):
-        dat = avg_data[task]
-        label = task
-        plot_average_time_series(dat, title, label=label, fignum=fignum,
-                color=color_list[i], tol=tol)
-        plot_time_series(dat, title, label=label, fignum=fignum, 
-                loc='upper right', color=color_list[i])
+    # get mutual information adjacency matrices
+    mtjk = io.read_hdf5(fname, 'm')
 
-def nm_ft_plots(avg_data, dt, tasks = ['ND', 'CC','Y'], fignum=1):
-    ax = 311 
-    color_list=['B','G','R']
-    for i, task in enumerate(tasks):
-        title = task
-        dat = avg_data[task]
-        freqs_dat, amps_dat = make_ft(dat, dt)
-        plot_ft(freqs_dat, amps_dat, 1, title, fignum=fignum, ax=ax, color=color_list[i])
-        ax += 1
+    # plot spin projections 
+    plot_grids([x_grid, y_grid, z_grid], 
+            titles=['$X$', '$Y$', '$Z$'],
+            suptitle='Spin projections',
+            fignum=0)
 
-# call for time series plots
-# --------------------------
-def plot_main(params, 
-        st_tasks =['EV', 'CC', 'Y' ], avg_tasks=['ND', 'CC', 'Y'],
-        net_types=['mi'], name=None):
+    # plot two-point correlator w.r.t site j
+    plot_grids([x_g2grid, y_g2grid, z_g2grid], 
+            titles=['$X$', '$Y$', '$Z$'],
+            suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
+            fignum=1)
 
-    R    = params[ 'R'   ]
-    L    = params[ 'L'   ]
-    tmax = params[ 'tmax']
-    output_name = params['output_name']
+    # plot local and bond entropies
+    plot_grids([stj, stc], 
+            titles=[r'$S(i,t)$', r'$S_c(i,t)$'],
+            xlabels=['site', 'cut'],
+            suptitle='von Neumann entropies',
+            wspace=-0.31,
+            fignum=2)
 
-    if name is None:
-        name = io.sim_name(params)
-    else:
-        name = name
+    # plot mi measures and their FT's
+    plot_measures(meas_dict, fignum=3)
+    plot_measure_FTs(meas_dict, fignum=4)
 
-    print('Importing results...')
-    results = io.read_results(params)
-    
-    mi_nets = results['mi']
-    ipr = results['ipr'] 
-    sjt = pp.make_local_vn_entropy(results)
-    
-    
-    plot_tmax = 60
-    
-    rjt_mat = pp.make_rjt_mat(results)[0:plot_tmax:]
-   
-    x_grid  = pp.local_exp_vals(rjt_mat, ss.ops['X'])
-    y_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Y'])
-    z_grid  = pp.local_exp_vals(rjt_mat, ss.ops['Z'])
+    # plot distribution of mutual information over time 
+    plot_edge_strength_contour(mtjk, 
+            bins=60, rng=(0,.3), emax=30, fignum=5)
 
-    #nm_spacetime_grids = pp.measure_networks(mi_nets, typ='st')
-    nm_time_series = pp.measure_networks(mi_nets, typ='avg')
+    # save all figures to one pdf 
+    io.multipage(io.file_name(params, sub_dir='plots', ext='.pdf'))
 
-    plot_projections([x_grid, y_grid, z_grid])
-    
-    # plot_spacetime_grid(x_grid, 'X projection', fignum=1, ax=131)
-    # plot_spacetime_grid(y_grid, 'Y projection', fignum=1, ax=132)
-    # plot_spacetime_grid(z_grid, 'Z projection', fignum=1, ax=133)
-
-    nm_time_series_plots(nm_time_series, 'Mutual information network measures', 
-                        tasks=avg_tasks, fignum=2, tol=0.001)
-
-    nm_ft_plots(nm_time_series, 1, fignum=3)
-
-    #nm_spacetime_plots(nm_spacetime_grids,   tasks=st_tasks , fignum=4)
-
-    cut_entropy_plots(results, L, 'R '+str(R), fignum=5) 
-
-    board_plots(rjt_mat, sjt, fignum=6)
-
-    plot_time_series(ipr, 'Inverse participation ratio', fignum=7, ax=211)
-    
-    freqs_ipr, amps_ipr = make_ft(ipr, 1)
-    plot_ft(freqs_ipr, amps_ipr, 1, '', fignum=7, ax=212)
-
-    #plot_histogram_surface(mi_nets, 'Mutual information distribution', fignum=8,
-    #        smoothing=2, bins=20)    
-
-    io.multipage(io.file_name(output_name, 'plots', name, '.pdf'))    
-
-
-
-if __name__ == '__main__':
-    from math import sin, pi
+def fft_check():
+    from math import sin
     T = 0.03
+    f = 300
     dt = 0.001
-    ts = [n*dt for n in range(100)]
-    ys = [sin(2*pi*t/T) for t in ts]
+    ts = np.array([n*dt for n in range(1000)])
+    ys = np.array([sin(2*pi*t/T) + 2*sin(2*pi*f*t) for t in ts])
 
-    freqs, amps = make_ft(ys, dt) 
-    
+    freqs, amps = make_ft(ys, dt=dt) 
+
     max_index = np.argmax(amps)
     max_amp   = amps[max_index]
     max_freq  = freqs[max_index]
 
-    print(1.0/max_freq, T)
+    fig = plt.figure(1)
+    gs = gridspec.GridSpec(2,1)
 
-    plot_time_series(ys, '', fignum=1, ax=211)
-
-
-    plot_ft(freqs, amps, dt, '', fignum = 1, ax=212)
-
+    plot_time_series(ys, plt.subplot(gs[0]))
+    plot_ft(freqs, amps, plt.subplot(gs[1]), dt=dt)
+    plt.subplot(gs[1]).scatter(max_freq, max_amp)
+    print('freq found: ',max_freq,' given freq: ', f)
     plt.show()
+
+if __name__ == '__main__':
+    import time_evolve
+    params =  {
+                    'output_dir' : 'testing/state_saving',
+
+                    'L'    : 12,
+                    'T'    : 100,
+                    'mode' : 'block',
+                    'R'    : 150,
+                    'V'    : ['H','T'],
+                    'IC'   : 'l0'
+                                    }
+
+    time_evolve.run_sim(params, force_rewrite=False)
+    measures.measure(params, force_rewrite=False)
+    plot(params)
+
+
+
+
