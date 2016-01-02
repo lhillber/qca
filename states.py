@@ -1,5 +1,16 @@
 #!/usr/bin/python3
 
+# =============================================================================
+# This file is used to store useful matricies as a global constans in a
+# dictionary. It also enables the creation of quantum states. These are used as
+# initial states in the qca project. the make_state function takes a littice
+# size L and a state spec IC, which is either a string or a list of tuples. The
+# List of tuples is for global superpositions: each tuple is a coefficient and a
+# string 
+# Examples are provided below in the default behavior of this file. 
+# =============================================================================
+
+
 from cmath import sqrt, sin, cos, exp, pi
 import numpy as np
 import matrix as mx
@@ -26,7 +37,7 @@ ops = {
 
         'S' : np.array( [[1.0,  0.0 ],[0.0 , 1.0j]], dtype=complex ),
         'T' : np.array( [[1.0,  0.0 ],[0.0 , exp(1.0j*pi/4.0)]], dtype=complex ),
- 
+
         '0' : np.array( [[1.0,   0.0],[0.0,   0.0]], dtype=complex ),
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
       }
@@ -200,7 +211,7 @@ def make_state (L, IC):
         config = IC[1:]
         state = smap[name](L, config)
 
-    if type(IC) == list:
+    elif type(IC) == list:
         for s in IC: 
                 name = s[0][0]
                 config = s[0][1:]
@@ -213,6 +224,39 @@ if __name__ == '__main__':
     import measures as ms 
     import states as ss
 
+
+    L = 8
+    T = 0
+    IC = 'r5'
+
+    state = make_state(L, IC)
+    rj = np.asarray([mx.rdms(state, [j]) for j in range(L)])
+    zj = np.asarray([np.trace(r.dot(ops['Z'])) for r in rj])
+    r0k = np.asarray([mx.rdms(state, [0,k]) for k in range(1, L)]) 
+    z0k = np.asarray([1.0]+[np.trace(r.dot(np.kron(ops['Z'], ops['Z']))) for r in r0k])
+    
+    g = z0k - zj[0]*zj
+    print(zj)
+    print(g)
+    print()
+
+    one_site = np.zeros((T+1, L, 2, 2), dtype = complex)
+    two_site = np.zeros((T+1, L, L, 4, 4), dtype = complex)
+    for t in range(T+1):
+        for j in range(L):
+            rtj = mx.rdms(state, [j])
+            one_site[t, j] = rtj[::]
+            for k in range(j+1, L):
+                rtjk = mx.rdms(state, [j, k])
+                two_site[t, j, k] = two_site[t, k, j] = rtjk[::]
+
+    moment_dict = ms.moments_calc(one_site, two_site, L, T)
+    g_dict = ms.g_calc(moment_dict, L, T)
+    
+    print('gzz')
+    print(ms.get_row_vecs(g_dict['gzz'], j=0))
+    print()
+    print()
     L_list = [4]
 
     # spin down (or |1>) at sites 0 and 2 spin up (or |0>) at 1 and 3
@@ -239,3 +283,4 @@ if __name__ == '__main__':
        
         print('expectation value along Z axis:')
         print(meas_list)
+

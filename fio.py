@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from os import environ, makedirs
+from os.path import isfile
 from collections import namedtuple, Iterable, OrderedDict
 
 import numpy as np
@@ -117,9 +118,13 @@ def json_to_data(s):
 def make_IC_name(IC):
     if type(IC) is str:
         return IC
-    else:
+
+    elif type(IC) is list:
         return '-'.join(['{:0.3f}{}'.format(val.real, name) \
                     for (name, val) in IC])
+
+    elif type(IC) is np.ndarray():
+        return 'custom'
 
 # string describing center site update op (V):
 # --------------------------------------------
@@ -132,8 +137,14 @@ def make_V_name(V):
 # string describing simulation parameters
 # ---------------------------------------
 def sim_name(params, IC_name=None, V_name=None):
-    sname = "{}_L{}_T{}_R{}".format(
-            params['mode'], params['L'], params['T'], params['R'])
+    sname = "{}_L{}_T{}".format(
+            params['mode'], params['L'], params['T'])
+
+    if 'S' in params:
+        sname = sname + '_S' + str(params['S'])
+
+    elif 'R' in params:
+        sname = sname + '_R' + str(params['R'])
 
     if V_name is None:
         sname = sname + '_V' + make_V_name(params['V'])
@@ -160,29 +171,40 @@ def base_name(output_dir, sub_dir):
 
 # default path to a file to be opened
 # -----------------------------------
-def default_file_name(output_dir, sub_dir, name, ext, v=0):
-    return base_name(output_dir, sub_dir) + name +'_v'+str(v) + ext
+def default_file_name(params, sub_dir, ext, v=0, IC_name=None, V_name=None):
+    output_dir = params['output_dir']
+    sname = sim_name(params, IC_name=IC_name, V_name=V_name)
+    return base_name(output_dir, sub_dir) + sname +'_v'+str(v) + ext
 
 # make default or use suppled file name
 # -------------------------------------
-def file_name(params, sub_dir='data', ext='.hdf5'):
+def make_file_name(params, sub_dir='data', ext='.hdf5', iterate=False):
     # check for a full path to save results to
     if 'fname' in params:
         fname = params['fname']
 
     # otherwise create default location and file name 
     else:
-        output_dir = params['output_dir']
-        ic_name = make_IC_name(params['IC'])
-        fname = default_file_name(output_dir, sub_dir, sim_name(params), ext)
+        if 'IC_name' in params:
+            IC_name = params['IC_name']
+        else:
+            IC_name = make_IC_name(params['IC'])
+        if 'V_name' in params:
+            V_name = params['V_name']
+        else:
+            V_name = make_V_name(params['V'])
+        fname = default_file_name(params, sub_dir, ext, 
+                v=0, IC_name=IC_name, V_name=V_name)
 
         # make a unique name for IC's made with a random throw
-        # NOTE: the name will be unique, but not properly numbered, FIX THIS
-        if ic_name[0] == 'r' and isfile(fname):
-            fname_list = list(fname) 
-            fname_list[-5] = str(eval(fname[-5])+1)
-            fname = ''.join(fname_list)
-
+        # iterate MIGHT cause a race condition when running sims in parallel
+        if iterate and isfile(fname):
+            v = eval(fname.split('/')[-1].split('v')[1].split('.')[0])
+            while isfile(fname):
+                fname = default_file_name(params, sub_dir, ext, 
+                        v=v, IC_name=IC_name, V_name=V_name)
+                v = v+1
+    h5py.File(fname, 'a').close()
     return fname
 
 
@@ -247,6 +269,7 @@ def read_hdf5(fname, keys):
                 dat[i] = gdat
             elif isinstance(f[key], h5py.Dataset):
                 dat[i] = f[key][::]
+
     f.close()
     return dat
 
@@ -288,11 +311,11 @@ if __name__ == '__main__':
                 'output_dir' : 'testing/state_saving',
 
                 'L'    : 15,
-                'T' : 1,
+                'T'    : 1,
                 'mode' : 'sweep',
                 'R'    : 102,
-                'V'    : ['H','X'],
+                'V'    : 'HX',
                 'IC'   : 'c1s0'
                                    }
 
-    print(sim_name(params))
+    print(make_file_name(params, iterate=False))

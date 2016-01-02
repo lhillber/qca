@@ -43,12 +43,12 @@ def make_V(V, s):
     return s*V + (1-s)*ss.ops['I']
 
 
-def make_U(S, V, R=False):
+def make_U(S, V, use_R=False):
     # expand S into 4 digits of binary. 15 possible unitary ECAs 
     # MSB comes first in the list: [s11, s10, s01, s00]
     Sb = np.array(mx.dec_to_bin(S, 4))
 
-    if R is True:
+    if use_R is True:
         # first arg interpreted as the usual ECA code number
 
         # compute swap rule with XOR 204, expand and extract S
@@ -143,11 +143,18 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
     L = params['L'] 
     T = params['T']
     mode = params['mode']
-    R = params['R']
     V = mx.listdot([ss.ops[k] for k in params['V']])
-    
+
+    if 'R' in params: 
+        use_R = True
+        S = params['R']
+
+    elif 'S' in params:
+        use_R = False
+        S = params['S']
+
     # make update operators for left/right boundaries and th bulk
-    Ul, Uj, Ur = make_U(R, V, R=True)
+    Ul, Uj, Ur = make_U(S, V, use_R=use_R)
     
     # If no state supplied, make from the IC param
     if state is None:
@@ -238,15 +245,26 @@ def inv_participation_ratio(L, state):
 # -----------------------------------------------------------------------------
 def run_sim(params, force_rewrite = False,
         sim_tasks=['one_site', 'two_site', 'bi_partite']):
-    # collect params needed for initialization
-    L = params['L']
-    T = params['T']
-    
-    fname = io.file_name(params)
-    
+
+    # create the full path to where data will be stored
+    fname = io.make_file_name(params, iterate = False)
+
+    # see if sim has already ran
+    f = h5py.File(fname, 'r')
+    sim_ran = 'one_site' in f
+    f.close()
+
     # check if file already exists and, if so, if it should be re-written
-    if not isfile(fname) or force_rewrite:
+    if not sim_ran or force_rewrite:
         print('Running simulation...')
+
+        # ensure one site rhos are calculated. That is how the sim_ran is determined
+        if 'one_site' not in sim_tasks:
+            sim_tasks.append('one_site')
+
+        # collect params needed for initialization
+        L = params['L']
+        T = params['T']
 
         # initialize arrays for data collection
         data = {}
@@ -286,12 +304,11 @@ def run_sim(params, force_rewrite = False,
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
                     cdata['bi_partite/cut'+str(cut)][t][::] = rtc[::]
                     io.write_hdf5(fname, cdata)
+
         # write the simulation results to disk
         io.write_hdf5(fname, data, force_rewrite=force_rewrite)
-    elif not force_rewrite:
-        pass
 
-    return
+    return fname
 
 
 

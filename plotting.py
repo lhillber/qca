@@ -61,6 +61,43 @@ def plot_grid(data, ax, nc=1,
     if not xtick_labels:
         plt.setp([ax.get_xticklabels()], visible=False)
 
+# plot space or time averages of grids
+# -----------------------------------
+def plot_grid_avgs(data, ax, avg='space',
+        title='', ylabel=None, xlabel=None,
+        xtick_labels=True, ytick_labels=True, 
+        plot_kwargs={}, span=None):
+
+    if avg is 'space':
+        if ylabel is None: 
+            ylabel = 'Average' 
+        else: ylabel = ylabel
+        if xlabel is None: 
+            xlabel = 'Iteration' 
+        else: xlabel
+        axis = 1
+
+    if avg is 'time':
+        if ylabel is None: 
+            ylabel = 'Average' 
+        else: ylabel = ylabel
+        if xlabel is None: 
+            xlabel = 'Site' 
+        else: xlabel
+        axis = 0
+
+    data = (1.0-data)/2
+    data = np.mean(data, axis=axis)
+
+    plot_time_series(data, ax,
+        title=title, ylabel=ylabel, xlabel=xlabel, 
+        xtick_labels=xtick_labels, ytick_labels=ytick_labels, 
+        plot_kwargs=plot_kwargs, span=span)
+
+def plot_grid_with_avgs(data, fignum):
+    ax = plt.figure(fignum).add_subplot(111)
+
+
 # plot multiple spacetime grids as subplots
 # -----------------------------------------
 def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
@@ -154,9 +191,9 @@ def plot_ft(freqs, amps, ax, dt=1,
 
     amp_ave = np.mean(amps)
     if amp_ave>1e-14:
-        ax.semilogy(freqs, amps, **plot_kwargs)
+        ax.semilogy(freqs, amps, )
     else:
-        ax.plot(freqs, amps, color=color)
+        ax.plot(freqs, amps, **plot_kwargs)
     
     ax.set_title(title)
     ax.set_ylabel(ylabel)
@@ -247,7 +284,7 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
     Z = np.asarray([make_edge_strength_hist(mtjk[t], bins=bins, rng=rng) for t in range(T)])
     X, Y = np.meshgrid(X, Y)
     
-    levels = np.linspace(0, emax, 100)
+    levels = np.linspace(0, emax, 20)
     cs = ax.contourf(X, Y, Z, 
             levels=levels, 
             origin='lower', 
@@ -261,9 +298,8 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
 
 # call plotting sequence
 # ----------------------
-def plot(params, j=0):
+def plot(params, fname, force_rewrite=False, j=0):
     print('Plotting measures...')
-    fname = io.file_name(params)
 
     # get correlators at constant row j
     x_g2grid, y_g2grid, z_g2grid =\
@@ -292,30 +328,61 @@ def plot(params, j=0):
             suptitle='Spin projections',
             fignum=0)
 
+    ax1 = plt.figure(1).add_subplot(111)
+    plot_grid_avgs(z_grid, ax1,
+            avg = 'space',
+            title='Excitation density',
+            ylabel='average No. spin down',
+            )
+
+    ax2 = plt.figure(2).add_subplot(111)
+    plot_grid_avgs(z_grid, ax2,
+            avg = 'time',
+            title='Excitation density',
+            ylabel='average No. spin down',
+            )
+
     # plot two-point correlator w.r.t site j
     plot_grids([x_g2grid, y_g2grid, z_g2grid], 
             titles=['$X$', '$Y$', '$Z$'],
             suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
-            fignum=1)
+            fignum=3)
 
     # plot local and bond entropies
     plot_grids([stj, stc], 
             titles=[r'$S(i,t)$', r'$S_c(i,t)$'],
             xlabels=['site', 'cut'],
             suptitle='von Neumann entropies',
-            wspace=-0.31,
-            fignum=2)
+            wspace=-0.29,
+            fignum=4)
 
     # plot mi measures and their FT's
-    plot_measures(meas_dict, fignum=3)
-    plot_measure_FTs(meas_dict, fignum=4)
+    plot_measures(meas_dict, fignum=5)
+    plot_measure_FTs(meas_dict, fignum=6)
 
     # plot distribution of mutual information over time 
     plot_edge_strength_contour(mtjk, 
-            bins=60, rng=(0,.3), emax=30, fignum=5)
+            bins=60, rng=(0,.1), emax=25, fignum=7)
 
+    # iterate version numbers for random throw IC's
+    iterate = False
+    if params['IC'][0] == 'r':
+        iterate = True 
+
+    # create the full path to where data will be stored
+    out_fname = io.make_file_name(params, sub_dir='plots', ext='.pdf', iterate = iterate)
+
+    io.base_name(params['output_dir'], 'plots')
+    path_list = fname.split('/')
+    sub_dir_ind = path_list.index('data')
+    path_list[sub_dir_ind] = 'plots'
+    path_ext_list = '/'.join(path_list).split('.')
+    path_ext_list[1] = '.pdf'
+    out_fname = ''.join(path_ext_list)
+    print(fname)
+    print(out_fname)
     # save all figures to one pdf 
-    io.multipage(io.file_name(params, sub_dir='plots', ext='.pdf'))
+    io.multipage(out_fname)
 
 def fft_check():
     from math import sin
@@ -353,10 +420,10 @@ if __name__ == '__main__':
                     'IC'   : 'l0'
                                     }
 
-    time_evolve.run_sim(params, force_rewrite=False)
-    measures.measure(params, force_rewrite=False)
-    plot(params)
+    fname = time_evolve.run_sim(params, force_rewrite=False)
+    measures.measure(params, fname, force_rewrite=False)
+    plot(params, fname)
 
-
+    #fft_check()
 
 

@@ -67,15 +67,6 @@ plt.legend()
 # update op
 # ---------
 
-G = np.array([[0,1,0,0,0,0,0,0],
-              [0,0,1,0,0,0,0,0],
-              [0,0,0,1,0,0,0,0],
-              [0,0,0,0,1,0,0,0],
-              [0,0,0,0,0,1,0,0],
-              [0,0,0,0,0,0,1,0],
-              [0,0,0,0,0,0,0,1],
-              [1,0,0,0,0,0,0,0]])
-
 for R in range(256):
     T = sweep.local_update_op(R)
     I = np.eye(8)
@@ -84,10 +75,8 @@ for R in range(256):
     TTd = T.dot(Tdag)
     unitaryQ = np.array_equal(TdT, I) and np.array_equal(TTd, I) 
     if unitaryQ is True:
-        TG = T.dot(G)
-        GT = G.dot(T)
         print(R, mx.dec_to_bin(R^204,8))
-        print(T)
+        #print(T)
 
 
 
