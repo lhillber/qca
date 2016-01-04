@@ -192,7 +192,7 @@ def inds_gen(js, L):
 def op_on_state(meso_op, js, state):
     js = js[::-1]
     L = int( log(len(state), 2) )
-    new_state = np.array([0.0]*(2**L), dtype=complex)
+    new_state = np.zeros((2**L), dtype=complex)
     for inds in inds_gen(js, L):
         new_state[inds] = meso_op.dot(state.take(inds))
     return new_state

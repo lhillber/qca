@@ -16,15 +16,15 @@ import fio as io
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'allS_bs/GW'
+output_dir = 'testing'
 
-mode_list = ['block', 'sweep']
+mode_list = ['block']
 
-IC_list = ['G','W']
+IC_list = ['G']
 
-S_list = range(16)
+S_list = [6]
 
-V_list = ['H']
+V_list = ['HX']
 
 L_list = [15]
 

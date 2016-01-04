@@ -2,41 +2,67 @@
 
 By Logan Hillberry
 
-This project aims to simulate a quantum versions of the 256 elementary cellular automata (ECA/QECA). 
-Enumerate the the possible cellular automata by the rule number R (between 0 and 255). 
-Expand R in binary to 8 bits then enumerate the bits by increasing significance. 
-The binary expansion of each bit's significance represents the state of a neighborhood and the bit itsel
-represents the the next state of the centered neighbor if the neighborhood is indeed in that state. 
-I'll call a pairing like this a rule element; each ECA has 8 rule elements. The rule number and its 
-corresponding rule elements provides all the information needed to evolve any ECA. For example the 
-update table for rule 210 is
+The project enables the simulation of quantum elementary cellular automata.
+Dependencies include: python3, numpy, scipy, matplotlib, mpi4py, and h5py.
+Simulations are done in 3
 
-              111  110  101  100  011  010  001 000       <-- possible neighborhoods (LSB = 0 to MSB = 7)
-               1    1    0    1    0    0    1   0        <-- resulting state of center (210 in binary)
+The file run.py contains a dictionary of parameters which specify the simulation.
+The keys include:
 
-To make a QECA, we first reshape the rule elements by the state of the neighbors (excluding the center site's state)
-Thus there are four possible neighbor configurations 11, 10, 01, and 00. For each of these neighbor configurations, 
-the center site may take the value 1 or 0. 
+'output_dir' : name of a directory that will be created where automatically
+named data and plot files will be placed (into sub directories called data and
+plots respectively). Note, paths are found by assuming a 'documents' folder in
+the user's home directory (note the lowercase d).
 
-                                1 1   1 0   0 1   0 0      <-- Possible neighbors (LSB = 0 to MSB = 3)
-                                 ^     ^     ^     ^
-                                1 0   1 0   1 0   1 0      <-- possibe center values (either 1 or 0)
-                                1 0   1 1   0 1   0 0      <-- resulting state of center (reshaped) 
-                              
- Notice that having a 1 0 in the last row implies a state maps to itself, 0 1 maps two states into eachother,
- and 1 1 and 0 0 both map two different states into the same state. Thus, having a 1 1 or 0 0 in the reshaped rule
- implies non-unitary evolution. To handel the non-unitary evolution we will use the operator-sum formalism.
- The basic idea is to create two operator elements for any given rule number. The updating of sites is done
- by allowing each grouping of the reshaped ule number contributes a term to one or both of the operator elements. 
- The "unitary groupings" (i.e. 1 0 and 0 1) conribue to only the first operator element ( I and \sigma_x, respectivly) 
- while the "non-unitary groupings" (i.e 1 1 and 0 0) contribute a term to both operators: 
- 0 0 gives |0><0| to the first and |0><1| to the second while 1 1 gives |1><1| to first and |1><1| to second.
- 
- There is additional structure to the operator elements which reads the state of a site's neighbors so the correct
- update is applied. This program simulates an ECA by first appending the initial state (a density matrix) to itself,
- and reading the appended copy while updating the original, one site at a time. Note that this severly limits the
- possible size of simulations because we are using a Hilbert space of dim d^2 to simulate the dynamics of our littice
- with dim d. 
- 
- It is also possible to simultaniously simulate several ECA rules at once and mix their results at each step. 
- This allows one to think about engineering entanglement dynamics.
+'fname' :  if this key is provided, 'output_dir' is not required (and thus
+ignored) and files are saved to a **full path** provided by fname. This feature isn't currently well tested.
+
+'mode' : specify with a string 'sweep' or 'block'
+
+'V' : a list of strings representing 1-qubit operators which will be multiplied
+together to make the local update operation. Note ['X'] corresponds to classical
+ECA. Other examples include ['H'] and ['H', 'X', 'T']. The string must be a key
+in the ops dictionary provided in the file states.py.
+
+'R' : an integer representing a unitary ECA rule code indexed from 0 to 255
+(only 16 of which are unitary)
+
+'S' : (use instead of 'R', never both) an integer enumerating the 16 unitary
+ECA's. See time_evolve.py for the correspondence between R and S.
+
+'IC': a string specifying the initial condition. The sting must be
+interpretable by the functions in states.py (see that file for examples). Also
+accepts a list of tuples to specify global super positions. The tuple contains
+an IC string and a weighting coefficient for the superposition. 
+The sum of the squares of the weightings must be one. For example 'l0' is a single spin-down
+(|1>) at site index zero in an otherwise spin-up lattice, while [(1.0/sqrt(2),
+'l0'), (-1.0/sqrt(2), 'l1')] is a singlet between sites 0 and 1 in an otherwise
+spin-up lattice.
+
+'L' : an integer specifying the length of the lattice. Must be larger than 3,
+and probably smaller than 20 for now. Simulation time scales exponentially with
+system size (with a base of about 2.1). Note that the site index j runs from 0
+to L-1, 0 being the leftmost qubit.
+
+'T' : an integer specifying the number of iterations through which the eca will
+be simulated. Timing scales roughly linearly.
+
+Inside of run.py, the user my specify lists of all of the above parameters which
+will then be nested to make a list of simulation dictionaries.
+One could also construct a list of simulation dictionaries by zipping together the lists of
+each individual parameter; this would require all the lists to be the same
+length. Then, each independent simulation is run in parallel up to the number of
+cores available on the machine.
+
+To run a simulation, use the following Linux terminal command while in the
+directory containing the scripts.
+
+```
+exec -np <n> python run.py
+```
+where n is the number of cores available on the machine (8 for my 4 core
+hyper-threaded i7).
+
+
+
+

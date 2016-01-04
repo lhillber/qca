@@ -6,6 +6,7 @@ import matplotlib        as mpl
 import scipy.stats       as sts
 import scipy.fftpack     as spf
 import matplotlib.pyplot as plt
+import matplotlib.transforms as trans
 import fio               as io
 import measures
 
@@ -13,9 +14,10 @@ from math import pi
 from collections import OrderedDict
 import matplotlib.gridspec as gridspec
 
+
 # default plot font
 # -----------------
-font = {'family':'serif','size':12}
+font = {'family':'serif','size':10}
 mpl.rc('font',**font)
 
 
@@ -31,6 +33,7 @@ def plot_grid(data, ax, nc=1,
         span = [0, len(data)]
 
     L = len(data[0])
+    T = len(data)
     fig = plt.gcf()
     im = ax.imshow( data[span[0]:span[1],::],
                 origin = 'lower',
@@ -44,14 +47,19 @@ def plot_grid(data, ax, nc=1,
     ax.set_title(title)
     ax.set_ylabel(ylabel) 
     ax.set_xlabel(xlabel) 
+    ax.set_xlim(0, L-1)
+    ax.set_ylim(span[0], span[1])
     ax.xaxis.set_ticks([0, int(L/4), int(2*L/4), int(3*L/4)]) 
     ax.yaxis.set_ticks(range(span[0], span[1])) 
     ax.locator_params(axis='x', nbins=nx_ticks)
     ax.locator_params(axis='y', nbins=ny_ticks)
-    ax.grid( 'on' )
+    ax.grid(True)
+
+
 
     fig.subplots_adjust(top=0.9, wspace=wspace)
     if cbar is True:
+        im_ext = im.get_extent()
         box = ax.get_position()
         cax = plt.axes([box.x1+wspace/nc, box.y0, 0.01, box.height])
         cb = plt.colorbar(im, cax = cax)
@@ -66,7 +74,8 @@ def plot_grid(data, ax, nc=1,
 def plot_grid_avgs(data, ax, avg='space',
         title='', ylabel=None, xlabel=None,
         xtick_labels=True, ytick_labels=True, 
-        plot_kwargs={}, span=None):
+        nx_ticks=None, ny_ticks=None,
+        plot_kwargs={}, span=None, rotate=False):
 
     if avg is 'space':
         if ylabel is None: 
@@ -86,16 +95,56 @@ def plot_grid_avgs(data, ax, avg='space',
         else: xlabel
         axis = 0
 
-    data = (1.0-data)/2
     data = np.mean(data, axis=axis)
 
     plot_time_series(data, ax,
         title=title, ylabel=ylabel, xlabel=xlabel, 
         xtick_labels=xtick_labels, ytick_labels=ytick_labels, 
-        plot_kwargs=plot_kwargs, span=span)
+        nx_ticks=nx_ticks, ny_ticks=ny_ticks,
+        plot_kwargs=plot_kwargs, span=span, rotate=rotate)
 
 def plot_grid_with_avgs(data, fignum):
-    ax = plt.figure(fignum).add_subplot(111)
+    fig = plt.figure(fignum)
+    L = len(data[0])
+    T = len(data)
+    gs = gridspec.GridSpec(100, 100, bottom=0.15, left=0.15, right=0.95)
+
+    dx=1
+    dy=2
+    w1=12
+    w2=16
+    h=16
+    axC = fig.add_subplot(gs[h+dy:, w1+dx:w1+dx+w2])
+    axT = fig.add_subplot(gs[0   :h,w1+dx:w1+dx+w2], sharex=axC)
+    axR = fig.add_subplot(gs[h+dy:, 0:w1], sharey=axC)
+
+    axC.spines['right'].set_position(('data',L-1))
+    axC.spines['left'].set_position(('data',0))
+    axC.spines['top'].set_position(('data', T))
+    axC.spines['bottom'].set_position(('data',0))
+    axT.spines['right'].set_position(('data',L-1))
+    axT.spines['left'].set_position(('data',0))
+
+    axC.spines['right'].set_smart_bounds(True)
+    axC.spines['left'].set_smart_bounds(True)
+    axC.spines['top'].set_smart_bounds(True)
+    axC.spines['bottom'].set_smart_bounds(True)
+    axT.spines['right'].set_smart_bounds(True)
+    axT.spines['left'].set_smart_bounds(True)
+    axT.spines['top'].set_smart_bounds(True)
+    axT.spines['bottom'].set_smart_bounds(True)
+
+    extent = axC.get_window_extent().transformed(plt.gcf().dpi_scale_trans.inverted())
+    data = (1.0-data)/2
+
+    plot_grid(data, axC, cbar=False,
+            ytick_labels=False, xlabel='Site', ylabel='')
+
+    plot_grid_avgs(data, axR, avg='space', rotate=True, 
+    ylabel='Iteration', xlabel='', title = 'spatial      ', nx_ticks=4)
+
+    plot_grid_avgs(data, axT, avg='time', xtick_labels=False,
+            title='temporal', xlabel='', ylabel='', ny_ticks=4)
 
 
 # plot multiple spacetime grids as subplots
@@ -132,8 +181,8 @@ def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
 # ---------------------------
 def plot_time_series(time_series, ax,
         title='', ylabel='Measure', xlabel='Iteration', 
-        xtick_labels=True, ytick_labels=True, 
-        loc=None, plot_kwargs=None, span=None):
+        xtick_labels=True, ytick_labels=True, nx_ticks=None, ny_ticks=None,
+        loc=None, plot_kwargs=None, span=None, rotate=False):
     
     if span is None:
         span = [0, len(time_series)]
@@ -142,11 +191,23 @@ def plot_time_series(time_series, ax,
                 'linewidth':1, 'linestyle':'-', 
                 'marker':'s', 'markersize':1.5, 'markeredgecolor':'B'}
 
-    ax.plot(range(span[0], span[1]), time_series[span[0]:span[1]], **plot_kwargs)
+    indep_var = range(span[0], span[1])
+    dep_var = time_series[span[0]:span[1]]
+
+    if rotate:
+        ax.plot(dep_var, indep_var,  **plot_kwargs)
+
+    else:
+        ax.plot(indep_var, dep_var,  **plot_kwargs)
 
     ax.set_title(title)
     ax.set_ylabel(ylabel) 
     ax.set_xlabel(xlabel) 
+
+    if nx_ticks is not None:
+        ax.locator_params(axis='x', nbins=nx_ticks)
+    if ny_ticks is not None:
+        ax.locator_params(axis='y', nbins=ny_ticks)
 
     if loc is not None:
         ax.legend(loc=loc)
@@ -154,7 +215,6 @@ def plot_time_series(time_series, ax,
         plt.setp([ax.get_yticklabels()], visible=False)
     if not xtick_labels:
         plt.setp([ax.get_xticklabels()], visible=False)
-    plt.tight_layout() 
 
 # make Fourier transform of time series data
 # ------------------------------------------
@@ -207,7 +267,6 @@ def plot_ft(freqs, amps, ax, dt=1,
         plt.setp([ax.get_yticklabels()], visible=False)
     if not xtick_labels:
         plt.setp([ax.get_xticklabels()], visible=False)
-    plt.tight_layout()
 
 
 # plot time series of many measures
@@ -232,7 +291,6 @@ def plot_measures(meas_dict, fignum=1):
                 xtick_labels=xtick_labels)
 
         ax.grid( 'on' )
-    plt.tight_layout()
 
 
 # plot Fourier transform of many measures
@@ -317,6 +375,7 @@ def plot(params, fname, force_rewrite=False, j=0):
 
     # get local and bond entropies
     stj = io.read_hdf5(fname, 's')
+
     stc = io.read_hdf5(fname, 'sc')
 
     # get mutual information adjacency matrices
@@ -326,26 +385,14 @@ def plot(params, fname, force_rewrite=False, j=0):
     plot_grids([x_grid, y_grid, z_grid], 
             titles=['$X$', '$Y$', '$Z$'],
             suptitle='Spin projections',
+            wspace=-0.20,
             fignum=0)
-
-    ax1 = plt.figure(1).add_subplot(111)
-    plot_grid_avgs(z_grid, ax1,
-            avg = 'space',
-            title='Excitation density',
-            ylabel='average No. spin down',
-            )
-
-    ax2 = plt.figure(2).add_subplot(111)
-    plot_grid_avgs(z_grid, ax2,
-            avg = 'time',
-            title='Excitation density',
-            ylabel='average No. spin down',
-            )
 
     # plot two-point correlator w.r.t site j
     plot_grids([x_g2grid, y_g2grid, z_g2grid], 
             titles=['$X$', '$Y$', '$Z$'],
             suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
+            wspace=-0.20,
             fignum=3)
 
     # plot local and bond entropies
@@ -356,13 +403,16 @@ def plot(params, fname, force_rewrite=False, j=0):
             wspace=-0.29,
             fignum=4)
 
+    # plot probabilities of spin down and space/time averages
+    plot_grid_with_avgs(z_grid, 5)
+
     # plot mi measures and their FT's
-    plot_measures(meas_dict, fignum=5)
-    plot_measure_FTs(meas_dict, fignum=6)
+    plot_measures(meas_dict, fignum=6)
+    plot_measure_FTs(meas_dict, fignum=7)
 
     # plot distribution of mutual information over time 
     plot_edge_strength_contour(mtjk, 
-            bins=60, rng=(0,.1), emax=25, fignum=7)
+            bins=60, rng=(0,.1), emax=30, fignum=8)
 
     # iterate version numbers for random throw IC's
     iterate = False
@@ -379,10 +429,10 @@ def plot(params, fname, force_rewrite=False, j=0):
     path_ext_list = '/'.join(path_list).split('.')
     path_ext_list[1] = '.pdf'
     out_fname = ''.join(path_ext_list)
-    print(fname)
-    print(out_fname)
+
     # save all figures to one pdf 
     io.multipage(out_fname)
+    print('plots saved to: ', out_fname)
 
 def fft_check():
     from math import sin
@@ -420,9 +470,14 @@ if __name__ == '__main__':
                     'IC'   : 'l0'
                                     }
 
-    fname = time_evolve.run_sim(params, force_rewrite=False)
-    measures.measure(params, fname, force_rewrite=False)
-    plot(params, fname)
+    import numpy
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
+    #fname = time_evolve.run_sim(params, force_rewrite=False)
+    #measures.measure(params, fname, force_rewrite=False)
+    #plot(params, fname)
 
     #fft_check()
 

@@ -254,6 +254,8 @@ def read_hdf5(fname, keys):
             gdat = [0]*len(gkeys) 
             for gkey in gkeys:
                 gdat[j] = f[keys][gkey][::]
+                if key =='bi_partite':
+                    gdat[int(gkey.split('t')[1])] = f[key][gkey][::]
             dat = gdat
         elif isinstance(f[keys], h5py.Dataset):
             dat = f[keys][::]
@@ -266,6 +268,8 @@ def read_hdf5(fname, keys):
                 gdat = [0]*len(gkeys) 
                 for j, gkey in enumerate(gkeys):
                     gdat[j] = f[key][gkey][::]
+                    if key =='bi_partite':
+                        gdat[int(gkey.split('t')[1])] = f[key][gkey][::]
                 dat[i] = gdat
             elif isinstance(f[key], h5py.Dataset):
                 dat[i] = f[key][::]

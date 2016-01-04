@@ -307,7 +307,7 @@ def run_sim(params, force_rewrite = False,
 
         # write the simulation results to disk
         io.write_hdf5(fname, data, force_rewrite=force_rewrite)
-
+        print("data saved to: ", fname)
     return fname
 
 
