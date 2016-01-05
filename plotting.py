@@ -103,7 +103,7 @@ def plot_grid_avgs(data, ax, avg='space',
         nx_ticks=nx_ticks, ny_ticks=ny_ticks,
         plot_kwargs=plot_kwargs, span=span, rotate=rotate)
 
-def plot_grid_with_avgs(data, fignum):
+def plot_grid_with_avgs(data, fignum=1, span=[0,60]):
     fig = plt.figure(fignum)
     L = len(data[0])
     T = len(data)
@@ -120,7 +120,7 @@ def plot_grid_with_avgs(data, fignum):
 
     axC.spines['right'].set_position(('data',L-1))
     axC.spines['left'].set_position(('data',0))
-    axC.spines['top'].set_position(('data', T))
+    axC.spines['top'].set_position(('data', span[1]))
     axC.spines['bottom'].set_position(('data',0))
     axT.spines['right'].set_position(('data',L-1))
     axT.spines['left'].set_position(('data',0))
@@ -138,10 +138,11 @@ def plot_grid_with_avgs(data, fignum):
     data = (1.0-data)/2
 
     plot_grid(data, axC, cbar=False,
-            ytick_labels=False, xlabel='Site', ylabel='')
+            ytick_labels=False, xlabel='Site', ylabel='', span=span)
 
     plot_grid_avgs(data, axR, avg='space', rotate=True, 
-    ylabel='Iteration', xlabel='', title = 'spatial      ', nx_ticks=4)
+        ylabel='Iteration', xlabel='', title = 'spatial      ', 
+        nx_ticks=4, span=span)
 
     plot_grid_avgs(data, axT, avg='time', xtick_labels=False,
             title='temporal', xlabel='', ylabel='', ny_ticks=4)
@@ -414,14 +415,7 @@ def plot(params, fname, force_rewrite=False, j=0):
     plot_edge_strength_contour(mtjk, 
             bins=60, rng=(0,.1), emax=30, fignum=8)
 
-    # iterate version numbers for random throw IC's
-    iterate = False
-    if params['IC'][0] == 'r':
-        iterate = True 
-
-    # create the full path to where data will be stored
-    out_fname = io.make_file_name(params, sub_dir='plots', ext='.pdf', iterate = iterate)
-
+    # create the full path to where plots will be saved
     io.base_name(params['output_dir'], 'plots')
     path_list = fname.split('/')
     sub_dir_ind = path_list.index('data')

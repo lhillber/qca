@@ -16,19 +16,19 @@ import fio as io
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'testing'
+output_dir = 'one_offs'
 
-mode_list = ['block']
+mode_list = ['sweep', 'block']
 
-IC_list = ['G']
+IC_list = ['c9l0_2_6_8']
 
-S_list = [6]
+S_list = [108]
 
-V_list = ['HX']
+V_list = ['H']
 
-L_list = [15]
+L_list = [12]
 
-T_list = [60]
+T_list = [500]
 
 params_list = [ 
            {
