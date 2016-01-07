@@ -1,3 +1,5 @@
 from django.contrib import admin
+from qcaadmin.models import *
 
-# Register your models here.
+admin.site.register(InitialCondition)
+admin.site.register(SimResult)
