@@ -1,0 +1,351 @@
+body {
+    background-color:#DDD;
+    font-size:20px;
+}
+
+table.maintable {
+    position:absolute;
+    top:0px;
+    left:0px;
+    width:100%;
+    height:100%;
+    table-layout:fixed;
+}
+
+td.sidebar {
+    width:500px;
+    position:relative;
+    border-right:1px solid #777;
+}
+
+table.sidebartable {
+    height:100%;
+    width:100%;
+    table-layout:fixed;
+}
+
+table.sidebartable td {
+    padding:5px 10px;
+}
+
+td.title {
+    text-align:center;
+    font-size:25px;
+    height:40px;
+    border-bottom:1px solid #777;
+}
+
+
+
+td.computestatus {
+    border-top:1px solid #777;
+    height:30px;
+    position:relative;
+    text-align:center;
+    padding-top:3px !important;
+    padding-bottom:8px !important;
+}
+
+
+.icon {
+    width:25px;
+    height:25px;
+    display:inline-block;
+    margin:5px 10px -5px 0px;
+}
+
+.gear {
+    background:url(gear.png);
+    background-size:cover;
+}
+
+.spingear {
+    background:url(gearanim.gif);
+    background-size:cover;
+}
+
+td.icsearchbar {
+    border-top:1px solid #777;
+    height:30px;
+    position:relative;
+    padding-top:3px !important;
+    padding-bottom:8px !important;
+}
+
+td.icsearchbar input {
+    font-size:20px;
+    border:none;
+    background:none;
+    outline:none;
+    position:relative;
+}
+
+td.icsearchbar input:placeholder-shown { color:black; }
+td.icsearchbar input::-webkit-input-placeholder { color:black; }
+td.icsearchbar input:-moz-input-placeholder { color:black; }
+td.icsearchbar input::-moz-input-placeholder { color:black; }
+td.icsearchbar input:-ms-input-placeholder { color:black; }
+td.icsearchbar input::-ms-input-placeholder { color:black; }
+
+.spyglass {
+    background:url(magnifying-glass.png);
+    background-size:cover;
+}
+
+
+.plus {
+    background:url(plus.svg);
+    background-size:cover;
+}
+
+td.icsearchbar .icon:last-of-type {
+    position:absolute;
+    right:0px;
+    top:1px;
+    height:26px;
+}
+
+
+td.iclist {
+    border-top:1px solid #AAA;
+    height:200px;
+    padding:5px 18px 5px 0px !important;
+}
+
+.iclistcontainer {
+    overflow-y:scroll;
+    height:200px;
+    width:100%;
+    padding:8px;
+}
+
+.iclistcontainer>div {
+    background:#CCC;
+    padding:8px;
+    margin-bottom:8px;
+    position:relative;
+    cursor:pointer;
+}
+
+.iclistcontainer>div span {
+    font-size:15px;
+    margin-left:5px;
+}
+
+.iclistcontainer>div.selected {
+    background:#999;
+}
+
+.iclistcontainer>div:hover {
+    background:#FFF;
+}
+
+.iclistcontainer>div.selected:hover {
+    background:#EEE;
+}
+
+.iclistcontainer>div>div.icon {
+    position:absolute;
+    right:0px;
+    top:2px;
+}
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+ 
+::-webkit-scrollbar-track {
+    background:none;
+}
+ 
+::-webkit-scrollbar-thumb {
+    background:#999;
+}
+
+
+td.simlist {
+    padding:5px 18px 5px 0px !important;
+}
+
+.simlistcontainer {
+    overflow-y:scroll;
+    height:100%;
+    width:100%;
+    padding:8px;
+}
+
+
+table.simtable {
+    width:100%;
+    
+}
+
+table.simtable td {
+    background:#F7F7F7;
+    height:30px;
+    width:40px;
+    text-align:center;
+    user-select:none;
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    cursor:pointer;
+}
+
+
+table.simtable td.blank {
+    background:none;
+    cursor:default;
+}
+
+table.simtable td[colspan] {
+    width:auto;
+
+}
+
+table.simtable td:hover {
+    background:#AAA;
+}
+
+table.simtable td.blank:hover {
+    background:none;
+}
+
+table.simtable td .icon {
+    margin:2px 0px -2px 0px;
+}
+
+table.simtable td.uncomputed {
+    background:none;
+}
+
+table.simtable td.uncomputed:hover {
+    background:#AAA;
+}
+
+table.simtable td.uncomputed:hover .icon {
+    background:url(gear.png);
+    background-size:cover;
+
+}
+
+table.simtable td.unavailable {
+    background:none;
+}
+
+table.simtable td.unavailable:hover {
+    background:#AAA;
+}
+
+table.simtable td.computing {
+    background:#CCC;
+}
+
+table.simtable td.computing .icon {
+    background:url(gearanim.gif);
+    background-size:cover;
+}
+
+
+td.content {
+    text-align:center;
+    -webkit-user-select:none;
+    -moz-user-select:none;
+}
+
+                
+td.content p {                
+    display:block;
+    background:#F7F7F7;
+    padding:10px;
+    margin-left:auto;
+    margin-right:auto;
+    width:600px;
+}
+
+ 
+
+
+table.quantum {
+    margin-left:auto;
+    margin-right:auto;
+
+    background:white;
+    border:1px solid black;
+    border-collapse: separate;
+    border-spacing: 4px 4px;
+
+
+    table-layout: fixed;
+    padding:0px;
+    border-bottom-width:0px;
+    -webkit-user-select:none;
+    -moz-user-select:none;
+}
+
+table.quantum:last-child {
+    border-bottom-width:1px;
+}
+
+
+
+table.quantum tr {
+    white-space:nowrap;
+}
+
+
+table.quantum td {
+    display:inline-block;
+    border-radius:50%;
+    position:relative;
+    z-index:1;
+    border:1px solid black;
+    z-index:5;
+    width:24px;
+    height:24px;
+    margin-right:3px;
+    padding:0px;
+    box-sizing:border-box;
+}
+
+table.quantum td.schmidt {
+    display:inline-block;
+    z-index:4;
+    width:7px;
+    height:6px;
+    border-width:0px;
+    border-radius:0px;
+    margin:0px 0px 0px -5px;
+}
+
+
+table.quantum td.schmidt:last-child {
+    display:none; 
+}
+
+table.quantum td.maxmixed {
+    border-width:1px !important; 
+
+    /* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#ffffff+0,000000+100 */
+    background: #ffffff; /* Old browsers */
+    background: -moz-radial-gradient(center, ellipse cover, #ffffff 0%, #000000 100%); /* FF3.6+ */
+    background: -webkit-gradient(radial, center center, 0px, center center, 100%, color-stop(0%,#ffffff), color-stop(100%,#000000)); /* Chrome,Safari4+ */
+    background: -webkit-radial-gradient(center, ellipse cover, #ffffff 0%,#000000 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-radial-gradient(center, ellipse cover, #ffffff 0%,#000000 100%); /* Opera 12+ */
+    background: -ms-radial-gradient(center, ellipse cover, #ffffff 0%,#000000 100%); /* IE10+ */
+    background: radial-gradient(ellipse at center, #ffffff 0%,#000000 100%); /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+
+}
+
+.highlight {
+    background:#BBF;
+}
+
+
+div.qtablecontainer div {
+    display:inline-block;
+    margin:0px 10px;
+    vertical-align:top;
+    padding:0px;
+}
+

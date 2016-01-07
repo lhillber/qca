@@ -6,7 +6,7 @@ from collections import OrderedDict
 from os.path import isfile
 from mpi4py import MPI
 import matplotlib.pyplot as plt
-import plotting 
+import plotting
 import time_evolve
 import measures
 import fio as io
@@ -24,20 +24,20 @@ IC_list = ['G']
 
 S_list = [6]
 
-V_list = ['HX']
+V_list = ['HX','HXT']
 
 L_list = [15]
 
 T_list = [60]
 
-params_list = [ 
+params_list = [
            {
             'output_dir' : output_dir,
             'mode' : mode,
             'V' : V,
-            'S' : S, 
-            'IC': IC, 
-            'L' : L, 
+            'S' : S,
+            'IC': IC,
+            'L' : L,
             'T' : T
              }
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     # get the rank of the processor
     rank = comm.Get_rank()
-    # get the number of processsors 
+    # get the number of processsors
     nprocs = comm.Get_size()
 
     # use rank 0 to give each simulation a file name
@@ -72,12 +72,12 @@ if __name__ == '__main__':
             # set the file name for each simulation
             params['fname'] = fname
 
-    # boradcast updated params list to each core 
+    # boradcast updated params list to each core
     params_list = comm.bcast(params_list, root=0)
     for i, params in enumerate(params_list):
 
         # each core selects params to simulate without the need for a master
-        if i % nprocs == rank: 
+        if i % nprocs == rank:
             fname = time_evolve.run_sim(params, force_rewrite=False)
             measures.measure(params, fname, force_rewrite=True)
             plotting.plot(params, fname, force_rewrite=False)
