@@ -20,37 +20,45 @@ import time
 # -------------------------------
 output_dir = 'tmp'
 
-mode_list = ['sweep']
+mode_list = ['sweep', 'block', 'alt']
 
-#IC_list = [[ ('W', sin(th)), ('c1l0', cos(th))]
-#        for th in np.linspace(0, pi/2.0, 10)]
-IC_list = ['c1l0']
+L_list = [15]
+
+T_list = [60]
 
 S_list = [6]
 
 V_list = ['H']
 
-L_list = [18]
+IC_list = ['c1l0']
 
-T_list = [60]
+BC_list = ['1']
+
+
+
+#IC_list = [[ ('W', sin(th)), ('c1l0', cos(th))]
+#        for th in np.linspace(0, pi/2.0, 10)]
+
 
 params_list = [
            {
             'output_dir' : output_dir,
             'mode' : mode,
-            'V' : V,
-            'S' : S,
-            'IC': IC,
             'L' : L,
-            'T' : T
+            'T' : T,
+            'S' : S,
+            'V' : V,
+            'IC': IC,
+            'BC': BC
              }
 
         for mode in mode_list  \
-        for V    in V_list     \
-        for S    in S_list     \
-        for IC   in IC_list    \
         for L    in L_list     \
-        for T    in T_list     ]
+        for T    in T_list     \
+        for S    in S_list     \
+        for V    in V_list     \
+        for IC   in IC_list    \
+        for BC   in BC_list    ]
 
 
 

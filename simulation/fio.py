@@ -158,6 +158,9 @@ def sim_name(params, IC_name=None, V_name=None):
     else:
         sname = sname + '_IC' + IC_name
 
+    if 'BC' in params:
+        sname = sname + '_BC' + params['BC']
+
     return sname
 
 # make an output directory

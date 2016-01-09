@@ -101,9 +101,9 @@ def make_U(S, V, use_R=False):
 
 # update procedure for fixed BC's
 # -------------------------------
-def update_site(j, state, Ul, Uj, Ur, L, BC = 'line'):
+def update_site(j, state, Ul, Uj, Ur, L, BC = '1'):
     # site 0 has only one neighbor to the right
-    if BC is 'line':
+    if BC is '1':
         if j == 0:
             js = [0,1]
             state = mx.op_on_state(Ul, js, state)
@@ -118,7 +118,7 @@ def update_site(j, state, Ul, Uj, Ur, L, BC = 'line'):
             js = [(j-1), j, (j+1)]
             state = mx.op_on_state(Uj, js, state)
 
-    elif BC is 'ring':
+    elif BC is '0':
         js = [(j-1)%L, j, (j+1)%L]
         state = mx.op_on_state(Uj, js, state)
     
@@ -148,6 +148,7 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
     L = params['L']
     T = params['T']
     mode = params['mode']
+    BC = params['BC']
     V = mx.listdot([ss.ops[k] for k in params['V']])
 
     if 'R' in params:
@@ -175,25 +176,25 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
         # Sweep ECA
         if mode=='sweep':
             for j in range(L):
-                state = update_site(j, state, Ul, Uj, Ur, L)
+                state = update_site(j, state, Ul, Uj, Ur, L, BC = BC)
 
-            # don't check normalization by default
-            if norm_check is True:
-                state = check_norm(state, t, tol)
-            yield state
+        # Alternating ECA (evens first)
+        elif mode=='alt':
+            for j in list(range(0, L, 2)) + list(range(1, L, 2)):
+                state = update_site(j, state, Ul, Uj, Ur, L, BC = BC)
 
         # Block ECA
         elif mode=='block':
             for k in [0,1,2]:
                 for j in range(k, L-1+k, 3):
                     if j!=L:
-                        state = update_site(j, state, Ul, Uj, Ur, L)
+                        state = update_site(j, state, Ul, Uj, Ur, L, BC = BC)
 
-            # don't check normalization by default
-            if norm_check is True:
-                state = check_norm(state, t, tol)
-            # yield the updated state
-            yield state
+        # don't check normalization by default
+        if norm_check is True:
+            state = check_norm(state, t, tol)
+        # yield the updated state
+        yield state
 
 # import/create simulation results of full quantum state
 # ------------------------------------------------------

@@ -1,25 +1,24 @@
 #!/usr/bin/python3
 
-import numpy             as np
-import simulation.states            as ss
-import matplotlib        as mpl
-import scipy.stats       as sts
-import scipy.fftpack     as spf
-import matplotlib.pyplot as plt
-import matplotlib.transforms as trans
-import simulation.fio               as io
-import simulation.measures
+import numpy               as np
+import simulation.states   as ss
+import matplotlib          as mpl
+import scipy.stats         as sts
+import scipy.fftpack       as spf
+import simulation.fio      as io
+import simulation.measures as measures
 
 from math import pi
 from collections import OrderedDict
-import matplotlib.gridspec as gridspec
 
+import matplotlib.gridspec as gridspec
+import matplotlib.transforms as trans
 
 # default plot font
 # -----------------
 font = {'family':'serif','size':10}
 mpl.rc('font',**font)
-
+import matplotlib.pyplot as plt
 
 # plot spacetime grid on an axis
 # ------------------------------
