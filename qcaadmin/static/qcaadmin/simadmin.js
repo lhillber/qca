@@ -1,187 +1,251 @@
-var Flashcards = angular.module('QCAAdmin', []);
+var QCAAdmin = angular.module('QCAAdmin', []);
 
-Flashcards.filter('unsafe', function($sce) {
-    return function(val) {
-        if (val.indexOf("<b>") > -1) {
-            return $sce.trustAsHtml(val.replace(/\s+/g,''));
+
+function readCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for(var i=0;i < ca.length;i++) {
+            var c = ca[i];
+            while (c.charAt(0)==' ') c = c.substring(1,c.length);
+            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
         }
-        return $sce.trustAsHtml(val);
-    };
-});
+        return null;
+    }
+
+QCAAdmin.config(['$httpProvider', function($httpProvider) {
+
+    $httpProvider.defaults.headers.post['X-CSRFToken'] = readCookie("csrftoken")
+}]);
 
 
+QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',function($scope,$timeout,$http,$rootScope) {
+    $scope.ics = []
+    $scope.selectedics = []
+    $scope.selectedictitles = []
+    $scope.icfilter = ""
+   
+    $scope.rules = [102,150]
+    $scope.Vs = ["X", "H", "HX", "HT", "HXT", "HTX"]
 
+    $scope.sims = {}
+    $rootScope.selectedsims = []
 
+    $scope.simsrunning = []
+    $scope.simupdateflag = false
+    $scope.error = ""
+    $scope.reload = function() {window.location.reload()}
 
-Flashcards.controller('flashcards', ['$scope','$timeout','$http',function($scope,$timeout,$http) {
-    $scope.fromLang = "pinyin"
-    $scope.toLang = "english"
-    $scope.reqText = ""
-    $scope.toTexts = [""]
-    $scope.fromText = ""
-    $scope.otherTexts = [""]
+    $scope.reqpass = false
+    $scope.password = ''
+   
+    $scope.fetchICS = function(extraic,extrasim) {
+        $http.get('/iclist/?filter='+$scope.icfilter, {}).then(function(response) {
+            $scope.ics = response.data
+            $scope.fetchSimList(extraic,extrasim)
+        },function(response) {
+            $scope.error = response.statusText
+        })
+    }
+    $scope.fetchICS()
+   
 
-    $scope.flipped = "noflip"
+    $scope.clickIC = function(index) {
+            ic = $scope.ics[index]
+            var selidx = $scope.selectedics.indexOf(ic.pk)
+            if (selidx == -1) {
+                $scope.selectedics.push(ic.pk)
+                $scope.selectedictitles.push(ic.title + " ("+ic.length+" sites)")
+            }
+            else {
+                $scope.selectedics.splice(selidx,1)
+                $scope.selectedictitles.splice(selidx,1)
+            }
+            $scope.fetchSimList()
+    }
 
-    $scope.length = 0
-    $scope.previous = []
-    $scope.current = []
-    $scope.nextdate = ''
-    $scope.timeuntil = ''
-    $scope.message = ''
-    $scope.chapters = []
-    $scope.selected = 'None'
-    $scope.quizonly = false
-    $scope.onquiz = false
+    $scope.fetchSimList = function(extraic,extrasim) {
 
-    $scope.error = ''
+         var callback = function(title) {
+            return function(response) {
+                $scope.sims[title] = response.data
+                if (extraic !== undefined && extraic == title) {
+                    $scope.sims[title].push(extrasim)
+                    $scope.simsrunning.push(extrasim.pk)
+                    $scope.simupdateflag = true
+                    for (var i = 0; i < $scope.ics.length; i++) {
+                        if ($scope.ics[i].pk == extrasim.ic) $scope.ics[i].simrunning = true
+                    }
+                    $scope.delayfetch = true
+                }
+            }
+         } 
 
-    $scope.fetch = function() {
-        var append = ""
-        if ($scope.selected != "None") {
-            append = "&filter="+$scope.selected
+         var titles = []
+         for (var i = 0; i < $scope.selectedics.length; i++) {
+            var title = $scope.selectedictitles[i]
+            titles.push(title)
+
+            $http.get('/datalist/?ic='+$scope.selectedics[i], {}).then(callback(title),
+            function(response) {
+                $scope.error = response.statusText
+            })
+         }
+
+         for (var key in $scope.sims) {
+            if ($scope.sims.hasOwnProperty(key) && titles.indexOf(key) == -1) {
+                delete $scope.sims[key]
+            }
+         }
+    }
+
+    $scope.simClass = function(icname,V,rule,isSweep) {
+        for (var i = 0; i < $scope.sims[icname].length; i++) {
+            var sim = $scope.sims[icname][i]
+            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+                if (sim.completed) return ""
+                else return "computing"
+            }
+        
         }
-        if ($scope.quizonly) {
-            append = append + "&quiz"
+        return "uncomputed"    
+    }
+
+
+    $scope.simColor = function(icname,V,rule,isSweep) {
+        for (var i = 0; i < $scope.sims[icname].length; i++) {
+            var sim = $scope.sims[icname][i]
+            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+                return {'background': $rootScope.colorforsim(sim.pk)}
+            }
+        
+        }
+        return {'background': ''}
+    }
+
+    $scope.startSim = function(ic,V,rule,isSweep) {
+        icname = $scope.selectedictitles[ic]
+        for (var i = 0; i < $scope.sims[icname].length; i++) {
+            var sim = $scope.sims[icname][i]
+            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+                return 
+            }
         }
 
 
-        $http.get('/flashcards/getItems/?prev='+JSON.stringify($scope.previous)+append, {}).then(function(response) {
-            if (response.data.indexOf === undefined) {
+        if ($scope.password == '') {
+            $scope.reqpass = true
+            return
+        }
 
-                if ($scope.previous.length > 5) $scope.previous.shift()
-                $scope.current = [] 
-                for (var i = 0; i < response.data.current.length; i++) {
-                    $scope.current.push(JSON.parse(response.data.current[i])[0])
-                    $scope.previous.push($scope.current[i].fields.triple)
+        if ($scope.numsimsrunning == 4) return
+        var args = {
+            'X-CSRFToken': readCookie("csrftoken"),
+            'Password':$scope.password,
+            "R":rule,
+            "V":V,
+            "IC":$scope.selectedics[ic],
+            "isSweep":isSweep,
+        }
+        
+
+        $http.post('/startSimulation/?',JSON.stringify(args), {}).then(function(response) {
+            if (response.data != "Launched") {
+                if (response.data == "Wrong password.") {
+                    $scope.reqpass = true
+                    $scope.password = ''
+                    return
                 }
 
-                $scope.length = response.data.length
-                $scope.message = response.data.message
-                $scope.chapters = response.data.chapters
-                $scope.chapters.unshift("None")
-                $scope.init() 
-            } else {
-                $scope.length = 0
-                $scope.current = {}
-                $scope.message = ''
-                $scope.nextdate =  Date.parse(JSON.parse(response.data))
-                $scope.countdownloop() 
+                $scope.error = response.data
+                return
             }
+            console.log("Started simulation")
+            //$scope.sims[$scope.selectedictitles[ic]].push(
 
-
+            $scope.fetchICS($scope.selectedictitles[ic],{
+                "V": V,
+                "R": rule,
+                "isSweep": isSweep,
+                "completed": false,
+                "ic":$scope.selectedics[ic]
+            })
         },function(response) {
             $scope.error = response.statusText
-        });
+            document.write(response.data)
+        })
+
     }
-    $scope.fetch()
+
+    $scope.simUpdate = function(disable) {
+        if ($scope.delayfetch) {
+            $scope.delayfetch = false
+            $timeout($scope.simUpdate,5000)
+        }
+        $http.get('/simStatus/', {}).then(function(response) {
+            if (JSON.stringify($scope.simsrunning) != JSON.stringify(response.data.sort()) || $scope.simupdateflag) {
+                $scope.simupdateflag = false
+                $scope.simsrunning = response.data.sort()
+                $scope.fetchICS()
+            }
+
+            if (disable === undefined) $timeout($scope.simUpdate,5000)
+        },function(response) {
+            $scope.error = response.statusText
+        })
+    }
+    $scope.simUpdate()
+    $scope.delayfetch = false
 
 
-    $scope.countdownloop = function() {
-        var nexttime = $scope.nextdate - Date.now()
-        if (nexttime < 0) nexttime = 0
-        var seconds = nexttime/1000
-        var minutes = seconds/60
-        var hours = minutes/60
-        var days = hours/24
-
-
-        $scope.timeuntil = "等待: " + Math.floor(days) + "天 "
-        $scope.timeuntil = $scope.timeuntil + Math.floor(hours%24) + "时 "
-        $scope.timeuntil = $scope.timeuntil + Math.floor(minutes%60) + "分 "
-        $scope.timeuntil = $scope.timeuntil + Math.floor(seconds%60) + "秒 "
     
-        if (nexttime > 1000 && Math.floor(seconds%60) != 0) $timeout($scope.countdownloop,1000)
-        else $scope.fetch()
+    $rootScope.colorforsim = function(pk) {
+        var i = $rootScope.selectedsims.indexOf(pk) 
+        if (i == -1) return ""
+        var ph = i*2/$rootScope.selectedsims.length
+
+        var r = 0
+        var g = 0
+        var b = 0
+        var r = 255*(1 - Math.abs(ph)/(2/3))
+        if (r < 0) r = 0
+       
+        ph = ph - 2/3
+        if (ph < -1) ph = 2 +ph
+
+        var g = 255*(1 - Math.abs(ph)/(2/3))
+        if (g < 0) g = 0
+
+        ph = ph - 2/3
+        if (ph < -1) ph = 2 +ph
+
+        var b = 255*(1 - Math.abs(ph)/(2/3))
+        if (b < 0) b = 0
+    
+        return "rgb("+Math.round(r)+","+Math.round(g)+","+Math.round(b)+")"
     }
 
-    $scope.init = function() {
-        if ($scope.length == 0) return
-        $scope.clear()
-        var first = $scope.current[0]
-
-        var dir = first.fields.direction
-        var lookup = {
-            'C': "characters",
-            'E': "english",
-            'P': "pinyin",
-        }
-
-        var other = "CEP".replace(dir[0],"").replace(dir[1],"")
-
-        $scope.fromLang = lookup[dir[0]]
-        $scope.toLang = lookup[dir[1]]
-        $scope.otherLang = lookup[other]
-        
-        var lookup2 = {
-            'C': "转换成字符：",
-            'E': "Translate to English:",
-            'P': "Zhuǎnhuàn chéng pīnyīn:",
-        }
-
-        $scope.reqText = lookup2[dir[1]]
-
-        var triples = []
-        for (var i = 0; i < $scope.current.length; i++) {
-            triples.push($scope.current[i].fields.triple)
-        }
-
-
-        $http.get('/flashcards/getTriples/?pks='+JSON.stringify(triples), {}).then(function(response) {
-
-            $scope.fromText = JSON.parse(response.data[0])[0].fields[lookup[dir[0]]]
-            $scope.onquiz = JSON.parse(response.data[0])[0].fields.quiz
-
-            $scope.toTexts = []
-            $scope.otherTexts = []
-            for (var i = 0; i < $scope.current.length; i++) {
-                var row = JSON.parse(response.data[i])
-                $scope.toTexts.push(row[0].fields[lookup[dir[1]]])
-                $scope.otherTexts.push(row[0].fields[lookup[other]])
+    $scope.selectSim = function(icname,V,rule,isSweep) {
+         for (var i = 0; i < $scope.sims[icname].length; i++) {
+            var sim = $scope.sims[icname][i]
+            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+                var idx = $rootScope.selectedsims.indexOf(sim.pk)
+                if (idx == -1) $rootScope.selectedsims.push(sim.pk)
+                else $rootScope.selectedsims.splice(idx,1)
+                $rootScope.selectedsims.sort()
+                return
             }
-
-        },function(response) {
-            $scope.error = response.statusText
-        });
         
-    }
-
-
-    $scope.ready= function() {
-        $scope.flipped = "flip"
-    }
-
-    $scope.correct= function() {
-        $scope.toTexts = ["..."]
-        $scope.fromText = "..."
-        $scope.otherTexts = ["..."]
-        $scope.flipped = "noflip"
-
-        $http.get('/flashcards/submit/?correct&pk='+$scope.current[0].pk, {}).then(function(response) {
-            $timeout($scope.fetch,100)
-        },function(response) {
-            $scope.error = response.statusText
-        });
-    }
-
-    $scope.notcorrect = function() {
-        $scope.toTexts = ["..."]
-        $scope.fromText = "..."
-        $scope.otherTexts = ["..."]
-        $scope.flipped = "noflip"
-
-        $http.get('/flashcards/submit/?pk='+$scope.current[0].pk, {}).then(function(response) {
-            
-            $timeout($scope.fetch,100)
-        },function(response) {
-            $scope.error = response.statusText
-        });
-
+        }
     }
 
 }])
 
 
+
+
+
+
+/*
 Flashcards.directive("drawingpad", function() {
     return {
         template: "<canvas width='200' height='200'></canvas>",      
@@ -266,4 +330,4 @@ Flashcards.directive("drawingpad", function() {
 })
 
 
-
+*/

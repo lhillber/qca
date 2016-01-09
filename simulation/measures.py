@@ -10,11 +10,11 @@ from math import log
 import copy
 import numpy           as np
 import scipy           as sp
-import states          as ss
-import matrix          as mx
-import fio             as io
+import simulation.states          as ss
+import simulation.matrix          as mx
+import simulation.fio             as io
 import h5py
-import networkmeasures as nm
+import simulation.networkmeasures as nm
 
 # Measures
 # ========
@@ -29,7 +29,7 @@ def vn_entropy(rho, tol=1e-14):
 # compute spacetime grid of local von Neumann entropy
 # ---------------------------------------------------
 def stj_calc(one_site, L, T):
-    stj = np.array( [[vn_entropy(one_site[t, j]) 
+    stj = np.array( [[vn_entropy(one_site[t, j])
           for j in range(L)] for t in range(T+1)] )
     return stj
 
@@ -67,13 +67,13 @@ def nm_calc(mtjk, typ = 'scalar', m_tasks=['ND', 'CC', 'Y']):
                          'IHL' : invharmoniclen,
                         },
 
-                'vector'  : { 
+                'vector'  : {
                          'CC'  : nm.localclustering,
                          'Y'   : nm.disparitylattice,
                          'EV'  : eveccentrality,
                          }
               }
-    nm_dict = {} 
+    nm_dict = {}
     for key in m_tasks:
         nm_dict[key] = np.array([nm_func_dict[typ][key](mjk) for mjk in mtjk])
     return nm_dict
@@ -88,7 +88,7 @@ def get_diag_vecs(mats):
 def get_offdiag_mats(mats, diag_fill=0.0):
     L = len(mats[0])
     mats_out = copy.deepcopy(mats)
-    for t, mat in enumerate(mats_out): 
+    for t, mat in enumerate(mats_out):
         mat[np.arange(L), np.arange(L)] = diag_fill
         mats_out[t][::] = mat[::]
     return mats_out
@@ -110,19 +110,19 @@ def make_moments(moment, alphas=None, betas=None):
     else:
         one_moment_alpha = get_diag_vecs(alphas)
         one_moment_beta = get_diag_vecs(betas)
-        two_moment = moment 
+        two_moment = moment
     return one_moment_alpha, one_moment_beta, two_moment
 
 # compute the correlator g_jk(t)
 # ------------------------------
 def gtjk( c2tjk, c1_alphatj, c1_betatk):
     gtjk = c2tjk - c1_alphatj * c1_betatk
-    return gtjk 
+    return gtjk
 
 # make spacetime grid of g_jk(t) with fixed j
 # -------------------------------------------
 def g_calc(moment_dict, L, T, g_tasks = ['xx', 'yy', 'zz']):
-    # initialize dictionary of arrays to hold results 
+    # initialize dictionary of arrays to hold results
     g_dict = {}
     for task, moment in moment_dict.items():
         g_dict['g'+task] = np.zeros((T+1, L, L))
@@ -144,7 +144,7 @@ def g_calc(moment_dict, L, T, g_tasks = ['xx', 'yy', 'zz']):
                 # second loop through the lattice fills g_jk symmetrically
                 for k in range(j, L):
                     g_dict['g'+task][t, j, k] = g_dict['g'+task][t, k, j] =\
-                          gtjk(two_moment[t, j, k], 
+                          gtjk(two_moment[t, j, k],
                                one_moment_alpha[t, j],
                                one_moment_beta[t, k] )
     return g_dict
@@ -159,15 +159,15 @@ def moments_calc(one_site, two_site, L, T, moment_tasks=['xx', 'yy', 'zz'] ):
     onept_ops = {task : mx.listdot([ss.ops[s.upper()]
         for s in task]) for task in moment_tasks}
 
-    # initialize dictionary of arrays to hold results 
+    # initialize dictionary of arrays to hold results
     moment_dict = {}
-    for task in moment_tasks: 
+    for task in moment_tasks:
         moment_dict[task] = np.zeros((T+1, L, L))
 
     for t in range(T+1):
         for j in range(L):
             rtj = one_site[t, j]
-            
+
             # second loop through the lattice fills upper triangle
             for k in range(j, L):
 
@@ -242,12 +242,12 @@ def measure(params, fname, force_rewrite = False,
 
         # calculate moment matrices (with site indices j, k) j=k holds the one point
         # correlator. j != k holds the two point correlator.
-        moment_dict = moments_calc(one_site, two_site, L, T, 
+        moment_dict = moments_calc(one_site, two_site, L, T,
                 moment_tasks = moment_tasks)
 
         # calculate two point correlator matricies. g_tasks must be a subset of moment_tasks
-        g_dict = g_calc(moment_dict, L, T, 
-                g_tasks = g_tasks) 
+        g_dict = g_calc(moment_dict, L, T,
+                g_tasks = g_tasks)
 
         # store von Neumann entropy as a dictonary
         stj_dict = {'s' : stj}
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         'xy'], moment_tasks=['xx','yy','zz', 'xy'])
 
     fig = plt.figure(1)
-    ax = fig.add_subplot(111) 
+    ax = fig.add_subplot(111)
     gzz = io.read_hdf5(fname, 'gzz')
     pt.plot_grid(get_row_vecs(gzz, j=0), ax, title=r'$g_2(X_0 Y_k; t)$', span=[0, 60], xlabel='site')
     plt.show()

@@ -6,7 +6,7 @@ import scipy.odr.odrpack as odrpack
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy import interpolate
-import plotting as pt
+import simulation.plotting as pt
 
 font = {'family':'normal', 'weight':'bold', 'size':16}
 mpl.rc('font',**font)
@@ -35,19 +35,19 @@ def do_odr(f, x, xe, y, ye, estimates):
     return odr.run()
 
 def chi2_calc(f, betas, x, y):
-    chi2 = 0 
+    chi2 = 0
     for xval, yval in zip(x,y):
         chi2 += (yval - f(betas, xval))**2
     return chi2
 
-def f_fits(func, beta_est, x_list, y_list, x_error = None, y_error = None): 
+def f_fits(func, beta_est, x_list, y_list, x_error = None, y_error = None):
     x_error = [0.0000001] * len(x_list) if x_error is None else x_error
     y_error = [0.0000001] * len(y_list) if y_error is None else y_error
     fit = do_odr(func, x_list, x_error, y_list, y_error, beta_est)
     chi2 = chi2_calc(func, fit.beta, x_list, y_list)
     return fit.beta, chi2
 
-def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error = None, y_error = None): 
+def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error = None, y_error = None):
     x_error = [0.0000001] * len(x_list) if x_error is None else x_error
     y_error = [0.0000001] * len(y_list) if y_error is None else y_error
 
@@ -72,9 +72,9 @@ def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error = None
 if __name__ == '__main__':
     import fio as io
     import measures as ms
-    import time_evolve 
+    import time_evolve
     import matplotlib.pyplot as plt
-    import plotting as ptt 
+    import plotting as ptt
     params =  {
                     'output_dir' : 'testing/state_saving',
 
@@ -98,12 +98,12 @@ if __name__ == '__main__':
         ax = fig.add_subplot(111)
 
         img = (1.0-grid)/2
-        
+
 
         ptt.plot_grid(grid, ax)
 
         L = params['L']
-        
+
         # block 150 12 H
         ks = [0, 11, 21, 31, 41]
 
@@ -113,16 +113,16 @@ if __name__ == '__main__':
         for p in range(len(ks)-1):
             pimg = img[ks[p]:ks[p+1], 0:L]
             j = np.argmax(pimg, axis=1)
-            pt = range(ks[p], ks[p+1]) 
+            pt = range(ks[p], ks[p+1])
             z = img[(pt, j)]
             dz = 1/z
             ax.errorbar(j, pt, xerr=dz, yerr=dz)
             js = np.linspace(0, L-1, 150)
-            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, x_error=dz, y_error=dz) 
+            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, x_error=dz, y_error=dz)
             print(1/Bs[0])
             ax.plot(js, flin(Bs, js),  color='k')
         ax.set_ylim([-0.5, 75.5])
         ax.set_xlim([-0.5, (L-1)+0.5])
         plt.show()
-    
+
     fit_speed(z_grid)

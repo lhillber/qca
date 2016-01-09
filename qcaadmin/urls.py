@@ -3,6 +3,9 @@ import qcaadmin.views
 
 urlpatterns = [
     url(r'^$', qcaadmin.views.home),
-    url(r'^login/$', qcaadmin.views.login),
-    url(r'^logout/$', qcaadmin.views.logout),
+    url(r'^iclist/$', qcaadmin.views.iclist),
+    url(r'^datalist/$', qcaadmin.views.datalist),
+    url(r'^startSimulation/$', qcaadmin.views.startSimulation),
+    url(r'^simStatus/$', qcaadmin.views.simStatus),
+    url(r'^simData/$', qcaadmin.views.simData),
 ]

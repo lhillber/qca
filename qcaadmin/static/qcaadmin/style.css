@@ -103,6 +103,7 @@ td.icsearchbar .icon:last-of-type {
     right:0px;
     top:1px;
     height:26px;
+    cursor:pointer;
 }
 
 
@@ -160,6 +161,10 @@ td.iclist {
  
 ::-webkit-scrollbar-thumb {
     background:#999;
+}
+
+::-webkit-scrollbar-corner {
+    background:none;
 }
 
 
@@ -246,106 +251,148 @@ table.simtable td.computing .icon {
 }
 
 
-td.content {
-    text-align:center;
-    -webkit-user-select:none;
-    -moz-user-select:none;
+div.overlay {
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    
+    background:rgba(0,0,0,0.2);
+    z-index:4;
 }
 
-                
-td.content p {                
-    display:block;
-    background:#F7F7F7;
-    padding:10px;
-    margin-left:auto;
-    margin-right:auto;
+div.dialog {
+    position:fixed;
+    top:50%;
+    left:50%;
     width:600px;
-}
+    margin-left:-300px;
+    height:150px;
+    margin-top:-100px;
 
- 
-
-
-table.quantum {
-    margin-left:auto;
-    margin-right:auto;
+    text-align:center;
+    padding-top:50px;
 
     background:white;
-    border:1px solid black;
-    border-collapse: separate;
-    border-spacing: 4px 4px;
-
-
-    table-layout: fixed;
-    padding:0px;
-    border-bottom-width:0px;
-    -webkit-user-select:none;
-    -moz-user-select:none;
-}
-
-table.quantum:last-child {
-    border-bottom-width:1px;
-}
-
-
-
-table.quantum tr {
-    white-space:nowrap;
-}
-
-
-table.quantum td {
-    display:inline-block;
-    border-radius:50%;
-    position:relative;
-    z-index:1;
-    border:1px solid black;
     z-index:5;
-    width:24px;
-    height:24px;
-    margin-right:3px;
+    border:1px solid black;
+    color:black;
+}
+
+div.dialog div {
+   margin-top:25px;
+}
+
+div.dialog span {
+   margin:20px;
+   padding:8px;
+   width:50px;
+   cursor:pointer;
+   -webkit-user-select:none;
+   -moz-user-select:none;
+}
+
+div.dialog span:first-of-type {
+   background:#3F3; 
+}
+
+div.dialog span:last-of-type {
+   background:#F33; 
+}
+
+div.dialog input {
+    font-size:20px;
+    margin-top:8px;
+
+
+}
+
+/* --------------------------- sim content ----------------------- */
+
+
+div.contentscrollbox {
+    overflow:scroll;
+    height:100%;
+    padding:8px;
+    white-space:break-word;
+    position:relative;
+}
+
+div.contentscrollbox h2 {
+    margin:30px 0px 10px 0px;
+    font-size:24px;
+    font-weight:normal;
+    padding:5px;
+    cursor:pointer;
+
+}
+
+div.contentscrollbox h2:first-of-type {
+    margin-top:10px;
+}
+
+
+div.contentscrollbox h2:hover {
+    background:#BBB;
+}
+
+div.contentscrollbox h2.collapsed {
+    background:#999;
+}
+div.contentscrollbox h2.collapsed:hover {
+    background:#AAA;
+}
+
+
+div.simrow {
+    border-left:solid 20px;
+    padding:5px;
+    background:white;
+    margin:5px 0px 5px 20px;
+    word-wrap:none;
+}
+
+
+div.simrow.loading {
+    color:white;
+}
+div.simrow span {
+    color:black;
+}
+
+td.content div div {
+    margin:5px 0px 5px 20px;
+}
+
+ span.button {
+   padding:4px 8px;
+   width:50px;
+   cursor:pointer;
+   -webkit-user-select:none;
+   -moz-user-select:none;
+   background:#CCC;
+ 
+ }
+
+
+span.button.selected {
+    background:#999;
+}
+
+span.button:hover {
+    background:#FFF;
+}
+
+span.button.selected:hover {
+    background:#EEE;
+}
+
+div[plot] {
+    border:1px solid black;
     padding:0px;
-    box-sizing:border-box;
+    width:500px;
+    height:300px;
+    margin:20px 20px !important;
+    
 }
-
-table.quantum td.schmidt {
-    display:inline-block;
-    z-index:4;
-    width:7px;
-    height:6px;
-    border-width:0px;
-    border-radius:0px;
-    margin:0px 0px 0px -5px;
-}
-
-
-table.quantum td.schmidt:last-child {
-    display:none; 
-}
-
-table.quantum td.maxmixed {
-    border-width:1px !important; 
-
-    /* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#ffffff+0,000000+100 */
-    background: #ffffff; /* Old browsers */
-    background: -moz-radial-gradient(center, ellipse cover, #ffffff 0%, #000000 100%); /* FF3.6+ */
-    background: -webkit-gradient(radial, center center, 0px, center center, 100%, color-stop(0%,#ffffff), color-stop(100%,#000000)); /* Chrome,Safari4+ */
-    background: -webkit-radial-gradient(center, ellipse cover, #ffffff 0%,#000000 100%); /* Chrome10+,Safari5.1+ */
-    background: -o-radial-gradient(center, ellipse cover, #ffffff 0%,#000000 100%); /* Opera 12+ */
-    background: -ms-radial-gradient(center, ellipse cover, #ffffff 0%,#000000 100%); /* IE10+ */
-    background: radial-gradient(ellipse at center, #ffffff 0%,#000000 100%); /* W3C */
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#000000',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
-
-}
-
-.highlight {
-    background:#BBF;
-}
-
-
-div.qtablecontainer div {
-    display:inline-block;
-    margin:0px 10px;
-    vertical-align:top;
-    padding:0px;
-}
-

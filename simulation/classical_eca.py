@@ -39,13 +39,13 @@ from mpi4py                          import MPI
 
 # custom scripts
 # --------------
-import networkmeasures as nm
-import matrix as mx
-import states as ss
+import simulation.networkmeasures as nm
+import simulation.matrix as mx
+import simulation.states as ss
 import information as im
-import measures as ms
-import plotting as pt
-import fio as io
+import simulation.measures as ms
+import simulation.plotting as pt
+import simulation.fio as io
 # default plot font to bold and size 18
 # -------------------------------------
 font = {'family':'normal', 'weight':'bold', 'size':16}
@@ -56,7 +56,7 @@ mpl.rc('font',**font)
 
 
 def time_evolve(rule_dict, init_state, L, tmax):
-    state_copy = init_state.copy() 
+    state_copy = init_state.copy()
     state_list = np.zeros((tmax, L))
     state_list[0] = init_state
     for t in range(1, tmax):
@@ -70,7 +70,7 @@ def time_evolve(rule_dict, init_state, L, tmax):
     return state_list
 
 def sweep_time_evolve(rule_dict, init_state, L, tmax):
-    state_copy = init_state.copy() 
+    state_copy = init_state.copy()
     state_list = np.zeros((tmax, L))
     state_list[0] = state_copy
     for t in range(1, tmax):
@@ -82,7 +82,7 @@ def sweep_time_evolve(rule_dict, init_state, L, tmax):
     return state_list
 
 def sweep_time_evolve_between(rule_dict, init_state, L, tmax):
-    state_copy = init_state.copy() 
+    state_copy = init_state.copy()
     state_list = np.zeros((tmax*L, L))
     state_list[0] = state_copy
     it = 0
@@ -96,7 +96,7 @@ def sweep_time_evolve_between(rule_dict, init_state, L, tmax):
     return state_list
 
 def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
-    state_copy = init_state.copy() 
+    state_copy = init_state.copy()
     state_list = np.zeros((tmax, L))
     state_list[0] = state_copy
     for t in range(1, tmax):
@@ -104,7 +104,7 @@ def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
             Nj = [(j-1)%L, j, (j+1)%L]
             local_state = state_copy.take(Nj)
             state_copy[j] = rule_dict[tuple(local_state)]
-            
+
             Nk = [(k-1)%L, k, (k+1)%L]
             local_state = state_copy.take(Nk)
             state_copy[k] = rule_dict[tuple(local_state)]
@@ -112,7 +112,7 @@ def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
     return state_list
 
 def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
-    state_copy = init_state.copy() 
+    state_copy = init_state.copy()
     state_list = np.zeros((tmax, L))
     state_list[0] = state_copy
     for t in range(1, tmax):
@@ -120,7 +120,7 @@ def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
             Nj = [(j-1)%L, j, (j+1)%L]
             local_state = state_copy.take(Nj)
             state_copy[j] = rule_dict[tuple(local_state)]
-            
+
             Nk = [(k-1)%L, k, (k+1)%L]
             local_state = state_copy.take(Nk)
             state_copy[k] = rule_dict[tuple(local_state)]
@@ -128,7 +128,7 @@ def sweep_time_evolve_rl(rule_dict, init_state, L, tmax):
     return state_list
 
 def sweep_time_evolve_r_then_l(rule_dict, init_state, L, tmax):
-    state_copy = init_state.copy() 
+    state_copy = init_state.copy()
     state_list = np.zeros((tmax, L))
     state_list[0] = state_copy
     for t in range(1, tmax):
@@ -146,13 +146,13 @@ def sweep_time_evolve_r_then_l(rule_dict, init_state, L, tmax):
 
 def run_sim(R, IC, L, tmax, mode = 'sweep'):
     Rb = mx.dec_to_bin(R, 8)[::-1]
-    neighborhood_basis = (i_Nj for i_Nj in [mx.dec_to_bin(d, 3) 
+    neighborhood_basis = (i_Nj for i_Nj in [mx.dec_to_bin(d, 3)
                                for d in range(8)])
-    
-    rule_dict = {tuple(Nj) : Rb[d] for d, Nj in 
+
+    rule_dict = {tuple(Nj) : Rb[d] for d, Nj in
                  enumerate(neighborhood_basis) }
 
-    if   mode is 'eca': 
+    if   mode is 'eca':
          state_list = time_evolve(rule_dict, IC, L, tmax)
          return state_list
 
@@ -163,7 +163,7 @@ def run_sim(R, IC, L, tmax, mode = 'sweep'):
     elif mode is 'between':
          state_list = sweep_time_evolve_between(rule_dict, IC, L, tmax)
          return state_list
-    
+
     elif mode is 'sweep_rl':
          state_list = sweep_time_evolve_rl(rule_dict, IC, L, tmax)
          return state_list
@@ -208,16 +208,16 @@ def binary(L, config):
 
 def all_states(L, config):
     IC = [('b'+str(i), 1.0 / 2.0**float(L)) for i in range(2**L)]
-    return make_states_to_mix(l, ic) 
+    return make_states_to_mix(l, ic)
 
 def make_states_to_mix(L, IC):
     state_map = { 'i' : index,
                   'z' : all_zero,
                   'o' : all_one,
-                  'c' : center, 
+                  'c' : center,
                   'b' : binary,
                   'a' : all_states }
-    
+
     states_to_mix = []
     for s in IC:
         name = s[0][0]
@@ -238,17 +238,17 @@ def gen_classical_mixture(params):
     output_name, R, IC, L, tmax = params
     data_list = {}
     w_list = []
-    for count, (state, w) in enumerate(make_states_to_mix(L, IC)): 
-        state = np.array(state) 
+    for count, (state, w) in enumerate(make_states_to_mix(L, IC)):
+        state = np.array(state)
         data_list[count] = run_sim(R, state, L, tmax)
         w_list.append(w)
     return data_list, w_list
 
-def measure_sim(params): 
+def measure_sim(params):
     output_name, R, IC, L, tmax = params
     data_list, w_list = gen_classical_mixture(params)
     mi_nets = spatialnetworkC(data_list, w_list)
-    return {'b' : data_list, 'w' : w_list, 'mi' : mi_nets} 
+    return {'b' : data_list, 'w' : w_list, 'mi' : mi_nets}
 
 def run_mixture(params, force_rewrite = False):
     output_name, R, IC, L, tmax = params
@@ -302,11 +302,11 @@ def plogp(p):
         return 0.0
 
 def shannon_entropy(probabilities):
-    probabilities = probabilities.diagonal() 
+    probabilities = probabilities.diagonal()
     s = 0.0
     for p in probabilities:
         s -= plogp(p)
-    return s 
+    return s
 
 def local_mi(boards, w, t, i, j):
     p_dict = local_probabilities(boards, w, t, i, j)
@@ -333,7 +333,7 @@ def spatialnetworkC(boards, w, tol=1e-14):
         return mi_nets
 
 def measure_networks(nets, tasks=['Y','CC'], typ='avg'):
-    measures = {} 
+    measures = {}
     for task in tasks:
         measures[task] = np.asarray([ms.NMcalc(net, typ=typ,
                                     tasks=tasks)[task] for net in nets])
@@ -349,7 +349,7 @@ def plot_time_series(data, label, title, loc='lower right', fignum=1, ax=111):
     plt.plot(range(len(data)), data, label=label)
     plt.title(title)
     plt.legend(loc=loc)
-    plt.tight_layout() 
+    plt.tight_layout()
 
 def plot_spacetime_grid(data, title, cmap=plt.cm.jet, norm=None, fignum=1, ax=111):
     vmin, vmax = 0.0, 1.0
@@ -357,7 +357,7 @@ def plot_spacetime_grid(data, title, cmap=plt.cm.jet, norm=None, fignum=1, ax=11
         vmax = np.max(data)
     if np.min(data) < 0.0:
         vmin = np.min(data)
-    
+
     fig = plt.figure(fignum)
     fig.add_subplot(ax)
     plt.imshow(data,
@@ -370,7 +370,7 @@ def plot_spacetime_grid(data, title, cmap=plt.cm.jet, norm=None, fignum=1, ax=11
                     rasterized = True)
     plt.title(title)
     plt.colorbar()
-    plt.tight_layout() 
+    plt.tight_layout()
 
 def avg_nm_plots(avg_data, tasks = ['ND', 'CC','Y'], fignum=1):
     title = 'Network Measures on classical mi'
@@ -380,7 +380,7 @@ def avg_nm_plots(avg_data, tasks = ['ND', 'CC','Y'], fignum=1):
         plot_time_series(dat, label, title, fignum=fignum)
 
 def st_nm_plots(st_data, tasks = ['EV', 'CC', 'Y'], fignum=1):
-    ax = 131 
+    ax = 131
     for i, task in enumerate(tasks):
         title = task
         dat = st_data[task]
@@ -397,13 +397,13 @@ def probability_plots(data_list, w_list, fignum=1, ax=131):
         board = data_list[i]
         w = w_list[i]
         title = 'IC {} w = {:0.3f}'.format(i, w)
-        if i<3: 
-            plot_spacetime_grid(board, title,  
+        if i<3:
+            plot_spacetime_grid(board, title,
                     ax=ax, fignum=fignum)
             plt.ylabel('Time')
             plt.xlabel('Site number')
             ax += 1
-        mixed_board += w * board 
+        mixed_board += w * board
     plot_spacetime_grid(mixed_board, 'mixed', ax=ax-1, fignum=fignum)
     plt.ylabel('Time')
     plt.xlabel('Site number')
@@ -414,25 +414,25 @@ def plot_main(params, name=None):
         name = io.sim_name(R, IC, L, tmax)
     else:
         name = name
-    
+
     output_name, R, IC, L, tmax = params
-    
+
     results   = io.read_results(params, typ='C')
-    
+
     data_list = results['b']
     w_list    = results['w']
-    mi_nets   = results['mi'] 
-    
-    st_mi_measures  = measure_networks(mi_nets, 
+    mi_nets   = results['mi']
+
+    st_mi_measures  = measure_networks(mi_nets,
                                        tasks=['EV', 'CC', 'Y'], typ='st' )
-    avg_mi_measures = measure_networks(mi_nets, 
+    avg_mi_measures = measure_networks(mi_nets,
                                        tasks=['ND', 'CC', 'Y'], typ='avg')
-   
-    probability_plots(data_list, w_list, fignum=0) 
+
+    probability_plots(data_list, w_list, fignum=0)
     avg_nm_plots(avg_mi_measures, fignum=1)
     st_nm_plots(  st_mi_measures, fignum=2)
-    
-    io.multipage(io.file_name(output_name, 'plots', 'C'+name, '.pdf'))    
+
+    io.multipage(io.file_name(output_name, 'plots', 'C'+name, '.pdf'))
 
 def plot_all_IC(R_list, L, lc, tmax, fname):
     fignum = 0
@@ -449,11 +449,11 @@ def plot_all_IC(R_list, L, lc, tmax, fname):
             #plt.show()
             plt.tight_layout()
 
-        io.multipage(io.file_name('classical', 'plots',  'R'+str(R)+fname, '.pdf'), dpi=100) 
+        io.multipage(io.file_name('classical', 'plots',  'R'+str(R)+fname, '.pdf'), dpi=100)
         plt.close('all')
 
 def gen_ics(L, lc):
-    for d in range(2**lc): 
+    for d in range(2**lc):
         c  = mx.dec_to_bin(d, lc)
         IC = [0]*int((L-lc)/2) + c + [0]*int((L-lc)/2)
         IC = np.array(IC)
@@ -476,15 +476,15 @@ def plot_R(R_list, L, IC, tmax, fname):
 
         fignum += 1
 
-    io.multipage(io.file_name('classical', 'plots', fname, '.pdf'), dpi=100) 
+    io.multipage(io.file_name('classical', 'plots', fname, '.pdf'), dpi=100)
 
 
 
 if __name__ == '__main__':
-    
+
     L = 100
     c = [1]
-    tmax = 600 
+    tmax = 600
     name = 'unitary_L100_random'
 
     R_list = [ 51,  54,  57,  60,
@@ -496,7 +496,7 @@ if __name__ == '__main__':
     IC = [0]*7 + c + [0]*7
 
     d = 0.01
-    IC = np.random.choice([0, 1], size=L,  p=[1-d, d]) 
+    IC = np.random.choice([0, 1], size=L,  p=[1-d, d])
     rand_IC_number = np.array([2**n for n in range(L)]).dot(IC[::-1])
     plot_R(R_list, L, np.array(IC), tmax, name+'ICd'+str(rand_IC_number))
 

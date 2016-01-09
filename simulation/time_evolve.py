@@ -14,20 +14,20 @@
 # with key 'one_site', two site reduced density matrices : 'two_site'. The
 # spin moments <Ai>, and <ABij> with A, B \in {X, Y, Z} are saved as symetric
 # matrices. A != B has zero trace and A = B has <Ai> stored along the diagonal.
-# 
+#
 #
 # By Logan Hillberry
 # =============================================================================
 
 import warnings
-import copy 
+import copy
 import time
 import h5py
 
 import numpy    as np
-import fio      as io
-import matrix   as mx
-import states   as ss
+import simulation.fio      as io
+import simulation.matrix   as mx
+import simulation.states   as ss
 
 from os.path import isfile
 from collections import OrderedDict
@@ -44,7 +44,7 @@ def make_V(V, s):
 
 
 def make_U(S, V, use_R=False):
-    # expand S into 4 digits of binary. 15 possible unitary ECAs 
+    # expand S into 4 digits of binary. 15 possible unitary ECAs
     # MSB comes first in the list: [s11, s10, s01, s00]
     Sb = np.array(mx.dec_to_bin(S, 4))
 
@@ -59,22 +59,22 @@ def make_U(S, V, use_R=False):
             # check if rule number is unitary
             warning_string = 'R = '+str(S)+' is not a unitary rule number'
             warnings.warn(warning_string)
-            Sb = S1 
+            Sb = S1
         else:
             # set S
-            Sb = S1 
+            Sb = S1
 
     # Order S into matrix [ [s00, s01], [s10, s11] ]
     S_mat = Sb[::-1].reshape((2,2)) # add .T for old R numbering (pre winter 2015)
 
     # prepare projectors for looping over in the order  {|0><0|, |1><1|}
-    neighbor_projs = [ss.ops['0'], ss.ops['1']] 
+    neighbor_projs = [ss.ops['0'], ss.ops['1']]
 
     # initialize U's
     U = np.zeros((8,8), dtype=complex)
     Ur = np.zeros((4,4), dtype=complex)
     Ul = np.zeros((4,4), dtype=complex)
-    
+
     # loop through neighborhood configurations, applying V when logic of S permits
     for m, left_proj in enumerate(neighbor_projs):
         for n, right_proj in enumerate(neighbor_projs):
@@ -86,7 +86,7 @@ def make_U(S, V, use_R=False):
         n=0
         Vmn = make_V(V, S_mat[m,n])
         Ur = Ur + mx.listkron([left_proj, Vmn])
-    
+
     # 2 qubit operator for left-most site, fix left boundary to |0>
     for n, right_proj in enumerate(neighbor_projs):
         m=0
@@ -129,23 +129,23 @@ def check_norm(state, t, tol):
     if fabs(ip - 1.0) < tol:
         return state
 
-    else: 
+    else:
         warnings.warn('Non-normalized state at t = ' + str(t) + \
             ': <psi|psi> =' + str(ip) + ' has been normalized' )
         state = 1.0/sqrt(ip) * state
-        return state 
+        return state
 
 
 # construct generator for exact time evolved quantum state
 # --------------------------------------------------------
 def time_evolve(params, tol=1E-10, state=None, norm_check=False):
     # load simulation parameters
-    L = params['L'] 
+    L = params['L']
     T = params['T']
     mode = params['mode']
     V = mx.listdot([ss.ops[k] for k in params['V']])
 
-    if 'R' in params: 
+    if 'R' in params:
         use_R = True
         S = params['R']
 
@@ -155,7 +155,7 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
 
     # make update operators for left/right boundaries and th bulk
     Ul, Uj, Ur = make_U(S, V, use_R=use_R)
-    
+
     # If no state supplied, make from the IC param
     if state is None:
         IC = params['IC']
@@ -167,7 +167,7 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
 
     for t in range(T):
 
-        # Sweep ECA 
+        # Sweep ECA
         if mode=='sweep':
             for j in range(L):
                 state = update_site(j, state, Ul, Uj, Ur, L)
@@ -177,7 +177,7 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
                 state = check_norm(state, t, tol)
             yield state
 
-        # Block ECA 
+        # Block ECA
         elif mode=='block':
             for k in [0,1,2]:
                 for j in range(k, L-1+k, 3):
@@ -203,10 +203,10 @@ def run_sim_full_save(params, force_rewrite = False, fname=None):
 
     # make a unique name for IC's made with a random throw
     if ic_name[0] == 'r' and isfile(fname) and not force_rewrite:
-        fname_list = list(fname) 
+        fname_list = list(fname)
         fname_list[-5] = str(eval(fname[-5])+1)
         fname = ''.join(fname_list)
-    
+
     # check if file already exists and, if so, if it should be re-written
     if not isfile(fname) or force_rewrite:
         state_gen = time_evolve(params)
@@ -227,7 +227,7 @@ def bi_partite_inds(L, cut):
 # reduced density matrix of the smaller of all bi-partitions of the lattice
 # -------------------------------------------------------------------------
 def bi_partite_rdm(L, state):
-    return np.array([mx.rdms(state, bi_partite_inds(L, cut)) 
+    return np.array([mx.rdms(state, bi_partite_inds(L, cut))
             for cut in range(L-1)])
 
 # compute the inverse participation ratio
@@ -277,7 +277,7 @@ def run_sim(params, force_rewrite = False,
         if 'bi_partite' in sim_tasks:
             # each cut is stored as a different data set of length T
             cdata = {}
-            rdm_dims = [2**len(bi_partite_inds(L, cut)) 
+            rdm_dims = [2**len(bi_partite_inds(L, cut))
                     for cut in range(L-1)]
 
             for cut, dim in enumerate(rdm_dims):
@@ -375,12 +375,12 @@ if __name__ == "__main__":
 
 
     # fit data to an exponential form
-    Bs, chi2 = ft.f_fits(ft.fexp, [0.0, 2.0, 0.0], L_list, t_list) 
+    Bs, chi2 = ft.f_fits(ft.fexp, [0.0, 2.0, 0.0], L_list, t_list)
 
     # plot the results
     plt.plot(L_list, t_list)
     plt.plot(Ls, ft.fexp(Bs, Ls),
-            label = r"${%.6f} \times {%.2f}^L  {%+.3f}$" % (Bs[0], Bs[1], Bs[2]) 
+            label = r"${%.6f} \times {%.2f}^L  {%+.3f}$" % (Bs[0], Bs[1], Bs[2])
             + "\n  $\chi^2 = {:.2e}$".format(chi2))
     plt.xlabel('L')
     plt.ylabel('time to simulate and save one iteration [s]')
