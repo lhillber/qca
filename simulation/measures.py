@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # =============================================================================
 # This script process the data saved by time_evolve

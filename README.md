@@ -58,7 +58,7 @@ To run a simulation, use the following Linux terminal command while in the
 directory containing the scripts.
 
 ```
-exec -np <n> python run.py
+exec -np <n> python3 run.py
 ```
 where n is the number of cores available on the machine (8 for my 4 core
 hyper-threaded i7).
