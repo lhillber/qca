@@ -7,10 +7,10 @@ from os.path import isfile
 import numpy as np
 from mpi4py import MPI
 import matplotlib.pyplot as plt
-import plotting
-import time_evolve
-import measures
-import fio as io
+import simulation.plotting as plotting
+import simulation.time_evolve as time_evolve
+import simulation.measures as measures
+import simulation.fio as io
 import time
 
 # Execute simulations

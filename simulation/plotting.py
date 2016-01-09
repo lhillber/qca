@@ -415,18 +415,7 @@ def plot(params, fname, force_rewrite=False, j=0):
     plot_edge_strength_contour(mtjk,
             bins=60, rng=(0,.1), emax=30, fignum=8)
 
-<<<<<<< HEAD:simulation/plotting.py
     # create the full path to where plots will be saved
-=======
-    # iterate version numbers for random throw IC's
-    iterate = False
-    if params['IC'][0] == 'r':
-        iterate = True
-
-    # create the full path to where data will be stored
-    out_fname = io.make_file_name(params, sub_dir='plots', ext='.pdf', iterate = iterate)
-
->>>>>>> origin/website:simulation/plotting.py
     io.base_name(params['output_dir'], 'plots')
     path_list = fname.split('/')
     sub_dir_ind = path_list.index('data')
