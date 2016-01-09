@@ -1,14 +1,14 @@
 #!/usr/bin/python
 
 import numpy             as np
-import states            as ss
+import simulation.states            as ss
 import matplotlib        as mpl
 import scipy.stats       as sts
 import scipy.fftpack     as spf
 import matplotlib.pyplot as plt
 import matplotlib.transforms as trans
-import fio               as io
-import measures
+import simulation.fio               as io
+import simulation.measures
 
 from math import pi
 from collections import OrderedDict
@@ -24,7 +24,7 @@ mpl.rc('font',**font)
 # plot spacetime grid on an axis
 # ------------------------------
 def plot_grid(data, ax, nc=1,
-        title='', ylabel='Iteration', xlabel='Site', 
+        title='', ylabel='Iteration', xlabel='Site',
         xtick_labels=True, ytick_labels=True,
         nx_ticks=4, ny_ticks=10, wspace=-0.25,
         cbar=True, cmap=plt.cm.jet, plot_kwargs={}, span=None):
@@ -45,12 +45,12 @@ def plot_grid(data, ax, nc=1,
                 **plot_kwargs)
 
     ax.set_title(title)
-    ax.set_ylabel(ylabel) 
-    ax.set_xlabel(xlabel) 
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
     ax.set_xlim(0, L-1)
     ax.set_ylim(span[0], span[1])
-    ax.xaxis.set_ticks([0, int(L/4), int(2*L/4), int(3*L/4)]) 
-    ax.yaxis.set_ticks(range(span[0], span[1])) 
+    ax.xaxis.set_ticks([0, int(L/4), int(2*L/4), int(3*L/4)])
+    ax.yaxis.set_ticks(range(span[0], span[1]))
     ax.locator_params(axis='x', nbins=nx_ticks)
     ax.locator_params(axis='y', nbins=ny_ticks)
     ax.grid(True)
@@ -63,7 +63,7 @@ def plot_grid(data, ax, nc=1,
         box = ax.get_position()
         cax = plt.axes([box.x1+wspace/nc, box.y0, 0.01, box.height])
         cb = plt.colorbar(im, cax = cax)
-        cb.ax.tick_params(labelsize=9) 
+        cb.ax.tick_params(labelsize=9)
     if not ytick_labels:
         plt.setp([ax.get_yticklabels()], visible=False)
     if not xtick_labels:
@@ -73,33 +73,33 @@ def plot_grid(data, ax, nc=1,
 # -----------------------------------
 def plot_grid_avgs(data, ax, avg='space',
         title='', ylabel=None, xlabel=None,
-        xtick_labels=True, ytick_labels=True, 
+        xtick_labels=True, ytick_labels=True,
         nx_ticks=None, ny_ticks=None,
         plot_kwargs={}, span=None, rotate=False):
 
     if avg is 'space':
-        if ylabel is None: 
-            ylabel = 'Average' 
+        if ylabel is None:
+            ylabel = 'Average'
         else: ylabel = ylabel
-        if xlabel is None: 
-            xlabel = 'Iteration' 
+        if xlabel is None:
+            xlabel = 'Iteration'
         else: xlabel
         axis = 1
 
     if avg is 'time':
-        if ylabel is None: 
-            ylabel = 'Average' 
+        if ylabel is None:
+            ylabel = 'Average'
         else: ylabel = ylabel
-        if xlabel is None: 
-            xlabel = 'Site' 
+        if xlabel is None:
+            xlabel = 'Site'
         else: xlabel
         axis = 0
 
     data = np.mean(data, axis=axis)
 
     plot_time_series(data, ax,
-        title=title, ylabel=ylabel, xlabel=xlabel, 
-        xtick_labels=xtick_labels, ytick_labels=ytick_labels, 
+        title=title, ylabel=ylabel, xlabel=xlabel,
+        xtick_labels=xtick_labels, ytick_labels=ytick_labels,
         nx_ticks=nx_ticks, ny_ticks=ny_ticks,
         plot_kwargs=plot_kwargs, span=span, rotate=rotate)
 
@@ -140,8 +140,8 @@ def plot_grid_with_avgs(data, fignum=1, span=[0,60]):
     plot_grid(data, axC, cbar=False,
             ytick_labels=False, xlabel='Site', ylabel='', span=span)
 
-    plot_grid_avgs(data, axR, avg='space', rotate=True, 
-        ylabel='Iteration', xlabel='', title = 'spatial      ', 
+    plot_grid_avgs(data, axR, avg='space', rotate=True,
+        ylabel='Iteration', xlabel='', title = 'spatial      ',
         nx_ticks=4, span=span)
 
     plot_grid_avgs(data, axT, avg='time', xtick_labels=False,
@@ -167,9 +167,9 @@ def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
         if c is 0:
             ytick_labels=True
             ylabel = ylabel
-        plot_grid(grid, ax, 
+        plot_grid(grid, ax,
                 nc=nc,
-                ylabel=ylabel, 
+                ylabel=ylabel,
                 xlabel=xlabel,
                 title=title,
                 ytick_labels=ytick_labels,
@@ -181,15 +181,15 @@ def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
 # plot time series on an axis
 # ---------------------------
 def plot_time_series(time_series, ax,
-        title='', ylabel='Measure', xlabel='Iteration', 
+        title='', ylabel='Measure', xlabel='Iteration',
         xtick_labels=True, ytick_labels=True, nx_ticks=None, ny_ticks=None,
         loc=None, plot_kwargs=None, span=None, rotate=False):
-    
+
     if span is None:
         span = [0, len(time_series)]
     if plot_kwargs is None:
         plot_kwargs = {'label':'', 'color':'B',
-                'linewidth':1, 'linestyle':'-', 
+                'linewidth':1, 'linestyle':'-',
                 'marker':'s', 'markersize':1.5, 'markeredgecolor':'B'}
 
     indep_var = range(span[0], span[1])
@@ -202,8 +202,8 @@ def plot_time_series(time_series, ax,
         ax.plot(indep_var, dep_var,  **plot_kwargs)
 
     ax.set_title(title)
-    ax.set_ylabel(ylabel) 
-    ax.set_xlabel(xlabel) 
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
 
     if nx_ticks is not None:
         ax.locator_params(axis='x', nbins=nx_ticks)
@@ -237,12 +237,12 @@ def make_ft(time_series, dt=1):
 # plot Fourier transform on an axis
 # ---------------------------------
 def plot_ft(freqs, amps, ax, dt=1,
-        title='', ylabel='Intensity', xlabel='Frequency', 
+        title='', ylabel='Intensity', xlabel='Frequency',
         xtick_labels=True, ytick_labels=True, loc=None, plot_kwargs=None):
 
     if plot_kwargs is None:
         plot_kwargs = {'label':'', 'color':'B',
-                'linewidth':1, 'linestyle':'-', 
+                'linewidth':1, 'linestyle':'-',
                 'marker':'', 'markersize':1, 'markeredgecolor':'B'}
 
     #Nyquist criterion
@@ -255,13 +255,13 @@ def plot_ft(freqs, amps, ax, dt=1,
         ax.semilogy(freqs, amps, )
     else:
         ax.plot(freqs, amps, **plot_kwargs)
-    
+
     ax.set_title(title)
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_xlim([low_freq, high_freq])
     ax.set_ylim(amp_ave/100., 10.*amps.max())
-    
+
     if loc is not None:
         ax.legend(loc=loc)
     if not ytick_labels:
@@ -286,9 +286,9 @@ def plot_measures(meas_dict, fignum=1):
             xtick_labels=True
             xlabel = 'Iteration'
 
-        plot_time_series(vals, ax, 
-                xlabel=xlabel, 
-                ylabel=name, 
+        plot_time_series(vals, ax,
+                xlabel=xlabel,
+                ylabel=name,
                 xtick_labels=xtick_labels)
 
         ax.grid( 'on' )
@@ -313,7 +313,7 @@ def plot_measure_FTs(meas_dict, fignum=1):
         freqs, amps = make_ft(vals)
         plot_ft(freqs, amps, ax,
                 xlabel=xlabel,
-                ylabel=r'$\mathcal{F}$('+name+')', 
+                ylabel=r'$\mathcal{F}$('+name+')',
                 xtick_labels=xtick_labels)
 
         ax.grid( 'on' )
@@ -324,7 +324,7 @@ def plot_measure_FTs(meas_dict, fignum=1):
 # -----------------------------------------------------
 def make_edge_strength_hist(mjk, bins=30, rng=(0,1)):
     edges = [m for mj in mjk for m in mj]
-    hist, binedges, binnumbers = sts.binned_statistic(edges, edges, 
+    hist, binedges, binnumbers = sts.binned_statistic(edges, edges,
             statistic='count', bins=bins, range=rng)
     return hist
 
@@ -336,17 +336,17 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
 
     fig = plt.figure(fignum)
     ax = fig.add_subplot(111)
-    
-    T = len(mtjk) 
+
+    T = len(mtjk)
     X = np.linspace(rng[0], rng[1], bins)
     Y = range(0, T, 1)
     Z = np.asarray([make_edge_strength_hist(mtjk[t], bins=bins, rng=rng) for t in range(T)])
     X, Y = np.meshgrid(X, Y)
-    
+
     levels = np.linspace(0, emax, 20)
-    cs = ax.contourf(X, Y, Z, 
-            levels=levels, 
-            origin='lower', 
+    cs = ax.contourf(X, Y, Z,
+            levels=levels,
+            origin='lower',
             cmap=cmap,
             rasterize=True)
 
@@ -370,8 +370,8 @@ def plot(params, fname, force_rewrite=False, j=0):
 
     # get mi measure results and place in ordered dict for plotting
     nm_keys = ['ND', 'CC', 'Y']
-    meas_list = io.read_hdf5(fname, nm_keys) 
-    meas_dict = OrderedDict( (key,data) 
+    meas_list = io.read_hdf5(fname, nm_keys)
+    meas_dict = OrderedDict( (key,data)
             for key, data in zip(nm_keys, meas_list))
 
     # get local and bond entropies
@@ -382,22 +382,22 @@ def plot(params, fname, force_rewrite=False, j=0):
     # get mutual information adjacency matrices
     mtjk = io.read_hdf5(fname, 'm')
 
-    # plot spin projections 
-    plot_grids([x_grid, y_grid, z_grid], 
+    # plot spin projections
+    plot_grids([x_grid, y_grid, z_grid],
             titles=['$X$', '$Y$', '$Z$'],
             suptitle='Spin projections',
             wspace=-0.20,
             fignum=0)
 
     # plot two-point correlator w.r.t site j
-    plot_grids([x_g2grid, y_g2grid, z_g2grid], 
+    plot_grids([x_g2grid, y_g2grid, z_g2grid],
             titles=['$X$', '$Y$', '$Z$'],
             suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
             wspace=-0.20,
             fignum=3)
 
     # plot local and bond entropies
-    plot_grids([stj, stc], 
+    plot_grids([stj, stc],
             titles=[r'$S(i,t)$', r'$S_c(i,t)$'],
             xlabels=['site', 'cut'],
             suptitle='von Neumann entropies',
@@ -411,11 +411,22 @@ def plot(params, fname, force_rewrite=False, j=0):
     plot_measures(meas_dict, fignum=6)
     plot_measure_FTs(meas_dict, fignum=7)
 
-    # plot distribution of mutual information over time 
-    plot_edge_strength_contour(mtjk, 
+    # plot distribution of mutual information over time
+    plot_edge_strength_contour(mtjk,
             bins=60, rng=(0,.1), emax=30, fignum=8)
 
+<<<<<<< HEAD:simulation/plotting.py
     # create the full path to where plots will be saved
+=======
+    # iterate version numbers for random throw IC's
+    iterate = False
+    if params['IC'][0] == 'r':
+        iterate = True
+
+    # create the full path to where data will be stored
+    out_fname = io.make_file_name(params, sub_dir='plots', ext='.pdf', iterate = iterate)
+
+>>>>>>> origin/website:simulation/plotting.py
     io.base_name(params['output_dir'], 'plots')
     path_list = fname.split('/')
     sub_dir_ind = path_list.index('data')
@@ -424,7 +435,7 @@ def plot(params, fname, force_rewrite=False, j=0):
     path_ext_list[-1] = '.pdf'
     out_fname = ''.join(path_ext_list)
 
-    # save all figures to one pdf 
+    # save all figures to one pdf
     io.multipage(out_fname)
     print('plots saved to: ', out_fname)
 
@@ -436,7 +447,7 @@ def fft_check():
     ts = np.array([n*dt for n in range(1000)])
     ys = np.array([sin(2*pi*t/T) + 2*sin(2*pi*f*t) for t in ts])
 
-    freqs, amps = make_ft(ys, dt=dt) 
+    freqs, amps = make_ft(ys, dt=dt)
 
     max_index = np.argmax(amps)
     max_amp   = amps[max_index]

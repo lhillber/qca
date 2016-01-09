@@ -10,6 +10,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import json
 import h5py
 
+from simulation.outputdir import outputdir
+
 
 # File I/O functions
 # ==================
@@ -30,20 +32,20 @@ def isnamedtuple(obj):
 def serialize(data):
     if data is None or isinstance(data, (bool, int, float, basestring)):
         return data
-    
+
     if isinstance(data, list):
         return [serialize(val) for val in data]
-    
+
     if isinstance(data, OrderedDict):
-        return {"py/collections.OrderedDict": 
+        return {"py/collections.OrderedDict":
                 [[serialize(k), serialize(v)] for k, v in data.items()]}
-    
+
     if isnamedtuple(data):
         return {
                 "py/collections.namedtuple" :
-                { 
-                  "type"   : type(data).__name__, 
-                  "fields" : list(data._fields), 
+                {
+                  "type"   : type(data).__name__,
+                  "fields" : list(data._fields),
                   "values" : [serialize(getattr(data,f)) for f in data._fields]
                 }
                }
@@ -53,10 +55,10 @@ def serialize(data):
             return {k : serialize(v) for k, v in data.items()}
         return {"py/dict" : [[serialize(k), serialize(v)] for k, v in data.items()]}
 
-    if isinstance(data, tuple): 
+    if isinstance(data, tuple):
         return {"py/tuple" : [serialize(val) for val in data]}
 
-    if isinstance(data, set): 
+    if isinstance(data, set):
         return {"py/set" : [serialize(val) for val in data]}
 
     if isinstance(data, np.ndarray):
@@ -64,10 +66,10 @@ def serialize(data):
             return {"py/numpy.ndarray_complex":
                     { "real_vals" : data.real.tolist(),
                       "imag_vals" : data.imag.tolist(),
-                      "dtype"  : str(data.dtype) 
+                      "dtype"  : str(data.dtype)
                     }
                    }
-    
+
         else:
             return {"py/numpy.ndarray":
                     { "vals" : data.tolist(),
@@ -80,17 +82,17 @@ def serialize(data):
 def restore(dct):
     if "py/dict" in dct:
         return dict(dct["py/dict"])
-    
+
     if "py/tuple" in dct:
         return tuple(dct["py/tuple"])
-    
+
     if "py/set" in dct:
         return set(dct["py/set"])
 
-    if "py/collections.namedtuple" in dct: 
+    if "py/collections.namedtuple" in dct:
         data = dct["py/collections.namedtuple"]
         return namedtuple(data["type"], data["fields"])(*data["values"])
-    
+
     if "py/numpy.ndarray_complex" in dct:
         print('ENTER')
         data = dct["py/numpy.ndarray_complex"]
@@ -104,7 +106,7 @@ def restore(dct):
 
     if "py/collections.OrderedDict" in dct:
         return OrderedDict(dct["py/collections.OrderedDict"])
-    
+
     return dct
 
 def data_to_json(data):
@@ -164,7 +166,7 @@ def sim_name(params, IC_name=None, V_name=None):
 # and qca dir is assumed to be in documents. If this isn't true, this function
 # will make all non_existing direcories, so be carful!
 def base_name(output_dir, sub_dir):
-    bn = environ['HOME'] + '/documents/qca/output/' + \
+    bn = environ['HOME'] + outputdir + \
          output_dir + '/' + sub_dir + '/'
     makedirs(bn, exist_ok=True)
     return bn
@@ -183,7 +185,7 @@ def make_file_name(params, sub_dir='data', ext='.hdf5', iterate=False):
     if 'fname' in params:
         fname = params['fname']
 
-    # otherwise create default location and file name 
+    # otherwise create default location and file name
     else:
         if 'IC_name' in params:
             IC_name = params['IC_name']
@@ -193,7 +195,7 @@ def make_file_name(params, sub_dir='data', ext='.hdf5', iterate=False):
             V_name = params['V_name']
         else:
             V_name = make_V_name(params['V'])
-        fname = default_file_name(params, sub_dir, ext, 
+        fname = default_file_name(params, sub_dir, ext,
                 v=0, IC_name=IC_name, V_name=V_name)
 
         # make a unique name for IC's made with a random throw
@@ -201,7 +203,7 @@ def make_file_name(params, sub_dir='data', ext='.hdf5', iterate=False):
         if iterate and isfile(fname):
             v = eval(fname.split('/')[-1].split('v')[1].split('.')[0])
             while isfile(fname):
-                fname = default_file_name(params, sub_dir, ext, 
+                fname = default_file_name(params, sub_dir, ext,
                         v=v, IC_name=IC_name, V_name=V_name)
                 v = v+1
     h5py.File(fname, 'a').close()
@@ -251,7 +253,7 @@ def read_hdf5(fname, keys):
     if type(keys) == str:
         if isinstance(f[keys], h5py.Group):
             gkeys = f[keys].keys()
-            gdat = [0]*len(gkeys) 
+            gdat = [0]*len(gkeys)
             for gkey in gkeys:
                 gdat[j] = f[keys][gkey][::]
                 if key =='bi_partite':
@@ -265,7 +267,7 @@ def read_hdf5(fname, keys):
         for i, key in enumerate(keys):
             if isinstance(f[key], h5py.Group):
                 gkeys = f[key].keys()
-                gdat = [0]*len(gkeys) 
+                gdat = [0]*len(gkeys)
                 for j, gkey in enumerate(gkeys):
                     gdat[j] = f[key][gkey][::]
                     if key =='bi_partite':
@@ -296,8 +298,8 @@ def read_results(params=None, fname=None):
 
 # save multi page pdfs of plots
 # -----------------------------
-def multipage(fname, figs=None, clf=True, dpi=300): 
-    pp = PdfPages(fname) 
+def multipage(fname, figs=None, clf=True, dpi=300):
+    pp = PdfPages(fname)
     if figs is None:
         figs = [plt.figure(fignum) for fignum in plt.get_fignums()]
     for fig in figs:

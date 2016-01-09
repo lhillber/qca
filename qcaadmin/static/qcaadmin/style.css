@@ -1,0 +1,398 @@
+body {
+    background-color:#DDD;
+    font-size:20px;
+}
+
+table.maintable {
+    position:absolute;
+    top:0px;
+    left:0px;
+    width:100%;
+    height:100%;
+    table-layout:fixed;
+}
+
+td.sidebar {
+    width:500px;
+    position:relative;
+    border-right:1px solid #777;
+}
+
+table.sidebartable {
+    height:100%;
+    width:100%;
+    table-layout:fixed;
+}
+
+table.sidebartable td {
+    padding:5px 10px;
+}
+
+td.title {
+    text-align:center;
+    font-size:25px;
+    height:40px;
+    border-bottom:1px solid #777;
+}
+
+
+
+td.computestatus {
+    border-top:1px solid #777;
+    height:30px;
+    position:relative;
+    text-align:center;
+    padding-top:3px !important;
+    padding-bottom:8px !important;
+}
+
+
+.icon {
+    width:25px;
+    height:25px;
+    display:inline-block;
+    margin:5px 10px -5px 0px;
+}
+
+.gear {
+    background:url(gear.png);
+    background-size:cover;
+}
+
+.spingear {
+    background:url(gearanim.gif);
+    background-size:cover;
+}
+
+td.icsearchbar {
+    border-top:1px solid #777;
+    height:30px;
+    position:relative;
+    padding-top:3px !important;
+    padding-bottom:8px !important;
+}
+
+td.icsearchbar input {
+    font-size:20px;
+    border:none;
+    background:none;
+    outline:none;
+    position:relative;
+}
+
+td.icsearchbar input:placeholder-shown { color:black; }
+td.icsearchbar input::-webkit-input-placeholder { color:black; }
+td.icsearchbar input:-moz-input-placeholder { color:black; }
+td.icsearchbar input::-moz-input-placeholder { color:black; }
+td.icsearchbar input:-ms-input-placeholder { color:black; }
+td.icsearchbar input::-ms-input-placeholder { color:black; }
+
+.spyglass {
+    background:url(magnifying-glass.png);
+    background-size:cover;
+}
+
+
+.plus {
+    background:url(plus.svg);
+    background-size:cover;
+}
+
+td.icsearchbar .icon:last-of-type {
+    position:absolute;
+    right:0px;
+    top:1px;
+    height:26px;
+    cursor:pointer;
+}
+
+
+td.iclist {
+    border-top:1px solid #AAA;
+    height:200px;
+    padding:5px 18px 5px 0px !important;
+}
+
+.iclistcontainer {
+    overflow-y:scroll;
+    height:200px;
+    width:100%;
+    padding:8px;
+}
+
+.iclistcontainer>div {
+    background:#CCC;
+    padding:8px;
+    margin-bottom:8px;
+    position:relative;
+    cursor:pointer;
+}
+
+.iclistcontainer>div span {
+    font-size:15px;
+    margin-left:5px;
+}
+
+.iclistcontainer>div.selected {
+    background:#999;
+}
+
+.iclistcontainer>div:hover {
+    background:#FFF;
+}
+
+.iclistcontainer>div.selected:hover {
+    background:#EEE;
+}
+
+.iclistcontainer>div>div.icon {
+    position:absolute;
+    right:0px;
+    top:2px;
+}
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+ 
+::-webkit-scrollbar-track {
+    background:none;
+}
+ 
+::-webkit-scrollbar-thumb {
+    background:#999;
+}
+
+::-webkit-scrollbar-corner {
+    background:none;
+}
+
+
+td.simlist {
+    padding:5px 18px 5px 0px !important;
+}
+
+.simlistcontainer {
+    overflow-y:scroll;
+    height:100%;
+    width:100%;
+    padding:8px;
+}
+
+
+table.simtable {
+    width:100%;
+    
+}
+
+table.simtable td {
+    background:#F7F7F7;
+    height:30px;
+    width:40px;
+    text-align:center;
+    user-select:none;
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    cursor:pointer;
+}
+
+
+table.simtable td.blank {
+    background:none;
+    cursor:default;
+}
+
+table.simtable td[colspan] {
+    width:auto;
+
+}
+
+table.simtable td:hover {
+    background:#AAA;
+}
+
+table.simtable td.blank:hover {
+    background:none;
+}
+
+table.simtable td .icon {
+    margin:2px 0px -2px 0px;
+}
+
+table.simtable td.uncomputed {
+    background:none;
+}
+
+table.simtable td.uncomputed:hover {
+    background:#AAA;
+}
+
+table.simtable td.uncomputed:hover .icon {
+    background:url(gear.png);
+    background-size:cover;
+
+}
+
+table.simtable td.unavailable {
+    background:none;
+}
+
+table.simtable td.unavailable:hover {
+    background:#AAA;
+}
+
+table.simtable td.computing {
+    background:#CCC;
+}
+
+table.simtable td.computing .icon {
+    background:url(gearanim.gif);
+    background-size:cover;
+}
+
+
+div.overlay {
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    
+    background:rgba(0,0,0,0.2);
+    z-index:4;
+}
+
+div.dialog {
+    position:fixed;
+    top:50%;
+    left:50%;
+    width:600px;
+    margin-left:-300px;
+    height:150px;
+    margin-top:-100px;
+
+    text-align:center;
+    padding-top:50px;
+
+    background:white;
+    z-index:5;
+    border:1px solid black;
+    color:black;
+}
+
+div.dialog div {
+   margin-top:25px;
+}
+
+div.dialog span {
+   margin:20px;
+   padding:8px;
+   width:50px;
+   cursor:pointer;
+   -webkit-user-select:none;
+   -moz-user-select:none;
+}
+
+div.dialog span:first-of-type {
+   background:#3F3; 
+}
+
+div.dialog span:last-of-type {
+   background:#F33; 
+}
+
+div.dialog input {
+    font-size:20px;
+    margin-top:8px;
+
+
+}
+
+/* --------------------------- sim content ----------------------- */
+
+
+div.contentscrollbox {
+    overflow:scroll;
+    height:100%;
+    padding:8px;
+    white-space:break-word;
+    position:relative;
+}
+
+div.contentscrollbox h2 {
+    margin:30px 0px 10px 0px;
+    font-size:24px;
+    font-weight:normal;
+    padding:5px;
+    cursor:pointer;
+
+}
+
+div.contentscrollbox h2:first-of-type {
+    margin-top:10px;
+}
+
+
+div.contentscrollbox h2:hover {
+    background:#BBB;
+}
+
+div.contentscrollbox h2.collapsed {
+    background:#999;
+}
+div.contentscrollbox h2.collapsed:hover {
+    background:#AAA;
+}
+
+
+div.simrow {
+    border-left:solid 20px;
+    padding:5px;
+    background:white;
+    margin:5px 0px 5px 20px;
+    word-wrap:none;
+}
+
+
+div.simrow.loading {
+    color:white;
+}
+div.simrow span {
+    color:black;
+}
+
+td.content div div {
+    margin:5px 0px 5px 20px;
+}
+
+ span.button {
+   padding:4px 8px;
+   width:50px;
+   cursor:pointer;
+   -webkit-user-select:none;
+   -moz-user-select:none;
+   background:#CCC;
+ 
+ }
+
+
+span.button.selected {
+    background:#999;
+}
+
+span.button:hover {
+    background:#FFF;
+}
+
+span.button.selected:hover {
+    background:#EEE;
+}
+
+div[plot] {
+    border:1px solid black;
+    padding:0px;
+    width:500px;
+    height:300px;
+    margin:20px 20px !important;
+    
+}

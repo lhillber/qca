@@ -6,14 +6,14 @@
 # initial states in the qca project. the make_state function takes a littice
 # size L and a state spec IC, which is either a string or a list of tuples. The
 # List of tuples is for global superpositions: each tuple is a coefficient and a
-# string 
-# Examples are provided below in the default behavior of this file. 
+# string
+# Examples are provided below in the default behavior of this file.
 # =============================================================================
 
 
 from cmath import sqrt, sin, cos, exp, pi
 import numpy as np
-import matrix as mx
+import simulation.matrix as mx
 
 # Global constants
 # ================
@@ -29,7 +29,7 @@ pauli = {
 ops = {
         'H' : 1.0 / sqrt(2.0) * \
               np.array( [[1.0,  1.0 ],[1.0,  -1.0]], dtype=complex),
- 
+
         'I' : np.array( [[1.0,  0.0 ],[0.0,   1.0]], dtype=complex ),
         'X' : np.array( [[0.0,  1.0 ],[1.0,   0.0]], dtype=complex ),
         'Y' : np.array( [[0.0, -1.0j],[1.0j,  0.0]], dtype=complex ),
@@ -42,7 +42,7 @@ ops = {
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
       }
 
-brhos = { 
+brhos = {
         '0' : np.array( [[1.0,   0.0],[0.0,   0.0]], dtype=complex ),
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
         }
@@ -50,13 +50,13 @@ brhos = {
 bvecs = {
         '0'  : np.array( [1.0, 0.0], dtype=complex ),
         '1'  : np.array( [0.0, 1.0], dtype=complex ),
-        
+
         'es' : np.array( [1./sqrt(2), 1./sqrt(2)], dtype=complex ),
         }
 
 # Initial State Creation
 # ======================
-   
+
 # Create Fock state
 # -----------------
 def fock (L, config, zero = '0', one = '1'):
@@ -117,7 +117,7 @@ def entangled_list (L, config):
     dec = sum((2**x for x in js))
     return 1./sqrt(2) * (fock(L, 0) + fock(L, dec))
 
-# Create a state with any of the obove states 
+# Create a state with any of the obove states
 # embeded in the center of the lattice
 # -------------------------------------------
 def center(L, config):
@@ -166,24 +166,24 @@ def rand_state(L, config):
 
     if len(p_qex_qbg_conf)==2:
         ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
-        ex_th = pi/180.0*float(ex_th[1:]) 
-        ex_ph = pi/180.0*float(ex_ph[1:]) 
+        ex_th = pi/180.0*float(ex_th[1:])
+        ex_ph = pi/180.0*float(ex_ph[1:])
 
         state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':bvecs['0']}
-    
+
     if len(p_qex_qbg_conf)==3:
         ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
-        ex_th = pi/180.0*float(ex_th[1:]) 
-        ex_ph = pi/180.0*float(ex_ph[1:]) 
-        
+        ex_th = pi/180.0*float(ex_th[1:])
+        ex_ph = pi/180.0*float(ex_ph[1:])
+
         bg_th, bg_ph = p_qex_qbg_conf[2].split('-')
-        bg_th = pi/180.0*float(bg_th[1:]) 
-        bg_ph = pi/180.0*float(bg_ph[1:]) 
+        bg_th = pi/180.0*float(bg_th[1:])
+        bg_ph = pi/180.0*float(bg_ph[1:])
 
         state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':qubit(bg_th, bg_ph)}
-     
+
     prob = [p, 1.0 - p]
-    
+
     distrib = np.random.choice(['ex','bg'], size=L, p=prob)
     return mx.listkron([state_dict[i] for i in distrib])
 
@@ -198,10 +198,10 @@ smap = { 'd' : fock,
          'a' : all_alive,
          'c' : center,
          'q' : qubits,
-         'r' : rand_state, 
+         'r' : rand_state,
          'G' : GHZ,
          'W' : W,
-         'E' : entangled_list } 
+         'E' : entangled_list }
 
 def make_state (L, IC):
     state = np.array([0.0]*(2**L), dtype = complex)
@@ -212,7 +212,7 @@ def make_state (L, IC):
         state = smap[name](L, config)
 
     elif type(IC) == list:
-        for s in IC: 
+        for s in IC:
                 name = s[0][0]
                 config = s[0][1:]
                 coeff = s[1]
@@ -221,7 +221,7 @@ def make_state (L, IC):
 
 
 if __name__ == '__main__':
-    import measures as ms 
+    import measures as ms
     import states as ss
 
 
@@ -232,9 +232,9 @@ if __name__ == '__main__':
     state = make_state(L, IC)
     rj = np.asarray([mx.rdms(state, [j]) for j in range(L)])
     zj = np.asarray([np.trace(r.dot(ops['Z'])) for r in rj])
-    r0k = np.asarray([mx.rdms(state, [0,k]) for k in range(1, L)]) 
+    r0k = np.asarray([mx.rdms(state, [0,k]) for k in range(1, L)])
     z0k = np.asarray([1.0]+[np.trace(r.dot(np.kron(ops['Z'], ops['Z']))) for r in r0k])
-    
+
     g = z0k - zj[0]*zj
     print(zj)
     print(g)
@@ -252,7 +252,7 @@ if __name__ == '__main__':
 
     moment_dict = ms.moments_calc(one_site, two_site, L, T)
     g_dict = ms.g_calc(moment_dict, L, T)
-    
+
     print('gzz')
     print(ms.get_row_vecs(g_dict['gzz'], j=0))
     print()
@@ -264,23 +264,23 @@ if __name__ == '__main__':
 
     for L, IC in zip(L_list, IC_list):
         print ("L = ", str(L), " IC = ", str(IC) )
-        print('Expect spin down (or |1>) at sites 0 and 2. Spin up (or |0>) at 1 and 3')  
-       
-        print() 
-        
+        print('Expect spin down (or |1>) at sites 0 and 2. Spin up (or |0>) at 1 and 3')
+
+        print()
+
         print('state vector:')
         state = make_state(L, IC)
         print(state)
-        
+
         print()
 
         # reduced density matrix for each site calculated from the state
         rho_list = [mx.rdms(state, [j]) for j in range(L)]
-       
+
         # measure z projection at each site. Take real part because measurements
         # of Hermitian ops always give a real result
-        meas_list = [np.trace(rho.dot(ss.ops['Z'])).real for rho in rho_list ] 
-       
+        meas_list = [np.trace(rho.dot(ss.ops['Z'])).real for rho in rho_list ]
+
         print('expectation value along Z axis:')
         print(meas_list)
 

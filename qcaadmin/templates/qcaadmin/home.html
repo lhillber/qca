@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+    <head>
+        {% load staticfiles %}
+        <link rel="stylesheet" type="text/css" href="{% static 'qcaadmin/style.css' %}" />
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+        <title>QCA Simulations</title>
+        
+        <script type="text/javascript" src="{% static 'qcaadmin/angular.js' %}"></script> 
+        <script type="text/javascript" src="{% static 'qcaadmin/simadmin.js' %}"></script>
+        <script type="text/javascript" src="{% static 'qcaadmin/visualizer.js' %}"></script>
+        <script type="text/javascript" src="{% static 'qcaadmin/math.min.js' %}"></script>
+    </head>
+    {% verbatim %}
+    <body ng-app="QCAAdmin">
+        <table class="maintable"><tr>
+            <td class="sidebar" ng-controller="qcaadmin" >
+                <table class="sidebartable">
+                    <div class="overlay" ng-show="error != ''"></div>
+        <div class="dialog" ng-show="error != ''">Error: {{ error }}<div><span ng-click="error = ''">Close</span><span ng-click="reload()">Reload</span></div></div>
+        <div class="overlay" ng-show="reqpass"></div>
+        <div class="dialog" ng-show="reqpass">Please enter the password and try again.<form ng-submit="reqpass=false" ><input ng-model="password" type="password"></input></form><div><span ng-click="reqpass=false">Close</span></div></div>
+
+                    <tr><td class="title">QCA Simulations</td></tr>
+                    <tr><td class="simlist"><div class="simlistcontainer">
+                        <div style="text-align:center;" ng-show="selectedics.length == 0">No initial conditions selected.</div>
+                        <table class="simtable" ng-repeat="(icname, icsims) in sims track by $index">
+                            <tr>
+                                <td class="blank" colspan="5">{{ icname }}</td>
+                            </tr>
+                            <tr>
+                                <td class="blank"></td>
+                                <td colspan="2" ng-repeat="rule in rules">{{ rule }}</td>
+                            </tr>
+                            <tr>
+                                <td class="blank"></td>
+                                <td ng-repeat-start="rule in rules">Blk</td>
+                                <td ng-repeat-end>Swp</td>
+                            </tr>
+                            <tr ng-repeat="V in Vs">
+                                <td>{{ V }}</td>
+                                <td ng-repeat-start="rule in rules" ng-class="simClass(icname,V,rule,false)" ng-style="simColor(icname,V,rule,false)" ng-dblclick="startSim($parent.$parent.$index,V,rule,false)" ng-click="selectSim(icname,V,rule,false)"><div class="icon"></div></td>
+                                <td ng-repeat-end ng-class="simClass(icname,V,rule,true)" ng-style="simColor(icname,V,rule,true)" ng-dblclick="startSim($parent.$parent.$index,V,rule,true)" ng-click="selectSim(icname,V,rule,true)" ><div class="icon"></div></td>
+                            </tr>
+                        </table>
+                    </div></td></tr>
+                    <tr ng-show="simsrunning.length > 0"><td class="computestatus"><div class="icon spingear"></div> {{ simsrunning.length }} of 4 simulations running</td></tr>
+                    <tr ng-show="simsrunning.length == 0"><td class="computestatus"><div class="icon gear"></div> No simulations running</td></tr>
+                    <tr><td class="icsearchbar"><div class="icon spyglass"></div><input type="text" placeholder="Search Initial Conditions" ng-model="icfilter" ng-change="fetchICS()"></input><div class="icon plus"></div></td></tr>
+                    <tr><td class="iclist"><div class="iclistcontainer">
+                                <div ng-click="clickIC($index)" ng-repeat="ic in ics track by $index" ng-class="{selected: selectedics.indexOf(ic.pk) > -1}">{{ ic.title }} <span>{{ ic.length }} sites</span><div class="icon" ng-class="{spingear: ic.simrunning}"></div></div>
+                        </div></td></tr>
+                </table>
+            </td>
+            <td class="content"  ng-controller="visualizer"><div class="contentscrollbox">
+                    <h2 ng-Class="{collapsed: displays.list}" ng-click="toggle('list')">List of simulations</h2> 
+                    <div ng-show="!displays.list">
+                        <div ng-show="$root.selectedsims.length == 0" class="simrow">No simulations selected.</div> 
+
+                        <div ng-repeat="(color, sim) in simlist" class="simrow" ng-Style="{'border-left-color':color}" ng-class="{'loading':sim.loading}"><span ng-show="sim.loading">Loading...</span>{{ sim.meta.ictitle }} - {{ sim.meta.R }} - {{ (sim.meta.isSweep) ? 'Sweep' : 'Block'}} -  {{ sim.meta.V }}</div> 
+                    
+                    </div>
+                    <h2 ng-Class="{collapsed: display.netmeas}" ng-click="toggle('netmeas')" ng-hide="$root.selectedsims.length == 0">Network Measures</h2> 
+                    <div ng-hide="displays.netmeas || $root.selectedsims.length == 0">
+                        <div>Domain: <span class="button" ng-class="{selected: domain == 'time'}" ng-click="domain = 'time'">Time</span> - <span class="button" ng-class="{selected: domain == 'fourier'}" ng-click="domain = 'fourier'">Fourier</span></div>
+                        <div plot="'CC'" data="simlist" title="'Clustering Coefficient'" update="update"></div>
+                    </div>
+                    <h2 ng-Class="{collapsed: display.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">Advanced Bubble Diagrams</h2> 
+                    <div ng-hide="displays.bubbles || $root.selectedsims.length == 0">
+                    </div>
+                    <h2 ng-Class="{collapsed: display.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">Mutual Information Networks</h2> 
+                    <h2 ng-Class="{collapsed: display.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">G2 Correlator Networks</h2> 
+
+            
+            </div></td>
+        </tr></table>
+    </body>
+    {% endverbatim %}
+</html>

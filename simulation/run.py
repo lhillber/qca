@@ -7,7 +7,7 @@ from os.path import isfile
 import numpy as np
 from mpi4py import MPI
 import matplotlib.pyplot as plt
-import plotting 
+import plotting
 import time_evolve
 import measures
 import fio as io
@@ -22,7 +22,7 @@ output_dir = 'tmp'
 
 mode_list = ['sweep']
 
-#IC_list = [[ ('W', sin(th)), ('c1l0', cos(th))] 
+#IC_list = [[ ('W', sin(th)), ('c1l0', cos(th))]
 #        for th in np.linspace(0, pi/2.0, 10)]
 IC_list = ['c1l0']
 
@@ -34,14 +34,14 @@ L_list = [18]
 
 T_list = [60]
 
-params_list = [ 
+params_list = [
            {
             'output_dir' : output_dir,
             'mode' : mode,
             'V' : V,
-            'S' : S, 
-            'IC': IC, 
-            'L' : L, 
+            'S' : S,
+            'IC': IC,
+            'L' : L,
             'T' : T
              }
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     # get the rank of the processor
     rank = comm.Get_rank()
-    # get the number of processsors 
+    # get the number of processsors
     nprocs = comm.Get_size()
     # use rank 0 to give each simulation a file name
     if rank == 0:
@@ -80,11 +80,12 @@ if __name__ == '__main__':
     for i, params in enumerate(params_list):
 
         # each core selects params to simulate without the need for a master
-        if i % nprocs == rank: 
+        if i % nprocs == rank:
             t0 = time.time()
             fname = time_evolve.run_sim(params, force_rewrite=True)
             t1 = time.time()
             print(t1-t0 )
+
             measures.measure(params, fname, force_rewrite=True)
             plotting.plot(params, fname, force_rewrite=True)
             plt.clf
