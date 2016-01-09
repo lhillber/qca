@@ -1,1 +1,0 @@
-outputdir = '/documents/qca/output/'

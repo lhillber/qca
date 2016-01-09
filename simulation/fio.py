@@ -10,7 +10,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import json
 import h5py
 
-from simulation.outputdir import outputdir
+from simulation.outputdir import base_dir
 
 
 # File I/O functions
@@ -166,7 +166,7 @@ def sim_name(params, IC_name=None, V_name=None):
 # and qca dir is assumed to be in documents. If this isn't true, this function
 # will make all non_existing direcories, so be carful!
 def base_name(output_dir, sub_dir):
-    bn = environ['HOME'] + outputdir + \
+    bn = environ['HOME'] + base_dir + \
          output_dir + '/' + sub_dir + '/'
     makedirs(bn, exist_ok=True)
     return bn
