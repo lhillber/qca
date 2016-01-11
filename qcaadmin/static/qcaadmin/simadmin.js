@@ -36,8 +36,23 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
     $scope.reload = function() {window.location.reload()}
 
     $scope.reqpass = false
-    $scope.password = ''
+    $scope.password = 'muffins'
+
+    $rootScope.displaymode = 'Sim'
+    $rootScope.inspectedIC = false
+    $scope.addIC = function() {
+        $rootScope.displaymode = 'IC'
+        $rootScope.inspectedIC = false
+    }
+    $scope.inspectIC = function(e,pk) {
+        e.stopPropagation()
+        $rootScope.displaymode = 'IC'
+        $rootScope.inspectedIC = pk
+    }
    
+    $rootScope.$on('newIC',function() {
+        $scope.fetchICS()
+        })
     $scope.fetchICS = function(extraic,extrasim) {
         $http.get('/iclist/?filter='+$scope.icfilter, {}).then(function(response) {
             $scope.ics = response.data
@@ -70,7 +85,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
                 $scope.sims[title] = response.data
                 if (extraic !== undefined && extraic == title) {
                     $scope.sims[title].push(extrasim)
-                    $scope.simsrunning.push(extrasim.pk)
+                    if ($scope.simsrunning.indexOf(extrasim.pk) == -1) $scope.simsrunning.push(extrasim.pk)
                     $scope.simupdateflag = true
                     for (var i = 0; i < $scope.ics.length; i++) {
                         if ($scope.ics[i].pk == extrasim.ic) $scope.ics[i].simrunning = true
@@ -232,6 +247,9 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
                 if (idx == -1) $rootScope.selectedsims.push(sim.pk)
                 else $rootScope.selectedsims.splice(idx,1)
                 $rootScope.selectedsims.sort()
+            
+                $rootScope.displaymode = 'Sim'
+                $rootScope.inspectedIC = false
                 return
             }
         
@@ -243,91 +261,3 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
 
 
 
-
-
-/*
-Flashcards.directive("drawingpad", function() {
-    return {
-        template: "<canvas width='200' height='200'></canvas>",      
-        link: function($scope, $element, $attrs) {
-            $scope.canvas = $element.find('canvas')[0];
-            $scope.context = $scope.canvas.getContext('2d');
-            
-            $scope.canvas.width = $element[0].offsetWidth - 10
-
-            $scope.clear = function() {
-                 var ctx = $scope.context
-                 ctx.clearRect(0, 0, $scope.canvas.width, $scope.canvas.height);
-                 ctx.fillStyle = "black";
-                 ctx.font = "15px sans";
-                 ctx.textAlign = "center";
-                 ctx.fillText("Draw here", $scope.canvas.width/2, 15); 
-                 ctx.fillText("Clear", 20, 15); 
-            }
-            $scope.$watch(function() { return $scope.toText },$scope.clear)
-
-            $scope.dragging = false
-            var down = function(e) {
-                if (!e.offsetX && e.changedTouches && 0 in e.changedTouches) {
-                    var xpos = e.changedTouches[0].pageX- $element[0].offsetLeft
-                    var ypos = e.changedTouches[0].pageY - $element[0].offsetTop 
-                    if (xpos < 40 && ypos < 20) $scope.clear()
-                    else {
-                        $scope.dragging = true
-                        $scope.context.beginPath()
-                        $scope.context.moveTo(xpos,ypos)
-                    }
-                } else {
-                    if (e.offsetX < 40 && e.offsetY < 20) $scope.clear() 
-                    else {
-                        $scope.dragging = true
-                        $scope.context.beginPath()
-                        $scope.context.moveTo(e.offsetX,e.offsetY)
-                    }
-                }
-                return false
-            }
-
-            var move = function(e) {
-                if (!$scope.dragging) return 
-                var ctx = $scope.context
-                ctx.fillStyle = "black";
-                //ctx.beginPath()
-                if (e.offsetX) ctx.fillRect(e.offsetX-3,e.offsetY-3,6,6)
-                else ctx.fillRect(e.changedTouches[0].pageX- $element[0].offsetLeft-3,e.changedTouches[0].pageY - $element[0].offsetTop-3,6,6)
-                //ctx.fill()
-                if (e.offsetX) ctx.lineTo(e.offsetX,e.offsetY)
-                else ctx.lineTo(e.changedTouches[0].pageX- $element[0].offsetLeft,e.changedTouches[0].pageY - $element[0].offsetTop)
-                                
-                return false
-            }
-
-            var up = function() {
-                if (!$scope.dragging) return
-                $scope.dragging = false
-                $scope.context.strokeStyle = "black"
-                $scope.context.lineWidth = 8
-                $scope.context.lineCap = "round"
-                $scope.context.stroke()
-
-                return false
-            }
-
-            $scope.canvas.onmousedown = down
-            $scope.canvas.onmousemove = move
-            $scope.canvas.onmouseup = up
-            $scope.canvas.onmouseleave = up
-
-            
-            $scope.canvas.ontouchstart = down
-            $scope.canvas.ontouchmove = move
-            $scope.canvas.ontouchend = up
-            $scope.canvas.ontouchleave = up
-            //$scope.canvas.ontouchcancel = up
-            
-        }
-    }
-})
-
-
-*/

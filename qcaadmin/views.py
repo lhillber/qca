@@ -10,9 +10,15 @@ import h5py
 import numpy as np
 import math
 
+import datetime
+
+import simulation.fio as io
+import simulation.time_evolve as time_evolve
+import simulation.measures as measures
+
+from django.contrib.auth import authenticate
+
 def home(request):
-    #if not request.user.is_authenticated():
-    #    return HttpResponseRedirect(reverse("qcaadmin.views.login"))
     return render(request,"qcaadmin/home.html")
 
 
@@ -50,7 +56,11 @@ def startSimulation(request):
     body = request.body.decode("utf-8")
     data = json.loads(request.body.decode("utf-8"))
 
-    if (data["Password"] != "muffins"): return HttpResponse("Wrong password.")
+
+    user = authenticate(username="simuser",password=data["Password"])
+    if user is None: return HttpResponse("Wrong password.")
+
+
     ip = request.META['REMOTE_ADDR']
     if  not (ip == "127.0.0.1" or "131.215." in ip): return HttpResponse("Must be on Caltech or Mines campus.")
 
@@ -58,9 +68,16 @@ def startSimulation(request):
 
     if (len(SimResult.objects.filter(completed=False)) >= 4): return HttpResponse("Too many simulations running.")
 
+    time = 50
 
+    ic = InitialCondition.objects.get(pk=data["IC"])
+    result = SimResult(V=data["V"],R=data["R"],IC=ic,T=time,location="None",completed=False)
+    result.mode = data["isSweep"]
+
+    result.save()
     mode = "block"
     if (data["isSweep"]): mode = "sweep"
+
 
     cmd = ["nohup","python"]
     cmd.append("/home/prall/development/qca/manage.py")
@@ -69,6 +86,8 @@ def startSimulation(request):
     cmd.append(str(data["V"]))
     cmd.append(mode)
     cmd.append(str(data["IC"]))
+    cmd.append(str(result.pk))
+    cmd.append(str(time))
 
 
     #return HttpResponse(json.dumps(cmd))
@@ -84,7 +103,24 @@ def simStatus(request):
         running.append(sim.pk)
     return HttpResponse(json.dumps(running))
 
-
+def listify(obj):
+    if isinstance(obj, h5py.Dataset):
+        return listify(list(obj))
+    if isinstance(obj, h5py.Group):
+        return listify(list(obj))
+    if isinstance(obj, np.ndarray):
+        return listify(list(obj))
+    elif isinstance(obj,list):
+        return [listify(x) for x in obj]
+    elif isinstance(obj,float) and math.isnan(obj):
+        return None
+    elif isinstance(obj,complex):
+        return {
+            "re":obj.real,
+            "im":obj.imag
+                }
+    else:
+        return obj
 
 def simData(request):
     simresult = SimResult.objects.get(pk=request.GET["pk"])
@@ -104,26 +140,11 @@ def simData(request):
             }
 
 
-    def listify(obj):
-        if isinstance(obj, h5py.Dataset):
-            return listify(list(obj))
-        if isinstance(obj, h5py.Group):
-            return listify(list(obj))
-        if isinstance(obj, np.ndarray):
-            return listify(list(obj))
-        elif isinstance(obj,list):
-            return [listify(x) for x in obj]
-        elif isinstance(obj,float) and math.isnan(obj):
-            return None
-        elif isinstance(obj,complex):
-            return {
-                "re":obj.real,
-                "im":obj.imag
-                    }
-        else:
-            return obj
+
 
     for key in f.keys():
+        if (key == "init_state"): continue
+        if ("cut" in key): continue
         data = f[key]
 
 
@@ -133,11 +154,89 @@ def simData(request):
 
 
 
-
 def getICData(request):
-    return HttpResponseRedirect("/")
+    body = request.body.decode("utf-8")
+    data = json.loads(request.body.decode("utf-8"))
 
-def setICData(request):
-    return HttpResponseRedirect("/")
+    if ("pk" in data):
+        icobj = InitialCondition.objects.get(pk=data['pk'])
+        iclist = json.loads(icobj.data)
+        ic = np.zeros(2**icobj.length,dtype=complex)
+
+        index = 0
+        for obj in iclist:
+            ic[index] = obj["re"] + 1j*obj["im"]
+            index += 1
+
+        length = icobj.length
+    else:
+        length = len(data["compList"][0]["values"])
+        ic= np.zeros(2**length,dtype=complex)
+
+        norm = 0
+        for component in data["compList"]:
+            norm += component["magnitude"]*component["magnitude"]
+
+
+        for component in data["compList"]:
+            factor = np.exp(1j*component["phase"]/16)*component["magnitude"]/np.sqrt(norm)
+            index = 0
+            for vector in component["values"]: index = index*2 + vector
+            ic[index] += factor
+
+
+    params = {
+        'output_dir' : 'IC',
+        'mode' : 'alt',
+        'L' : length,
+        'T' : 1,
+        'S' : 0,
+        'V' : 'H',
+        'init_state': ic,
+        'IC_name': 'temp'+str(datetime.datetime.now()),
+        'BC': '1'
+            }
+
+    params["fname"] = io.make_file_name(params, iterate = True)
+    state_res = time_evolve.run_sim(params, force_rewrite=True)
+    measures.measure(params, state_res, force_rewrite=True)
+
+    f = h5py.File(params["fname"])
+    result = {}
+    if ("pk" in data): result["title"] = icobj.title
+
+    for key in f.keys():
+        if (key == "init_state"): continue
+        if ("cut" in key): continue
+        data = f[key]
+
+        result[key] = json.dumps(listify(f[key]))
+
+    return HttpResponse(json.dumps(listify(result)))
+
+
+def saveIC(request):
+    body = request.body.decode("utf-8")
+    data = json.loads(request.body.decode("utf-8"))
+
+    length = len(data["compList"][0]["values"])
+    ic= np.zeros(2**length,dtype=complex)
+
+
+    norm = 0
+    for component in data["compList"]:
+        norm += component["magnitude"]*component["magnitude"]
+
+
+    for component in data["compList"]:
+        factor = np.exp(1j*component["phase"]/16)*component["magnitude"]/np.sqrt(norm)
+        index = 0
+        for vector in component["values"]: index = index*2 + vector
+        ic[index] += factor
+
+    icobj = InitialCondition(title=data["title"],length=length,data=json.dumps(listify(ic)))
+    icobj.save()
+
+    return HttpResponse(str(icobj.pk))
 
 

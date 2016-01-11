@@ -8,10 +8,11 @@
 
         <title>QCA Simulations</title>
         
+        <script type="text/javascript" src="{% static 'qcaadmin/math.min.js' %}"></script>
         <script type="text/javascript" src="{% static 'qcaadmin/angular.js' %}"></script> 
         <script type="text/javascript" src="{% static 'qcaadmin/simadmin.js' %}"></script>
         <script type="text/javascript" src="{% static 'qcaadmin/visualizer.js' %}"></script>
-        <script type="text/javascript" src="{% static 'qcaadmin/math.min.js' %}"></script>
+        <script type="text/javascript" src="{% static 'qcaadmin/iceditor.js' %}"></script>
     </head>
     {% verbatim %}
     <body ng-app="QCAAdmin">
@@ -48,13 +49,13 @@
                     </div></td></tr>
                     <tr ng-show="simsrunning.length > 0"><td class="computestatus"><div class="icon spingear"></div> {{ simsrunning.length }} of 4 simulations running</td></tr>
                     <tr ng-show="simsrunning.length == 0"><td class="computestatus"><div class="icon gear"></div> No simulations running</td></tr>
-                    <tr><td class="icsearchbar"><div class="icon spyglass"></div><input type="text" placeholder="Search Initial Conditions" ng-model="icfilter" ng-change="fetchICS()"></input><div class="icon plus"></div></td></tr>
+                    <tr><td class="icsearchbar"><div class="icon spyglass"></div><input type="text" placeholder="Search Initial Conditions" ng-model="icfilter" ng-change="fetchICS()"></input><div class="icon plus" ng-click="addIC()"></div></td></tr>
                     <tr><td class="iclist"><div class="iclistcontainer">
-                                <div ng-click="clickIC($index)" ng-repeat="ic in ics track by $index" ng-class="{selected: selectedics.indexOf(ic.pk) > -1}">{{ ic.title }} <span>{{ ic.length }} sites</span><div class="icon" ng-class="{spingear: ic.simrunning}"></div></div>
+                                <div ng-click="clickIC($index)" ng-repeat="ic in ics track by $index" ng-class="{selected: selectedics.indexOf(ic.pk) > -1}">{{ ic.title }} <span>{{ ic.length }} sites</span><div class="icon" ng-class="{spingear: ic.simrunning}"></div><div class="icon info" ng-click="inspectIC($event,ic.pk)"></div></div>
                         </div></td></tr>
                 </table>
             </td>
-            <td class="content"  ng-controller="visualizer"><div class="contentscrollbox">
+            <td class="content"  ng-controller="visualizer" ng-show="$root.displaymode == 'Sim'" ><div class="contentscrollbox">
                     <h2 ng-Class="{collapsed: displays.list}" ng-click="toggle('list')">List of simulations</h2> 
                     <div ng-show="!displays.list">
                         <div ng-show="$root.selectedsims.length == 0" class="simrow">No simulations selected.</div> 
@@ -62,18 +63,53 @@
                         <div ng-repeat="(color, sim) in simlist" class="simrow" ng-Style="{'border-left-color':color}" ng-class="{'loading':sim.loading}"><span ng-show="sim.loading">Loading...</span>{{ sim.meta.ictitle }} - {{ sim.meta.R }} - {{ (sim.meta.isSweep) ? 'Sweep' : 'Block'}} -  {{ sim.meta.V }}</div> 
                     
                     </div>
-                    <h2 ng-Class="{collapsed: display.netmeas}" ng-click="toggle('netmeas')" ng-hide="$root.selectedsims.length == 0">Network Measures</h2> 
+                     <h2 ng-Class="{collapsed: displays.netmeas}" ng-click="toggle('netmeas')" ng-hide="$root.selectedsims.length == 0">Network Measures</h2> 
                     <div ng-hide="displays.netmeas || $root.selectedsims.length == 0">
-                        <div>Domain: <span class="button" ng-class="{selected: domain == 'time'}" ng-click="domain = 'time'">Time</span> - <span class="button" ng-class="{selected: domain == 'fourier'}" ng-click="domain = 'fourier'">Fourier</span></div>
-                        <div plot="'CC'" data="simlist" title="'Clustering Coefficient'" update="update"></div>
+                        <div class="picker">Domain: <span class="button" ng-class="{selected: domain == 'time'}" ng-click="domain = 'time'">Time</span> - <span class="button" ng-class="{selected: domain == 'fourier'}" ng-click="domain = 'fourier'">Frequency</span></div>
+                        <div plot="'ND'" simlist="simlist" title="'Network Density (ND)'" update="update" domain="domain"></div>
+                        <div plot="'CC'" simlist="simlist" title="'Clustering Coefficient (CC)'" update="update" domain="domain"></div>
+                        <div plot="'Y'" simlist="simlist" title="'Disparity (Y)'" update="update" domain="domain"></div>
+                        <div plot="'IPT'" simlist="simlist" title="'Inv. Participation Ratio'" update="update" domain="domain"></div>
                     </div>
-                    <h2 ng-Class="{collapsed: display.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">Advanced Bubble Diagrams</h2> 
+
+
+                    <h2 ng-Class="{collapsed: displays.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">Advanced Bubble Diagrams</h2> 
                     <div ng-hide="displays.bubbles || $root.selectedsims.length == 0">
+                        <div class="picker">Sites: <span class="button" ng-class="{selected: bubsettings.sites == 'color'}" ng-click="bubsettings.sites = 'color'">Colors</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'X'}" ng-click="bubsettings.sites = 'X'">X</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Y'}" ng-click="bubsettings.sites = 'Y'">Y</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Z'}" ng-click="bubsettings.sites = 'Z'">Z</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'none'}" ng-click="bubsettings.sites = 'none'">Off</span> </div>    
+                        <div class="picker">Entropies: <span class="button" ng-class="{selected: bubsettings.siteent}" ng-click="bubsettings.siteent = !bubsettings.siteent">Sites</span> - <span class="button" ng-class="{selected: bubsettings.cutent}" ng-click="bubsettings.cutent = !bubsettings.cutent">Cuts</span> </div>
+                        <div ng-repeat="(color,sim) in simlist" ng-hide="sim.loading" color="color" bubbles="sim" update="update" settings="bubsettings"></div>
                     </div>
-                    <h2 ng-Class="{collapsed: display.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">Mutual Information Networks</h2> 
-                    <h2 ng-Class="{collapsed: display.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0">G2 Correlator Networks</h2> 
+
+                                       <h2 ng-Class="{collapsed: displays.networks}" ng-click="toggle('networks')" ng-hide="$root.selectedsims.length == 0">Network Diagrams</h2> 
+                    <div ng-hide="displays.networks || $root.selectedsims.length == 0">
+                        <div class="picker">Show: <span class="button" ng-class="{selected: nethist == 'arcs'}" ng-click="nethist = 'arcs'">Arc Diagrams</span> - <span class="button" ng-class="{selected: nethist == 'edge'}" ng-click="nethist = 'edge'">Edge Distributions</span> - <span class="button" ng-class="{selected: nethist == 'degree'}" ng-click="nethist = 'degree'">Degree Distributions</span></div>
+                        <div class="picker"><span class="button" ng-class="{selected: netmode == 'm'}" ng-click="setnet('m')">MI</span></div>
+                    <div class="picker"><span class="button" ng-class="{selected: netmode == 'xx'}" ng-click="setnet('xx')">XX</span> - <span class="button" ng-class="{selected: netmode == 'yy'}" ng-click="setnet('yy')">YY</span> - <span class="button" ng-class="{selected: netmode == 'zz'}" ng-click="setnet('zz')">ZZ</span></div>
+                    <div class="picker"><span class="button" ng-class="{selected: netmode == 'gxx'}" ng-click="setnet('gxx')">g2(XX)</span> - <span class="button" ng-class="{selected: netmode == 'gyy'}" ng-click="setnet('gyy')">g2(YY)</span> - <span class="button" ng-class="{selected: netmode == 'gzz'}" ng-click="setnet('gzz')">g2(ZZ)</span>  </div>
+                        <div ng-repeat="(color,sim) in simlist" ng-hide="sim.loading" color="color" networks="sim[netmode]" update="update" key="netmode" mode="nethist" ></div>
+                    </div>
 
             
+            </div></td>
+            <td class="content"  ng-controller="ICEditor" ng-show="$root.displaymode == 'IC'"><div class="contentscrollbox">
+                    <div class="picker"><span class="button" ng-click="$root.displaymode = 'Sim'; $root.inspectedIC = false">Back to simulations</span></div>
+                    <h2 ng-show="$root.inspectedIC === false" ng-Class="{collapsed: displays.editor}" ng-click="toggle('editor')">Initial Condition Editor</h2> 
+                    <div ng-hide="displays.editor || $root.inspectedIC !== false">
+                        <div class="picker">Length: {{ length }} - <span class="button square" ng-click="chLength('+')">+</span> <span class="button square" ng-click="chLength('-')">-</span> <span class="button square" ng-click="chLength(6)">6</span> <span class="button square" ng-click="chLength(15)">15</span> <span class="button square" ng-click="chLength(24)">24</span></div>
+                        <div class="picker"><span ng-show="title.length > 0">Title:</span> <input type="text" placeholder="Enter Title...." ng-model="title"></input></div>
+                        <div class="picker" ng-show="canSaveIC()"> <span class="button" ng-click="saveIC()">Save Initial State</span> </div>
+                        <div ng-repeat="data in stateData track by $index" staterow="data" update="update" norm="stateNorm" index="$index" outofdate="outofdate"></div>
+                    </div>
+                    <h2 ng-Class="{collapsed: displays.info}" ng-click="toggle('info')">Initial Condition Info</h2> 
+                    <div ng-hide="displays.info">
+                        <div class="picker" ng-show="$root.inspectedIC === false && !fetchingic"><span class="button" ng-click="fetchICData()">Fetch Initial Condition Info</span> <span style="margin-left:10px;" ng-show="outofdate">(State out of date!)</span></div>
+                        <div class="picker" ng-show="fetchingic"><div class="icon spingear"></div> Fetching Initial Condition Info...</div>
+                        <div class="picker" ng-show="icdataset !== false && $root.inspectedIC !== false">Title: {{ icdataset.title }} ({{ icdataset['one_site'][0].length}} sites)</div>
+                        <div class="picker" ng-show="icdataset !== false">Sites: <span class="button" ng-class="{selected: bubsettings.sites == 'color'}" ng-click="bubsettings.sites = 'color'">Colors</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'X'}" ng-click="bubsettings.sites = 'X'">X</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Y'}" ng-click="bubsettings.sites = 'Y'">Y</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Z'}" ng-click="bubsettings.sites = 'Z'">Z</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'none'}" ng-click="bubsettings.sites = 'none'">Off</span> </div>  
+                        <div class="picker" ng-show="icdataset !== false">Entropies: <span class="button" ng-class="{selected: bubsettings.siteent}" ng-click="bubsettings.siteent = !bubsettings.siteent">Sites</span> - <span class="button" ng-class="{selected: bubsettings.cutent}" ng-click="bubsettings.cutent = !bubsettings.cutent">Cuts</span> </div>
+                        <div ng-hide="icdataset === false" bubble="icdataset" update="update" settings="bubsettings"></div>
+                    </div>
+
             </div></td>
         </tr></table>
     </body>

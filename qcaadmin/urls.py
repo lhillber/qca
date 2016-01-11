@@ -8,4 +8,6 @@ urlpatterns = [
     url(r'^startSimulation/$', qcaadmin.views.startSimulation),
     url(r'^simStatus/$', qcaadmin.views.simStatus),
     url(r'^simData/$', qcaadmin.views.simData),
+    url(r'^getICData/$', qcaadmin.views.getICData),
+    url(r'^saveIC/$', qcaadmin.views.saveIC),
 ]
