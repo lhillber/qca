@@ -64,6 +64,11 @@ td.computestatus {
     background-size:cover;
 }
 
+.info {
+    background:url(info.png);
+    background-size:cover;
+}
+
 td.icsearchbar {
     border-top:1px solid #777;
     height:30px;
@@ -80,12 +85,12 @@ td.icsearchbar input {
     position:relative;
 }
 
-td.icsearchbar input:placeholder-shown { color:black; }
-td.icsearchbar input::-webkit-input-placeholder { color:black; }
-td.icsearchbar input:-moz-input-placeholder { color:black; }
-td.icsearchbar input::-moz-input-placeholder { color:black; }
-td.icsearchbar input:-ms-input-placeholder { color:black; }
-td.icsearchbar input::-ms-input-placeholder { color:black; }
+input:placeholder-shown { color:black; }
+input::-webkit-input-placeholder { color:black; }
+input:-moz-input-placeholder { color:black; }
+input::-moz-input-placeholder { color:black; }
+input:-ms-input-placeholder { color:black; }
+input::-ms-input-placeholder { color:black; }
 
 .spyglass {
     background:url(magnifying-glass.png);
@@ -148,6 +153,12 @@ td.iclist {
 .iclistcontainer>div>div.icon {
     position:absolute;
     right:0px;
+    top:2px;
+}
+
+.iclistcontainer>div>div.icon.spingear {
+    position:absolute;
+    right:32px;
     top:2px;
 }
 
@@ -366,13 +377,20 @@ td.content div div {
 }
 
  span.button {
-   padding:4px 8px;
-   width:50px;
+   padding:2px 10px;
    cursor:pointer;
    -webkit-user-select:none;
    -moz-user-select:none;
    background:#CCC;
- 
+   white-space:nowrap;
+   display:inline-block;
+   text-align:center;
+    min-width:30px;
+ }
+
+ span.button.square { 
+    width:38px;
+    padding:1px 1px;
  }
 
 
@@ -394,5 +412,65 @@ div[plot] {
     width:500px;
     height:300px;
     margin:20px 20px !important;
+    display:inline-block;
     
+}
+
+div[bubbles] {
+    border:1px solid black;
+    padding:0px;
+    width:250px;
+    height:400px;
+    margin:20px 10px !important;
+    display:inline-block;
+    
+}
+
+div[networks] {
+    border:1px solid black;
+    padding:0px;
+    width:250px;
+    height:400px;
+    margin:20px 10px !important;
+    display:inline-block;
+    
+}
+
+div.picker { 
+    line-height:35px;
+    position:relative;
+}
+
+
+.picker input {
+    font-size:20px;
+    border:none;
+    background:none;
+    outline:none;
+}
+
+.picker .icon {
+    margin-top:-4px;
+    margin-bottom:-4px;
+    margin-right:5px;
+    margin-left:0px;
+    display:inline-block;
+}
+
+
+div[staterow] {
+    margin:10px 20px !important;
+}
+div[staterow] canvas {
+    border:1px solid black;
+}
+
+div[bubble] {
+    padding:0px;
+    margin:10px 20px !important;
+    
+}
+
+div[bubble] canvas {
+    border:1px solid black;
 }

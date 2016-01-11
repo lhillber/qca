@@ -5,6 +5,8 @@ from mpi4py import MPI
 from simulation import time_evolve, measures
 import simulation.fio as io
 
+import json
+import numpy as np
 
 class Command(BaseCommand):
     help = 'Runs a simulation with specified arguments.'
@@ -14,63 +16,63 @@ class Command(BaseCommand):
         parser.add_argument('V', nargs='+')
         parser.add_argument('mode', nargs='+') #either 'sweep' or 'block'
         parser.add_argument('IC', nargs='+', type=int)
+        parser.add_argument('pk', nargs='+', type=int)
+        parser.add_argument('time', nargs='+', type=int)
 
     def handle(self, *args, **options):
-        time = 30
 
         ic = InitialCondition.objects.get(pk=options["IC"][0])
-        result = SimResult(V=options["V"][0],R=options["R"][0],IC=ic,T=time,location="None",completed=False)
-        if (options["mode"][0] == "sweep"): result.mode = True
-        else: result.mode = False
 
-        result.save()
-        pk = result.pk
+        lookup = {
+                204:0,
+                201:1,
+                198:2,
+                195:3,
+                156:4,
+                153:5,
+                150:6,
+                147:7,
+                108:8,
+                105:9,
+                102:10,
+                99:11,
+                60:12,
+                157:13,
+                57:14,
+                51:15
+                }
 
+        icparse = json.loads(ic.data)
+        icdata = np.zeros(2**ic.length,dtype=complex)
+        index = 0
+        for obj in icparse:
+            icdata[index] = obj["re"] + 1j*obj["im"]
+            index += 1
 
-        params_list = [{
+        params = {
                 'output_dir': "automated",
                 'mode': options["mode"][0],
                 'V': options["V"][0],
-                'S': options["R"][0],
-                'IC': 'G',
+                'S': lookup[options["R"][0]],
                 'L': ic.length,
-                'T': time
-                }]
+                'T': options["time"][0],
+                'init_state': icdata,
+                'IC_name': ic.title,
+                'BC':'1'
+                }
 
 
-        # initialize communication
-        comm = MPI.COMM_WORLD
-        # get the rank of the processor
-        rank = comm.Get_rank()
-        # get the number of processsors
-        nprocs = comm.Get_size()
 
-        # use rank 0 to give each simulation a file name
-        if rank == 0:
-            for params in params_list:
-                # iterate version numbers for random throw IC's
-                if params['IC'][0] == 'r':
-                    fname = io.make_file_name(params, iterate = True)
-                # don't iterate file names with a unique IC name
-                else:
-                    fname = io.make_file_name(params, iterate = False)
-                # set the file name for each simulation
-                params['fname'] = fname
+        params["fname"] = io.make_file_name(params, iterate = True)
 
 
-        names = []
-        # boradcast updated params list to each core
-        params_list = comm.bcast(params_list, root=0)
-        for i, params in enumerate(params_list):
-            # each core selects params to simulate without the need for a master
-            if i % nprocs == rank:
-                fname = time_evolve.run_sim(params, force_rewrite=False)
-                measures.measure(params, fname, force_rewrite=True)
-                names.append(fname)
+
+        state_res = time_evolve.run_sim(params, force_rewrite=True)
+        res = measures.measure(params, state_res, force_rewrite=True)
 
 
-        result = SimResult.objects.get(pk=pk)
+        result = SimResult.objects.get(pk=options["pk"][0])
         result.completed=True
-        result.location=names[0]
+        result.location=params['fname']
         result.save()
 

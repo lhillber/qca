@@ -7,7 +7,8 @@ For more information on this file, see
 https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/
 """
 
-import os
+import os, sys
+sys.path.append('/srv/django/qca/')
 
 from django.core.wsgi import get_wsgi_application
 

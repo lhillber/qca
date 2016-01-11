@@ -31,13 +31,27 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
                 $scope.simlist[color] = $scope.simcache[pk]
             } else {
                 console.log("requested: "+pk)
-                $http.get('/simData/?pk='+pk,{}).then(function(response) {
+                $http.get(window.prefix+'/simData/?pk='+pk,{}).then(function(response) {
                     var pk = JSON.parse(response.data.meta).pk
                     console.log("received: "+pk)
                     $scope.simcache[pk] = response.data
+
                     for (key in $scope.simcache[pk]) {
                         $scope.simcache[pk][key] = JSON.parse($scope.simcache[pk][key])
                     }
+                    /*
+
+                    var sc = []
+                    
+                    for (key in $scope.simcache[pk]) {
+                        if (!key.includes("cut")) continue
+                        var idx = parseInt(key.substr(3,key.length))
+                        sc[idx] = $scope.simcache[pk][key]     
+                        delete $scope.simcache[pk][key]
+                    }
+                    $scope.simcache[pk]['sc'] = sc
+                    */
+                    
                     console.log("parsed: "+pk)
 
                     if ($rootScope.selectedsims.indexOf(pk) == -1) return
@@ -64,96 +78,19 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
     
 
     $scope.domain = "time"
-     
-    /*
-    $scope.displays = []
-    $scope.updateDisplay = function(did) {
-        $scope.displays[did] = []
-        for (var it = 0; it < $scope.matrices[did].length; it++ ) {
-            var display = []
-
-            for (var i = 0; i < $scope.matrices[did][it].length; i++) {
-                display.push({qbit: "", schmidt: "", maxmixed: false})
-
-                var qubitvals = $scope.qbitcolor($scope.matrices[did][it][i])
-                display[i].qbit = qubitvals[0]
-                display[i].border = qubitvals[1]
-                display[i].maxmixed = qubitvals[2]    
-
-                if (i != $scope.matrices[did][it].length -1) {
-                    var d = 255*(1- $scope.vonneumann[did][it][i] )
-
-                    display[i].schmidt = "rgb("+Math.round(d)+","+Math.round(d)+","+Math.round(d)+")"
-                }
-
-            }
-
-            $scope.displays[did].push(display)
-        }
+    
+    $scope.bubsettings = {
+        "sites": "color",//'color', 'X', 'Y', 'Z', or 'none'
+        "siteent": true,
+        "cutent": true,
     }
 
-
-    //density matrix -> color
-    $scope.qbitcolor = function(density) {
-       if (density[0][0].re + density[1][1].re - 1 > 1e-1) throw "matrix " +$scope.showDensity(density)+ " violates trace condition! ("+ JSON.stringify(density[0][0].re + density[1][1].re)   +"+" + JSON.stringify( density[0][0].im + density[1][1].im) + "i)"
-
-       var ph = density[0][1].toPolar().phi/Math.PI
-
-      var r = 0
-      var g = 0
-      var b = 0
-       if (density[0][1].toPolar().r > 1e-3)  {
-           var r = 255*(1 - Math.abs(ph)/(2/3))
-           if (r < 0) r = 0
-           
-           ph = ph - 2/3
-           if (ph < -1) ph = 2 +ph
-
-           var g = 255*(1 - Math.abs(ph)/(2/3))
-           if (g < 0) g = 0
-
-           ph = ph - 2/3
-           if (ph < -1) ph = 2 +ph
-
-           var b = 255*(1 - Math.abs(ph)/(2/3))
-           if (b < 0) b = 0
-        }
-
-       var len = (2*(density[0][0].re)-1)*(2*(density[0][0].re)-1)
-       len += 4*density[0][1].re*density[0][1].re
-       len += 4*density[0][1].im*density[0][1].im
-       len = math.sqrt(len)
-
-       var z= (2*(density[0][0].re) - 1)
-       //if ( len > 1e-3) z = z
-       
-       if (z < 0) {
-            r = (1+z)*r
-            g = (1+z)*g
-            b = (1+z)*b
-       } else {
-            r = r + (255 - r)*z
-            g = g + (255 - g)*z
-            b = b + (255 - b)*z
-       }
-
-        
-        $scope.totParticles += (1-z)/2
-        $scope.totVectors += (1-len)
-
-        var border = Math.round(1 + (1-len)*11)
-        
-        var maxmixed = false
-        if (len < 1e-3) maxmixed = true
-
-
-        return ["rgb("+Math.round(r)+","+Math.round(g)+","+Math.round(b)+")",border,maxmixed]
+    $scope.netmode = 'm'
+    $scope.setnet = function(net) {
+        $scope.netmode = net
+        $scope.update++
     }
-    */
-
-
-
-
+    $scope.nethist = 'arcs'
 
 }])
 
@@ -164,9 +101,10 @@ QCAAdmin.directive("plot", function ()
         restrict: 'A',
         scope: {
             plot: '=',
-            data: '=',
+            simlist: '=',
             title: '=',
             update: '=',
+            domain: '=',
             /*select: '=',*/
             max: '=?',
         },
@@ -176,17 +114,22 @@ QCAAdmin.directive("plot", function ()
            $scope.context = $scope.canvas.getContext('2d');
            
 
-            if ($scope.max === undefined) $scope.max = 0.1
+            if ($scope.max === undefined) $scope.max = 0.01
 
 
-           $scope.$watch(function() { return $scope.update; },function() { 
+            $scope.redraw = function() { 
                  
-                 var list = {}
+                 var data = {}
+                 var freqs = false
                  for (var color in $scope.simlist) {
-                     list[color] = $scope.simlist[color][key]
+                     if ($scope.simlist[color].loading) continue
+                     if ($scope.domain == 'time') data[color] = $scope.simlist[color][$scope.plot]
+                     else {
+                         data[color] = $scope.simlist[color]['F'+$scope.plot]
+                         freqs = $scope.simlist[color]['freqs']
+                    }
+ 
                  }
-                 return list
-                    
 
                  var ctx = $scope.context
                  var canvas = $scope.canvas
@@ -199,72 +142,87 @@ QCAAdmin.directive("plot", function ()
                  ctx.fillStyle = "black";
                  ctx.font = "15px sans";
                  ctx.textAlign = "center";
-                 ctx.fillText($scope.title, canvas.width/2, 20); 
+                 if ($scope.domain == 'time') ctx.fillText($scope.title, canvas.width/2, 20); 
+                 else ctx.fillText($scope.title+" Fourier Transform", canvas.width/2, 20); 
 
 
-                 var leftaxis = 30
+                 var leftaxis = 45
+                 var botaxis = 32
                  //draw axes
                  ctx.beginPath(); 
                  ctx.lineWidth="2";
                  ctx.strokeStyle="black";
-                 ctx.moveTo(leftaxis-5,canvas.height-15);
-                 ctx.lineTo(canvas.width - 15,canvas.height-15);
+                 ctx.moveTo(leftaxis-5,canvas.height-botaxis);
+                 ctx.lineTo(canvas.width - 15,canvas.height-botaxis);
                  ctx.stroke()
 
                  ctx.beginPath(); 
-                 ctx.moveTo(leftaxis,canvas.height-10);
+                 ctx.moveTo(leftaxis,canvas.height-botaxis+5);
                  ctx.lineTo(leftaxis,30);
                  ctx.stroke()
-
 
                  //draw ticks
                  ctx.font = "10px sans";
 
                  var maxx = 5
 
-                 for (color in $scope.plot) {
-                    if ($scope.plot[color].length > maxx) maxx = $scope.plot[color].length
+                 var width = canvas.width - 15 - leftaxis
+                 if ($scope.domain == 'time') {
+                     for (color in data) {
+                        if (data[color].length > maxx) maxx = data[color].length
+                     }  
+                    var divx = math.ceil(math.pow(10,math.log10(maxx)-1)/5)*5
+                    var divstep = math.pow(10,math.round(math.log10(maxx)-1))
+                 } else {
+                     maxx = freqs[freqs.length-1] 
+                     var divx = freqs[1]
+                     var divstep = freqs[1]
                  }
 
-                 var divx = math.ceil(math.pow(10,math.log10(maxx)-1)/5)*5
-
-                 var width = canvas.width - 15 - leftaxis
-                 var divstep = math.pow(10,math.round(math.log10(maxx)-1))
 
                  var div = (width/maxx)*divstep
-            
                  if (divstep == 0) divstep = 0.1
-                 for (var x = 0; x <= maxx; x+=divstep) {
-                     if (x == 0) continue
-                     if (x%divx == 0) var l = 3
-                     else var l = 2
+    
+                 if ($scope.domain == 'time') {
+                     for (var x = 0; x <= maxx; x+=divstep) {
+                         if (x == 0) continue
+                         if (x%divx == 0) var l = 3
+                         else var l = 2
 
-                     ctx.beginPath(); 
-                     ctx.moveTo(leftaxis + div*x/divstep, canvas.height-15-l);
-                     ctx.lineTo(leftaxis + div*x/divstep, canvas.height-15+l);
-                     ctx.stroke()
-                    
-                     if (x%divx == 0) {
-                        ctx.fillText(x, leftaxis+div*x/divstep, canvas.height-3); 
+                         ctx.beginPath(); 
+                         ctx.moveTo(leftaxis + div*x/divstep, canvas.height-botaxis-l);
+                         ctx.lineTo(leftaxis + div*x/divstep, canvas.height-botaxis+l);
+                         ctx.stroke()
+                        
+                         //if (x%divx == 0) {
+                            ctx.fillText(x, leftaxis+div*x/divstep, canvas.height-botaxis+13); 
+                         //}
                      }
+                 } else {
+                     for (var i = 0; i < freqs.length; i++) {
+                         if (i == 0) continue
+                         var l = 2
+                         var x = freqs[i]
+
+                         ctx.beginPath(); 
+                         ctx.moveTo(leftaxis + div*x/divstep, canvas.height-botaxis-l);
+                         ctx.lineTo(leftaxis + div*x/divstep, canvas.height-botaxis+l);
+                         ctx.stroke()
+                         if (i%4 == (freqs.length-1)%4) ctx.fillText(math.round(x,2), leftaxis+div*x/divstep, canvas.height-botaxis+13); 
+                     }
+                 
                  }
                 
-                 return
+                
+                 //y ticks
+                 var maxy = $scope.max
 
-                 var trunc = []
-                 for (var i = 0; i < $scope.y.length; i++) {
-                    if ($scope.y[i] !== undefined ) trunc.push($scope.y[i])
+                 for (color in data) {
+                    var max = math.max(data[color])
+                    if (max > maxy) maxy = max
                  }
 
-                 if (trunc.length >0 && (!Array.isArray(trunc[0]) ||  trunc[0].length >0   ) ) {
-                     var maxy = math.ceil(math.max(trunc)*10)/10
-                     if ($scope.max != 0)var maxy = math.max(math.ceil(maxy*10)/10,$scope.max)
-                 } else if ($scope.max == 0) var maxy = 0.1
-                 else var maxy = $scope.max
-                
-                     
-
-                 var height = canvas.height - 45
+                 var height = canvas.height - 30 - botaxis
 
                  var divstep = math.pow(10,math.round(math.log10(maxy)-1))
                 
@@ -284,40 +242,52 @@ QCAAdmin.directive("plot", function ()
                      else var l = 2
 
                      ctx.beginPath(); 
-                     ctx.moveTo(leftaxis -l, canvas.height - 15 - div*y/divstep);
-                     ctx.lineTo(leftaxis+l, canvas.height - 15 - div*y/divstep);
+                     ctx.moveTo(leftaxis -l, canvas.height - botaxis - div*y/divstep);
+                     ctx.lineTo(leftaxis+l, canvas.height - botaxis - div*y/divstep);
                      ctx.stroke()
                     
                      if ((math.round(y*mult,0))%(divy*mult) < 1e-3) {
-                        ctx.fillText(math.round(y,2), leftaxis/2-3, canvas.height -12 - div*y/divstep); 
+                        ctx.fillText(math.round(y,2), leftaxis-15, canvas.height -botaxis+3 - div*y/divstep); 
                      }
                  }
+
+
+                 // draw axis labels
+                 ctx.font = "13px sans";
+                 var xaxis = "Frequency (Inverse Iterations)"
+                 if ($scope.domain == 'time') xaxis = "Iteration"
+                 ctx.fillText(xaxis,leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5); 
+                
+                 ctx.translate(15,canvas.height/2)
+                 ctx.rotate(-Math.PI/2)
+                 ctx.fillText($scope.title,0,0); 
+                 ctx.rotate(Math.PI/2)
+                 ctx.translate(-15,-canvas.height/2)
+
 
 
                  // draw points
                  var xstep = width/maxx
                  var ystep = height/maxy
-              
 
 
-                 var data = $scope.y
-
-                 for (var idx = 0; idx < data.length; idx++) {
+                 for (color in data) {
                      ctx.beginPath(); 
                      ctx.lineWidth="1";
-                     ctx.strokeStyle= $scope.colorFor(idx)
-                     ctx.fillStyle = $scope.colorFor(idx)
+                     ctx.strokeStyle= color
+                     ctx.fillStyle = color
 
 
                      var rect = true
                      if (width/maxx < 6) rect = false
 
-                     if (data[idx] === undefined) return
 
-                     for (var i =0; i < data[idx].length; i++) {
-                         if (data[idx][i] === undefined) continue
-                         var xpos = leftaxis + xstep*$scope.x[idx][i]
-                         var ypos = canvas.height - 15 - ystep*data[idx][i]
+                     for (var i =0; i < data[color].length; i++) {
+                         if (data[color][i] === null) continue
+                         if ($scope.domain == 'time') var xpos = leftaxis + xstep*(i)
+                         else var xpos = leftaxis + xstep*(freqs[i])
+
+                         var ypos = canvas.height - botaxis  - ystep*data[color][i]
 
                          if (i == 0) {
                             ctx.moveTo(xpos,ypos);
@@ -328,16 +298,295 @@ QCAAdmin.directive("plot", function ()
                         
                          if (rect) ctx.fillRect(xpos-2,ypos-2,4,4);
                          
-                        ctx.fillStyle = "black"
-                         if (i== $scope.select[1] && idx == $scope.select[0]) ctx.fillRect(xpos-3,ypos-3,6,6);
-                        ctx.fillStyle = $scope.colorFor(idx)
+                        //ctx.fillStyle = "black"
+                        // if (i== $scope.select[1] && idx == $scope.select[0]) ctx.fillRect(xpos-3,ypos-3,6,6);
+                        //ctx.fillStyle = $scope.colorFor(idx)
                      
                      }
 
                     ctx.stroke()
                 }
                  
-           },true);
+           }
+            $scope.$watch(function() { return $scope.update; },$scope.redraw,true);
+            $scope.$watch(function() { return $scope.domain; },$scope.redraw,true);
+          
+    }}
+});
+
+QCAAdmin.directive("bubbles", function ($rootScope)
+  {
+    return {
+        restrict: 'A',
+        scope: {
+            bubbles: '=',
+            color: '=',
+            settings: '=',
+            update: '=',
+            /*select: '=',*/
+        },
+        template: "<canvas width='250px' height='400px'></canvas>",
+        link: function($scope, element, xattrs) {
+           $scope.canvas = element.find('canvas')[0];
+           $scope.context = $scope.canvas.getContext('2d');
+          
+
+
+
+            $scope.scrollpos = 0
+           element[0].addEventListener("wheel", function(e) {
+                 e.stopPropagation()
+                e.preventDefault()
+                e.returnValue = false
+                var speed = 2
+                if (e.deltaY > 0) $scope.scrollpos+=speed
+                if (e.deltaY < 0) {
+                    if ($scope.scrollpos == 0) return
+                    $scope.scrollpos-=speed
+                }
+   
+                
+                $rootScope.$broadcast('scrollpos',$scope.scrollpos)
+                return false
+           })
+
+
+           $scope.redraw = function()  { 
+                 if ($scope.bubbles.loading) return
+                 
+                 var leftaxis = 38
+                 var rightmargin = 14
+                 var botaxis = 30
+                 var tabheight = 15 // part of topaxis
+                 var topaxis = 30 + tabheight
+
+                 var ctx = $scope.context
+                 var canvas = $scope.canvas
+
+                 //fill background 
+                 ctx.fillStyle = "white";
+                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                 
+                 //draw title
+                 ctx.fillStyle = "black";
+                 ctx.font = "15px sans";
+                 ctx.textAlign = "center";
+                 ctx.fillText("Time Series", canvas.width/2, tabheight+20); 
+
+                 //draw tab
+                 ctx.fillStyle = $scope.color
+                 ctx.fillRect(0,0,canvas.width,tabheight)
+                 ctx.fillStyle = "black";
+
+                 // draw axis labels
+                 ctx.font = "13px sans";
+                 ctx.fillText("Position",leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5); 
+                
+                 ctx.translate(15,canvas.height/2)
+                 ctx.rotate(-Math.PI/2)
+                 ctx.fillText("Iteration",0,0); 
+                 ctx.rotate(Math.PI/2)
+                 ctx.translate(-15,-canvas.height/2)
+
+                 //determine sizes
+                 var width = canvas.width - leftaxis - rightmargin
+                 var height = canvas.height - topaxis - botaxis
+
+                 var statelength = $scope.bubbles.meta.length
+                 var boxdim = width/statelength
+                 var numheight = (height - (height%boxdim))/boxdim
+
+
+                 var boxx = function(j) { return leftaxis + j*boxdim  } 
+                 var boxy = function(i) { return topaxis + (i-$scope.scrollpos)*boxdim } 
+
+            
+
+                 //draw numbers
+                 ctx.fillStyle = "black"
+                 ctx.font = math.round(boxdim*0.7) + "px sans";
+                 ctx.textAlign = "right";
+                 for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                    ctx.fillText(i,leftaxis - boxdim/4,boxy(i)+3*boxdim/4); 
+                 }
+
+                 ctx.textAlign = "center";
+                 for (var j = 0; j < statelength  ; j++) {
+                    ctx.fillText(j,boxx(j)+boxdim/2,canvas.height - botaxis + 3*boxdim/4); 
+                 }
+
+
+                    /*
+                    $scope.bubsettings = {
+                            "sites": "color"//'color', 'X', 'Y', 'Z', or 'none'
+                            "siteent": true//site entropy
+                            "cutent": true//site entropy
+                        
+                        }
+                    */
+
+
+                 //draw content
+                 $scope.strokeStyle = "black"
+                
+                 if ($scope.settings.cutent) {
+                     //var maxcut = 0
+                     for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                        for (var j = 0; j+1 < statelength  ; j++) {
+                            if ($scope.bubbles["sc"][i] === undefined) continue
+                            if (Math.abs($scope.bubbles["sc"][i][j]*4) < 1e-3) continue
+                            //if ($scope.bubbles["sc"][i][j] > maxcut) maxcut =$scope.bubbles["sc"][i][j]
+                            ctx.lineWidth = Math.abs($scope.bubbles["sc"][i][j]*4)
+                            ctx.beginPath();
+                            ctx.moveTo(boxx(j)+boxdim/2,boxy(i)+boxdim/2)
+                            ctx.lineTo(boxx(j+1)+boxdim/2,boxy(i)+boxdim/2)
+                            ctx.stroke();
+                              
+                        }
+                     }
+                     //console.log("maxcut",maxcut)
+                 }
+
+                
+                 var radius = boxdim/2
+                 if (!$scope.settings.cutent) radius = boxdim/Math.sqrt(2)
+
+
+                 for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                    for (var j = 0; j < statelength  ; j++) {
+                        if ($scope.bubbles["one_site"][i] === undefined) continue
+
+                        var density = $scope.bubbles["one_site"][i][j]
+                        if ($scope.settings.sites == 'color') { 
+                            var bubble = $scope.qbitcolor(density)
+                            if (!bubble[1]) ctx.fillStyle= bubble[0]
+                            else {
+                                var grd=ctx.createRadialGradient(boxx(j)+boxdim/2,boxy(i)+boxdim/2,0,boxx(j)+boxdim/2,boxy(i)+boxdim/2,radius);
+                                grd.addColorStop(0,"white");
+                                grd.addColorStop(1,"black");
+                                ctx.fillStyle = grd
+                            }
+                        } else if ($scope.settings.sites != 'none') {
+                            setting = $scope.settings.sites 
+                            if (setting == 'X') {
+                                var value = 255-Math.round(255* (density[0][1].re + density[1][0].re) )
+                                ctx.fillStyle = "rgb("+value+","+value+","+value+")"
+                            }
+                            if (setting == 'Y') {
+                                var value = 255-Math.round(255* (density[1][0].im - density[0][1].im) )
+                                ctx.fillStyle = "rgb("+value+","+value+","+value+")"
+                            }
+                            if (setting == 'Z') {
+                                var value = Math.round(255* (density[0][0].re - density[1][1].re) )
+                                ctx.fillStyle = "rgb("+value+","+value+","+value+")"
+                            }
+                        }
+
+                        if ($scope.settings.sites != 'none' ) { 
+                            if ($scope.settings.cutent)  {
+                                ctx.beginPath();
+                                ctx.arc(boxx(j)+boxdim/2,boxy(i)+boxdim/2,4*boxdim/10,0,2*Math.PI);
+                                ctx.fill();
+                            } else ctx.fillRect(boxx(j),boxy(i),boxdim,boxdim)
+                        }
+
+                        if (  !(bubble && bubble[1]) && $scope.settings.siteent ) {
+                            if ($scope.settings.sites != 'none') {
+                                var w = $scope.bubbles["s"][i][j]*2.5
+                                ctx.lineWidth = w 
+                                if ($scope.settings.cutent)  {
+                                    ctx.beginPath();
+                                    ctx.arc(boxx(j)+boxdim/2,boxy(i)+boxdim/2,4*boxdim/10,0,2*Math.PI);
+                                    ctx.stroke();
+                                } else ctx.strokeRect(boxx(j)+w/2,boxy(i)+w/2,boxdim-w/2,boxdim-w/2)
+                            } else {
+                                var w = $scope.bubbles["s"][i][j]*4*boxdim/10
+                                ctx.fillStyle = "black"
+                                if ($scope.settings.cutent)  {
+                                    ctx.beginPath();
+                                    ctx.arc(boxx(j)+boxdim/2,boxy(i)+boxdim/2,w,0,2*Math.PI);
+                                    ctx.fill();
+                                } else ctx.fillRect(boxx(j)+boxdim/2-w,boxy(i)+boxdim/2-w,w*2,w*2)
+                            
+                            }
+                        }
+
+
+                 
+                    }
+                 }
+
+                 if ($scope.settings.sites == 'none' && !$scope.settings.siteent && !$scope.settings.cutent) {
+                    $scope.fillStyle = "black"
+                     ctx.font = "15px sans";
+                    ctx.fillText("Nothing Selected",leftaxis + width/2  , topaxis + height/2); 
+                 
+                 }
+
+                 
+           }
+           
+           $scope.$watch(function() { return $scope.update; },$scope.redraw,true);
+           $scope.$watch(function() { return $scope.settings; },$scope.redraw,true);
+           $scope.$on('scrollpos',function(e,pos) {
+               $scope.scrollpos = pos
+               $scope.redraw()
+           }, true)
+
+            $scope.qbitcolor = function(density) {
+               if (density[0][0].re + density[1][1].re - 1 > 1e-1) {
+                   throw "matrix " +$scope.showDensity(density)+ " violates trace condition! ("+ JSON.stringify(density[0][0].re + density[1][1].re)   +"+" + JSON.stringify( density[0][0].im + density[1][1].im) + "i)"
+               }
+
+               var ph = math.complex(density[0][1]).toPolar().phi/Math.PI
+
+               var r = 0
+               var g = 0
+               var b = 0
+               if (math.complex(density[0][1]).toPolar().r > 1e-3)  {
+                   var r = 255*(1 - Math.abs(ph)/(2/3))
+                   if (r < 0) r = 0
+                   
+                   ph = ph - 2/3
+                   if (ph < -1) ph = 2 +ph
+
+                   var g = 255*(1 - Math.abs(ph)/(2/3))
+                   if (g < 0) g = 0
+
+                   ph = ph - 2/3
+                   if (ph < -1) ph = 2 +ph
+
+                   var b = 255*(1 - Math.abs(ph)/(2/3))
+                   if (b < 0) b = 0
+                }
+
+               var len = (2*(density[0][0].re)-1)*(2*(density[0][0].re)-1)
+               len += 4*density[0][1].re*density[0][1].re
+               len += 4*density[0][1].im*density[0][1].im
+               len = math.sqrt(len)
+
+               var z= (2*(density[0][0].re) - 1)
+               //if ( len > 1e-3) z = z
+               
+               if (z < 0) {
+                    r = (1+z)*r
+                    g = (1+z)*g
+                    b = (1+z)*b
+               } else {
+                    r = r + (255 - r)*z
+                    g = g + (255 - g)*z
+                    b = b + (255 - b)*z
+               }
+
+
+                
+                var maxmixed = false
+                if (len < 1e-2) maxmixed = true
+
+
+                return ["rgb("+Math.round(r)+","+Math.round(g)+","+Math.round(b)+")",maxmixed]
+            }
+
           
     }}
 });
@@ -345,310 +594,293 @@ QCAAdmin.directive("plot", function ()
 
 
 
-QCAAdmin.directive("network", function() {
-
-            return {
-                restrict: 'A',
-                template: "<canvas width='520px' height='290px' style='border:1px solid black;'></canvas>",
-                link: function($scope, $element, $attrs) {
-                   
-                    element[0].onclick = function() {
-                        scope.$apply(function() {
-                            if (scope.selectedRow < scope.networks[scope.selectedData].length -1) {
-                                scope.selectedRow++
-                                scope.binmax = 8
-                            } else {
-                                scope.selectedRow = -1
-                                scope.selectedData = -1
-                                scope.binmax = 8
-                            }
-                        })
-                    }
-
-                     scope.$watch(function() { 
-                         return [scope.selectedData,scope.selectedRow]
-                    },function() { 
-                         if (!scope.networks[scope.selectedData]) return
-                         parse = scope.networks[scope.selectedData][scope.selectedRow]
-                        
-                         if (!parse) return
-                         
-
-                         var canvas = element.find('canvas')[0];
-                         var ctx = canvas.getContext('2d');
+QCAAdmin.directive("networks", function ($rootScope)
+  {
+    return {
+        restrict: 'A',
+        scope: {
+            networks: '=',
+            color: '=',
+            update: '=',
+            key: '=',
+            mode: '=',
+            /*select: '=',*/
+        },
+        template: "<canvas width='250px' height='400px'></canvas>",
+        link: function($scope, element, xattrs) {
+           $scope.canvas = element.find('canvas')[0];
+           $scope.context = $scope.canvas.getContext('2d');
+          
 
 
 
-                         //fill background 
-                         ctx.fillStyle = "white";
-                         ctx.fillRect(0, 0, canvas.width, canvas.height); 
-                        
-
-                       
-                         //draw title
-                         ctx.fillStyle = "black";
-                         ctx.font = "15px sans";
-                         ctx.textAlign = "center";
-                         ctx.fillText("Mutual Information Network for Iteration " + (scope.selectedRow), canvas.width/2, 20);
-
-
-                         var dotPos =  function(i) {
-                            return (10+widthper*i)
-                         }
-
-
-
-                             //draw dots
-                             ctx.strokeStyle = "black"
-
-                             
-                             var height = canvas.height-10 //change for double-high
-                             var widthper = (canvas.width-20)/(parse.length-1)
-                             for (var i = 0; i < parse.length; i++) {
-                             
-                                ctx.fillStyle = scope.displays[scope.selectedData][scope.selectedRow][i].qbit;
-                                 var x = math.floor(10+widthper*i-3) 
-                                 var y = math.floor(height-3)
-                                 ctx.fillRect(x,y,7,7);
-                             }
-
-
-
-                             //draw arcs
-                            for (var i = 0; i < parse.length; i++) {
-                                for (var j = i; j < parse.length; j++) {
-                                    ctx.strokeStyle = "black"
-                                                                                
-                                    if (parse[i][j] < 1e-3) continue
-
-                                    ctx.beginPath()
-                                    var rad = (dotPos(j) - dotPos(i))/2
-                                    ctx.lineWidth = 2*math.abs(parse[i][j])
-                                    ctx.arc( dotPos(i) + rad ,height, rad, Math.PI, 2*Math.PI  )
-                                    ctx.stroke()
-
-                                }
-                                   
-                            }
-
-                         
-                    },true);
+            $scope.scrollpos = 0
+           element[0].addEventListener("wheel", function(e) {
+                e.stopPropagation()
+                e.preventDefault()
+                e.returnValue = false
+                var speed = 2
+                if (e.deltaY > 0) $scope.scrollpos+=speed
+                if (e.deltaY < 0) {
+                    if ($scope.scrollpos == 0) return
+                    $scope.scrollpos-=speed
                 }
-            }})
+        
+                
+                $rootScope.$broadcast('scrollpos',$scope.scrollpos)
+                return false
+           })
 
 
+           $scope.redraw = function()  { 
+                 if (!$scope.networks) return
+                 
+                 var leftaxis = 38
+                 var rightmargin = 14
+                 var botaxis = 30
+                 var tabheight = 15 // part of topaxis
+                 var topaxis = 30 + tabheight
+
+                 var ctx = $scope.context
+                 var canvas = $scope.canvas
+
+                 //fill background 
+                 ctx.fillStyle = "white";
+                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                 //draw title
+                 ctx.fillStyle = "black";
+                 ctx.font = "15px sans";
+                 ctx.textAlign = "center";
+
+                 var lookup = {
+                    'm': 'Mutual Information',
+                    'xx': 'XX Correlator',
+                    'yy': 'YY Correlator',
+                    'zz': 'ZZ Correlator',
+                    'gxx': 'g2(XX)',
+                    'gyy': 'g2(YY)',
+                    'gzz': 'g2(ZZ)',
+                 }
+
+                 if ($scope.mode == 'arcs') ctx.fillText(lookup[$scope.key]+" Networks", canvas.width/2, tabheight+20); 
+                 else if ($scope.mode == 'edge') ctx.fillText(lookup[$scope.key]+" Edge Distrib.", canvas.width/2, tabheight+20); 
+                 else ctx.fillText(lookup[$scope.key]+" Degree Distrib.", canvas.width/2, tabheight+20); 
+
+                 //draw tab
+                 ctx.fillStyle = $scope.color
+                 ctx.fillRect(0,0,canvas.width,tabheight)
+                 ctx.fillStyle = "black";
+
+                 // draw axis labels
+                 ctx.font = "13px sans";
+                 if ($scope.mode == 'arcs') ctx.fillText("Position",leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5); 
+                 else if ($scope.mode == 'edge') ctx.fillText("Edge Weight",leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5);
+                 else  ctx.fillText("Vertex Degree",leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5);
+
+                 ctx.translate(15,canvas.height/2)
+                 ctx.rotate(-Math.PI/2)
+                 ctx.fillText("Iteration",0,0); 
+                 ctx.rotate(Math.PI/2)
+                 ctx.translate(-15,-canvas.height/2)
+
+                 //determine sizes
+                 var width = canvas.width - leftaxis - rightmargin
+                 var height = canvas.height - topaxis - botaxis
+
+                 var statelength = $scope.networks[0].length
+                 if ($scope.mode != 'arcs') statelength = 10
+
+                 var boxdim = width/statelength
+                 var boxheight = 40
+                 var numheight = (height - (height%boxheight))/boxheight
 
 
-QCAAdmin.directive("histogram", function() {
+                 var boxx = function(j) { return leftaxis + j*boxdim  } 
+                 var boxy = function(i) { return topaxis + (i-$scope.scrollpos)*boxheight } 
 
-            return {
-                restrict: 'A',
-                template: "<canvas width='520px' height='290px' style='border:1px solid black;'></canvas>",
-                link: function(scope, element, attrs) {
+            
 
-                    element[0].onclick = function() {
-                        scope.$apply(function() {
-                            if (scope.binmax > 1) scope.binmax--
-                        })
+                 //draw numbers
+                 ctx.fillStyle = "black"
+                 ctx.font = "10px sans";
+                 ctx.textAlign = "right";
+                 for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                    ctx.fillText(i,leftaxis - boxdim/4,boxy(i)+boxheight/2+5); 
+                 }
+
+                 ctx.textAlign = "center";
+                 for (var j = 0; j < statelength  ; j++) {
+                    if ($scope.mode == 'arcs') {
+                        ctx.fillText(j,boxx(j)+boxdim/2,canvas.height - botaxis + 3*boxdim/4); 
+                    } else {
+                        if (j == 0) ctx.fillText(j,boxx(j),canvas.height - botaxis + 2*boxdim/4); 
+                        else ctx.fillText("."+j,boxx(j),canvas.height - botaxis + 2*boxdim/4); 
                     }
+                 }
 
+                if ($scope.mode != 'arcs') ctx.fillText(1,boxx(10),canvas.height - botaxis + 2*boxdim/4); 
 
-                     scope.$watch(function() { 
-                         return [scope.selectedData,scope.selectedRow,scope.binmax]
-                    },function() { 
-                         if (!scope.networks[scope.selectedData]) return
-                         parse = scope.networks[scope.selectedData][scope.selectedRow]
-                        
-                         if (!parse) return
-                        
-
-                         var canvas = element.find('canvas')[0];
-                         var ctx = canvas.getContext('2d');
-
-                         //fill background 
-                         ctx.fillStyle = "white";
-                         ctx.fillRect(0, 0, canvas.width, canvas.height); 
-
-                       
-                         //draw title
-                         ctx.fillStyle = "black";
-                         ctx.font = "15px sans";
-                         ctx.textAlign = "center";
-                         ctx.fillText("Mutual Information Histogram for Iteration " + (scope.selectedRow), canvas.width/2, 20);
-
-                         var leftaxis = 30
-                         //draw axes
-                         ctx.beginPath(); 
-                         ctx.lineWidth="2";
-                         ctx.strokeStyle="black";
-                         ctx.moveTo(leftaxis-5,canvas.height-15);
-                         ctx.lineTo(canvas.width - 15,canvas.height-15);
-                         ctx.stroke()
-
-                         ctx.beginPath(); 
-                         ctx.moveTo(leftaxis,canvas.height-10);
-                         ctx.lineTo(leftaxis,30);
-                         ctx.stroke()
-
-                         var perbin = 0
-                         var occupiedBins = 0
-
-                         var bestperbin = 1
-                         var bestOccupiedBins = 1
-
-                         while (perbin < scope.binmax) {
-                             perbin++
-                        
-                             // compute histogram
-                             var hist = []
-                             for (var i = 0; i*0.1/perbin < 1; i++) hist.push(0)
-
-                             for (var i = 0; i < parse.length; i++) {
-                                    for (var j = i; j < parse.length; j++) {
-                                        for (var k = 0; k*0.1/perbin < 1; k++) {
-                                            if (k*0.1/perbin <= parse[i][j] &&  parse[i][j] < (k+1)*0.1/perbin) {
-                                                hist[k]++
-                                                break
-                                            }
-                                        }
-                                           if (parse[i][j] == 1 && 1 == (k+1)*0.1/perbin ) {
-                                                hist[k]++
-                                                break
-                                            }
-
-                                    }
-                                       
-                                }
-                        
-                            occupiedBins = 0
-                            for (var i = 0; i*0.1/perbin < 1; i++) {
-                                if (hist[i] != 0) occupiedBins++;
-                            }
-                            
-                            if (occupiedBins > bestOccupiedBins) {
-                                bestperbin = perbin
-                                bestOccupiedBins = occupiedBins
-                            } else {
-                            
-                            }
-                         }
-
-                         perbin = bestperbin
-
-                        var hist = []
-                             for (var i = 0; i*0.1/perbin < 1; i++) hist.push(0)
-
-                             for (var i = 0; i < parse.length; i++) {
-                                    for (var j = i; j < parse.length; j++) {
-                                        for (var k = 0; k*0.1/perbin < 1; k++) {
-                                            if (k*0.1/perbin <= parse[i][j] &&  parse[i][j] < (k+1)*0.1/perbin) {
-                                                hist[k]++
-                                                break
-                                            }
-                                            if (parse[i][j] == 1 && 1 == (k+1)*0.1/perbin ) {
-                                                hist[k]++
-                                                break
-                                            }
-                                        }
-
-                                    }
-                                       
-                                }
-
-
-                         //draw ticks
-                         ctx.font = "10px sans";
-
-                         var maxx = 1
-
-
-                         var width = canvas.width - 15 - leftaxis
-                         var divstep = 0.1
-
-                         var div = (width/maxx)*divstep
-                    
-                         if (divstep == 0) divstep = 0.1
-                         for (var x = 0; x <= maxx; x+=divstep) {
-                             if (x == 0) continue
-                             else var l = 2
-
-                             ctx.beginPath(); 
-                             ctx.moveTo(leftaxis + div*x/divstep, canvas.height-15-l);
-                             ctx.lineTo(leftaxis + div*x/divstep, canvas.height-15+l);
-                             ctx.stroke()
-                            
-                             ctx.fillText(math.round(x,1), leftaxis+div*x/divstep, canvas.height-3); 
-                         }
-                      
-
-
-                         var first = hist.shift()
-                         var maxy = math.max(hist)
-                         if (maxy == 0) maxy = 1
-                         hist.unshift(first)
-                        
-                             
-
-                         var height = canvas.height - 45
-
-                         var divstep = math.pow(10,math.round(math.log10(maxy)-1))
-                        
-                         var count = 1
-                         while (maxy/(divstep*count) > 15) count++
-                         var divy = divstep*count
-                         
-                         var div = (height/maxy)*divstep
-                           
-                         var mult = 1
-                         while (divy*mult < 1) mult *= 10
-                         
-                         if (divstep == 0) divstep = 0.1
-                         for (var y = 0; y <= maxy; y+=divstep) {
-                             if (y == 0) continue
-                             if (y%divy == 0) var l = 3
-                             else var l = 2
-
-                             ctx.beginPath(); 
-                             ctx.moveTo(leftaxis -l, canvas.height - 15 - div*y/divstep);
-                             ctx.lineTo(leftaxis+l, canvas.height - 15 - div*y/divstep);
-                             ctx.stroke()
-                            
-                             if ((math.round(y*mult,0))%(divy*mult) < 1e-3) {
-                                ctx.fillText(math.round(y,2), leftaxis/2-3, canvas.height -12 - div*y/divstep); 
-                             }
-                         }
-
-
-                            
-                         ctx.fillStyle = scope.colorFor(scope.selectedData)
+                //underline
+                 if ($scope.mode != 'arcs')  {
+                     for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                         if ($scope.networks[i] === undefined) continue
                          ctx.strokeStyle = "black"
                          ctx.lineWidth = 1
+                         ctx.beginPath()
+                         ctx.moveTo(boxx(0),boxy(i+1)+0.5)
+                         ctx.lineTo(boxx(statelength),boxy(i+1)+0.5)
+                         ctx.stroke() 
+                     }
+                 }
 
-                         var xCoord = function(i) {
-                            return leftaxis + (width/maxx)*(i*0.1/perbin)
-                         }
+                 //draw arcs
+                 if ($scope.mode == 'arcs') { 
+                     for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                         if ($scope.networks[i] === undefined) continue
 
-                         var yCoord = function(i) {
-                            return canvas.height-15 - (height/maxy)*i
-                         }
+                        for (var j = 0; j< statelength  ; j++) {
+                            var dot = 2
+                            ctx.fillRect(boxx(j)+boxdim/2-dot,boxy(i)+boxheight-dot,2*dot,2*dot)
+                        }
+                        for (var j = 0; j< statelength  ; j++) {
+                            for (var k = 0; k < statelength  ; k++) {
+                                if (j == k) continue
+                                ctx.lineWidth = $scope.networks[i][j][k]*4
 
-
-                         var barwidth = (width/maxx)*0.1/perbin
-                         for (var i = 0; i*0.1/perbin < 1; i++) {
-                            if (perbin == 1) {
-                                ctx.fillRect(xCoord(i)+barwidth/4,yCoord(hist[i]), barwidth/2 ,  (height/maxy)*hist[i] ) 
-                                ctx.strokeRect(xCoord(i)+barwidth/4,yCoord(hist[i]),barwidth/2 ,  (height/maxy)*hist[i] ) 
-                            } else {
-                                ctx.fillRect(xCoord(i),yCoord(hist[i]), barwidth ,  (height/maxy)*hist[i] ) 
-                                ctx.strokeRect(xCoord(i),yCoord(hist[i]),barwidth ,  (height/maxy)*hist[i] ) 
+                                
+                                var low = boxy(i) + boxheight*(1-(Math.abs(j-k)/statelength))
+                                var high = boxy(i)+boxheight
+                                var left = boxx(j)+boxdim/2 
+                                var right = boxx(k)+boxdim/2 
+                                
+                                ctx.beginPath();
+                                ctx.moveTo(left,high)
+                                ctx.bezierCurveTo(left,low,right,low,right,high)
+                                ctx.stroke();
+                                  
                             }
-                            
+                        }
+                    }
+                 } else {
+                     var histmax = 0
+                     var allhist = []
+                     
+                     for (var i = 0; i < $scope.networks.length;i++ ) {
+                         if ($scope.networks[i] === undefined) continue
+
+                         var hist = []
+                         for (var l = 0; l < statelength; l++) hist[l] = 0
+
+                         for (var j = 0; j< $scope.networks[0].length  ; j++) {
+                            if ($scope.mode == 'edge')  {
+                                for (var k = 0; k < $scope.networks[0].length  ; k++) {
+                                    var value = $scope.networks[i][j][k]
+                                    for (var l = 0; l < statelength; l++) {
+                                        if ( value >= l/10 && value < (l+1)/10) hist[l]++
+                                    }
+                                    if (value == 1) hist[statelength-1]++
+                                }
+                            } else {
+                                var value = 0
+                                for (var k = 0; k < $scope.networks[0].length  ; k++) {
+                                    value += $scope.networks[i][j][k]
+           
+                                }
+                                value = value/$scope.networks[0].length
+                                for (var l = 0; l < statelength; l++) {
+                                    if ( value >= l/10 && value < (l+1)/10) {
+                                        hist[l]++
+                                    }
+                                }
+                                if (value == 1) hist[statelength-1]++
+                            }
                          }
+                         for (var l = 0; l < statelength; l++) if (hist[l] > histmax) histmax =  hist[l]
+               
+                         allhist.push(hist)
+
+                     }
 
 
-                         
-                    },true);
+                     for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                         if ($scope.networks[i] === undefined) continue
+                          for (var l = 0; l < statelength; l++) {
+                             var boxw = 3
+                             var boxh = 0.8*allhist[i][l]/histmax
+                             ctx.fillRect(boxx(l)+boxdim/2-boxw,boxy(i)+(1-boxh)*boxheight,boxw*2,boxheight*boxh)
+                         }
+                     }    
+                 }
+ 
+                 
+           }
+           
+           $scope.$watch(function() { return $scope.update; },$scope.redraw,true);
+           $scope.$watch(function() { return $scope.mode; },$scope.redraw,true);
+           $scope.$on('scrollpos',function(e,pos) {
+               $scope.scrollpos = pos
+               $scope.redraw()
+           }, true)
+
+            $scope.qbitcolor = function(density) {
+               if (density[0][0].re + density[1][1].re - 1 > 1e-1) {
+                   throw "matrix " +$scope.showDensity(density)+ " violates trace condition! ("+ JSON.stringify(density[0][0].re + density[1][1].re)   +"+" + JSON.stringify( density[0][0].im + density[1][1].im) + "i)"
+               }
+
+               var ph = math.complex(density[0][1]).toPolar().phi/Math.PI
+
+               var r = 0
+               var g = 0
+               var b = 0
+               if (math.complex(density[0][1]).toPolar().r > 1e-3)  {
+                   var r = 255*(1 - Math.abs(ph)/(2/3))
+                   if (r < 0) r = 0
+                   
+                   ph = ph - 2/3
+                   if (ph < -1) ph = 2 +ph
+
+                   var g = 255*(1 - Math.abs(ph)/(2/3))
+                   if (g < 0) g = 0
+
+                   ph = ph - 2/3
+                   if (ph < -1) ph = 2 +ph
+
+                   var b = 255*(1 - Math.abs(ph)/(2/3))
+                   if (b < 0) b = 0
                 }
-            }})
+
+               var len = (2*(density[0][0].re)-1)*(2*(density[0][0].re)-1)
+               len += 4*density[0][1].re*density[0][1].re
+               len += 4*density[0][1].im*density[0][1].im
+               len = math.sqrt(len)
+
+               var z= (2*(density[0][0].re) - 1)
+               //if ( len > 1e-3) z = z
+               
+               if (z < 0) {
+                    r = (1+z)*r
+                    g = (1+z)*g
+                    b = (1+z)*b
+               } else {
+                    r = r + (255 - r)*z
+                    g = g + (255 - g)*z
+                    b = b + (255 - b)*z
+               }
+
+                
+                $scope.totParticles += (1-z)/2
+                $scope.totVectors += (1-len)
+                
+                var maxmixed = false
+                if (len < 1e-2) maxmixed = true
+
+
+                return ["rgb("+Math.round(r)+","+Math.round(g)+","+Math.round(b)+")",maxmixed]
+            }
+
+          
+    }}
+});
 
 
