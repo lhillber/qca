@@ -216,22 +216,6 @@ def plot_time_series(time_series, ax,
     if not xtick_labels:
         plt.setp([ax.get_xticklabels()], visible=False)
 
-# make Fourier transform of time series data
-# ------------------------------------------
-def make_ft(time_series, dt=1):
-    time_series = np.nan_to_num(time_series)
-    Nsteps = len(time_series)
-    times = [n*dt for n in range(Nsteps)]
-
-    if Nsteps%2 == 1:
-        time_sereis = np.delete(time_series,-1)
-        Nsteps = Nsteps - 1
-
-    # dt = 2*pi*dt
-    time_series = time_series - np.mean(time_series)
-    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])
-    freqs = np.linspace(0.0,1.0/(2.0*dt), Nsteps/2)
-    return freqs, amps
 
 # plot Fourier transform on an axis
 # ---------------------------------
@@ -295,12 +279,12 @@ def plot_measures(meas_dict, fignum=1):
 
 # plot Fourier transform of many measures
 # ---------------------------------------
-def plot_measure_FTs(meas_dict, fignum=1):
-    nr = len(list(meas_dict.keys()))
+def plot_measure_fts(Fmeas_dict, freqs, fignum=1):
+    nr = len(list(Fmeas_dict.keys()))
     gs = gridspec.GridSpec(nr, 1)
     fig = plt.figure(fignum)
 
-    for r, (name, vals) in enumerate(meas_dict.items()):
+    for r, (name, vals) in enumerate(Fmeas_dict.items()):
         ax = fig.add_subplot(gs[r])
         xtick_labels=False
         xlabel = ''
@@ -309,7 +293,7 @@ def plot_measure_FTs(meas_dict, fignum=1):
             xtick_labels=True
             xlabel = 'Frequency'
 
-        freqs, amps = make_ft(vals)
+        amps = Fmeas_dict[name]
         plot_ft(freqs, amps, ax,
                 xlabel=xlabel,
                 ylabel=r'$\mathcal{F}$('+name+')',
@@ -356,30 +340,34 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
 
 # call plotting sequence
 # ----------------------
-def plot(params, fname, force_rewrite=False, j=0):
+def plot(params, results, j=0):
     print('Plotting measures...')
 
-    # get correlators at constant row j
-    x_g2grid, y_g2grid, z_g2grid =\
-            map(lambda mats: measures.get_row_vecs(mats, j=j), io.read_hdf5(fname, ['gxx', 'gyy', 'gzz']))
-
     # get spin projections along x, y, and z
-    x_grid, y_grid, z_grid =\
-            map(measures.get_diag_vecs, io.read_hdf5(fname, ['xx', 'yy', 'zz']))
+    x_grid, y_grid, z_grid = [measures.get_diag_vecs(results[ab])
+                for ab in ['xx', 'yy', 'zz']]
+
+    # get correlators at constant row j
+    x_g2grid, y_g2grid, z_g2grid = [measures.get_row_vecs(results[ab], j=j)
+                for ab in ['gxx', 'gyy', 'gzz']]
 
     # get mi measure results and place in ordered dict for plotting
-    nm_keys = ['ND', 'CC', 'Y']
-    meas_list = io.read_hdf5(fname, nm_keys)
-    meas_dict = OrderedDict( (key,data)
-            for key, data in zip(nm_keys, meas_list))
+    meas_keys = ['ND', 'CC', 'Y', 'IPT']
+    meas_list = [results[meas_key] for meas_key in meas_keys]
+    freqs = results['freqs']
+    Fmeas_list = [results['F'+meas_key] for meas_key in meas_keys]
+    meas_dict = OrderedDict( (key, data)
+            for key, data in zip(meas_keys, meas_list))
+    Fmeas_dict = OrderedDict( (key, Fdata)
+            for key, Fdata in zip(meas_keys, Fmeas_list))
 
     # get local and bond entropies
-    stj = io.read_hdf5(fname, 's')
+    stj = results['s']
 
-    stc = io.read_hdf5(fname, 'sc')
+    stc = results['sc']
 
     # get mutual information adjacency matrices
-    mtjk = io.read_hdf5(fname, 'm')
+    mtjk = results['m']
 
     # plot spin projections
     plot_grids([x_grid, y_grid, z_grid],
@@ -408,13 +396,14 @@ def plot(params, fname, force_rewrite=False, j=0):
 
     # plot mi measures and their FT's
     plot_measures(meas_dict, fignum=6)
-    plot_measure_FTs(meas_dict, fignum=7)
+    plot_measure_fts(Fmeas_dict, freqs, fignum=7)
 
     # plot distribution of mutual information over time
     plot_edge_strength_contour(mtjk,
             bins=60, rng=(0,.1), emax=30, fignum=8)
 
     # create the full path to where plots will be saved
+    fname = params['fname']
     io.base_name(params['output_dir'], 'plots')
     path_list = fname.split('/')
     sub_dir_ind = path_list.index('data')
@@ -466,11 +455,6 @@ if __name__ == '__main__':
     import numpy
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-
-    #fname = time_evolve.run_sim(params, force_rewrite=False)
-    #measures.measure(params, fname, force_rewrite=False)
-    #plot(params, fname)
 
     #fft_check()
 

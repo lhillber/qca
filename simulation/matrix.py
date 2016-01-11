@@ -103,25 +103,21 @@ def rdms(state, js, ds=None):
     else:
         L = len(ds)
 
-    dn = np.prod(np.array(ds).take(js))
-    dL = np.prod(ds)
 
     rest = list(np.setdiff1d(np.arange(L), js))
     ordering = list(js) + list(rest)
-    block = state.reshape(ds).transpose(ordering).reshape(dn, dL/dn)
+    dL = np.prod(ds)
+    djs = np.prod(np.array(ds).take(js))
+    drest = np.prod(np.array(ds).take(rest))
 
-    RDM = np.zeros((dn, dn), dtype=complex)
+    block = state.reshape(ds).transpose(ordering).reshape(djs, drest)
+
+    RDM = np.zeros((djs, djs), dtype=complex)
     tot = complex(0,0)
-    for i in range(dn - 1):
-        Rii = np.inner(block[i,:], np.conj(block[i,:]))
-        tot = tot + Rii
-        RDM[i, i] = Rii
-        for j in range(dn):
-            if i != j:
-                Rij = np.inner(block[i,:], np.conj(block[j,:]))
-                RDM[i, j] = Rij
-                RDM[j, i] = np.conj(Rij)
-    RDM[dn - 1, dn - 1] = complex(1,0) - tot
+    for i in range(djs):
+        for j in range(djs):
+            Rij = np.inner(block[i,:], np.conj(block[j,:]))
+            RDM[i, j] = Rij
     return RDM
 
 # partial trace of a  density matrix
@@ -311,8 +307,8 @@ def comp_plot():
 
 if __name__ == '__main__':
 
-    import states as ss
-    import measures as ms
+    import simulation.states as ss
+    import simulation.measures as ms
     L = 7
     IC = 'l0_2'
 
@@ -333,4 +329,5 @@ if __name__ == '__main__':
     final_rj = [rdms(final_state, [j]) for j in range(L)]
     final_Z_exp = [round(np.trace(r.dot(ss.ops['Z'])).real) for r in final_rj]
     print('final Z exp vals:', final_Z_exp) 
+
     #comp_plot()

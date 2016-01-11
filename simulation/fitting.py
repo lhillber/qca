@@ -105,20 +105,6 @@ if __name__ == '__main__':
         ax = fig.add_subplot(111)
 
         img = (1.0-grid)/2
-<<<<<<< HEAD:simulation/fitting.py
-=======
-
->>>>>>> origin/website:simulation/fitting.py
-
-        ptt.plot_grid(grid, ax)
-
-        L = params['L']
-<<<<<<< HEAD:simulation/fitting.py
-=======
-
-        # block 150 12 H
-        ks = [0, 11, 21, 31, 41]
->>>>>>> origin/website:simulation/fitting.py
 
         # block S6 12 H
         #ks = [0, 11, 21, 31, 41]
@@ -151,7 +137,6 @@ if __name__ == '__main__':
         plt.plot(xs, func(Bs, xs))
         plt.show()
 
-<<<<<<< HEAD:simulation/fitting.py
     '''
     data = np.array([x**2-.3*x for x in np.linspace(-2, 3, 30)])
     data = data+np.random.rand(len(data))
@@ -164,7 +149,3 @@ if __name__ == '__main__':
 
     #fit_speed(z_grid)
 
-
-=======
-    fit_speed(z_grid)
->>>>>>> origin/website:simulation/fitting.py

@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-
 from cmath  import sqrt, sin, cos, pi
 from collections import OrderedDict
 from os.path import isfile
@@ -12,6 +11,7 @@ import simulation.time_evolve as time_evolve
 import simulation.measures as measures
 import simulation.fio as io
 import time
+import simulation.states as ss
 
 # Execute simulations
 # ===================
@@ -20,7 +20,7 @@ import time
 # -------------------------------
 output_dir = 'tmp'
 
-mode_list = ['sweep', 'block', 'alt']
+mode_list = ['alt']
 
 L_list = [15]
 
@@ -48,7 +48,8 @@ params_list = [
             'T' : T,
             'S' : S,
             'V' : V,
-            'IC': IC,
+            'init_state': ss.make_state(L, IC), #len 2^L np array of  quantum state goes here
+            'IC_name': 'custom_name', # if not priveded, defaults to 'custom'
             'BC': BC
              }
 
@@ -74,14 +75,17 @@ if __name__ == '__main__':
     # use rank 0 to give each simulation a file name
     if rank == 0:
         for params in params_list:
-            # iterate version numbers for random throw IC's
-            if params['IC'][0] == 'r':
-                fname = io.make_file_name(params, iterate = True)
-            # don't iterate file names with a unique IC name
+            if 'fname' in params:
+                fname = params['fname']
             else:
-                fname = io.make_file_name(params, iterate = False)
-            # set the file name for each simulation
-            params['fname'] = fname
+                if 'IC' in params:
+                    if params['IC'][0] == 'r':
+                        fname = io.make_file_name(params, iterate = True)
+                    # don't iterate file names with a unique IC name
+                else:
+                    fname = io.make_file_name(params, iterate = False)
+                    # set the file name for each simulation
+                params['fname'] = fname
 
     # boradcast updated params list to each core
     params_list = comm.bcast(params_list, root=0)
@@ -89,12 +93,9 @@ if __name__ == '__main__':
 
         # each core selects params to simulate without the need for a master
         if i % nprocs == rank:
-            t0 = time.time()
-            fname = time_evolve.run_sim(params, force_rewrite=True)
-            t1 = time.time()
-            print(t1-t0 )
+            state_res = time_evolve.run_sim(params, force_rewrite=True)
 
-            measures.measure(params, fname, force_rewrite=True)
-            plotting.plot(params, fname, force_rewrite=True)
+            res = measures.measure(params, state_res, force_rewrite=True)
+            plotting.plot(params, res)
             plt.clf
     plt.close('all')

@@ -4,12 +4,13 @@ from os import environ, makedirs
 from os.path import isfile
 from collections import namedtuple, Iterable, OrderedDict
 
+
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import json
 import h5py
-
 from simulation.outputdir import base_dir
 
 
@@ -243,7 +244,7 @@ def write_hdf5(fname, data_dict, force_rewrite=False):
     for key, dat in data_dict.items():
         dt = dat.dtype
         if key in f:
-            if force_rewrite:
+            if force_rewrite or dat.shape != f[key].shape:
                 del f[key]
             if not force_rewrite:
                 f[key][::] = dat
@@ -256,28 +257,25 @@ def read_hdf5(fname, keys):
     if type(keys) == str:
         if isinstance(f[keys], h5py.Group):
             gkeys = f[keys].keys()
-            gdat = [0]*len(gkeys)
+            gdat = {}
             for gkey in gkeys:
-                gdat[j] = f[keys][gkey][::]
-                if key =='bi_partite':
-                    gdat[int(gkey.split('t')[1])] = f[key][gkey][::]
-            dat = gdat
+                gdat[gkey] = f[keys][gkey][::]
+            dat[key] = gdat
         elif isinstance(f[keys], h5py.Dataset):
             dat = f[keys][::]
 
     elif type(keys) == list:
-        dat = [0]*len(keys)
+        dat = {}
         for i, key in enumerate(keys):
             if isinstance(f[key], h5py.Group):
                 gkeys = f[key].keys()
-                gdat = [0]*len(gkeys)
+                gdat = {} 
                 for j, gkey in enumerate(gkeys):
-                    gdat[j] = f[key][gkey][::]
-                    if key =='bi_partite':
-                        gdat[int(gkey.split('t')[1])] = f[key][gkey][::]
-                dat[i] = gdat
+                    gdat[gkey] = f[key][gkey][::]
+                dat[key] = gdat
+
             elif isinstance(f[key], h5py.Dataset):
-                dat[i] = f[key][::]
+                dat[key] = f[key][::]
 
     f.close()
     return dat

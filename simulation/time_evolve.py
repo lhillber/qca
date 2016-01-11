@@ -28,6 +28,7 @@ import numpy    as np
 import simulation.fio      as io
 import simulation.matrix   as mx
 import simulation.states   as ss
+import simulation.measures as ms
 
 from os.path import isfile
 from collections import OrderedDict
@@ -143,7 +144,7 @@ def check_norm(state, t, tol):
 
 # construct generator for exact time evolved quantum state
 # --------------------------------------------------------
-def time_evolve(params, tol=1E-10, state=None, norm_check=False):
+def time_evolve(params, tol=1E-10, norm_check=False):
     # load simulation parameters
     L = params['L']
     T = params['T']
@@ -163,12 +164,14 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
     Ul, Uj, Ur = make_U(S, V, use_R=use_R)
 
     # If no state supplied, make from the IC param
-    if state is None:
+    if 'init_state' in params:
+        init_state = params['init_state']
+    else:
         IC = params['IC']
-        state = ss.make_state(L, IC)
+        init_state = ss.make_state(L, IC)
 
     # yield the initial state
-    state = np.array(state)
+    state = np.array(init_state)
     yield state
 
     for t in range(T):
@@ -196,38 +199,13 @@ def time_evolve(params, tol=1E-10, state=None, norm_check=False):
         # yield the updated state
         yield state
 
-# import/create simulation results of full quantum state
-# ------------------------------------------------------
-def run_sim_full_save(params, force_rewrite = False, fname=None):
-    #collect params needed for file name
-    output_dir = params['output_dir']
-    ic_name = io.make_IC_name(params['IC'])
-
-    # make a default file name based on params
-    if fname is None:
-        fname = io.file_name(output_dir, 'data', io.sim_name(params), '.hdf5')
-
-    # make a unique name for IC's made with a random throw
-    if ic_name[0] == 'r' and isfile(fname) and not force_rewrite:
-        fname_list = list(fname)
-        fname_list[-5] = str(eval(fname[-5])+1)
-        fname = ''.join(fname_list)
-
-    # check if file already exists and, if so, if it should be re-written
-    if not isfile(fname) or force_rewrite:
-        state_gen = time_evolve(params)
-        io.write_states(fname, state_gen)
-
-    state_gen = io.read_states(fname)
-    return state_gen
-
 
 # make indices of sites in the smaller half of a bipartite cut
 # ------------------------------------------------------------
 def bi_partite_inds(L, cut):
     inds = [i for i in range(cut+1)]
-    if cut >= int(L/2):
-        inds = np.setdiff1d(range(L), inds)
+    if cut > int(L/2):
+        inds = list(np.setdiff1d(range(L), inds))
     return inds
 
 # reduced density matrix of the smaller of all bi-partitions of the lattice
@@ -250,10 +228,20 @@ def inv_participation_ratio(L, state):
 # and all one and two point spin averages
 # -----------------------------------------------------------------------------
 def run_sim(params, force_rewrite = False,
-        sim_tasks=['one_site', 'two_site', 'bi_partite']):
+        sim_tasks=['one_site', 'two_site', 'bi_partite', 'IPT']):
 
-    # create the full path to where data will be stored
-    fname = io.make_file_name(params, iterate = False)
+    if 'fname' in params:
+        fname = params['fname']
+    else:
+        if 'IC' in params:
+            if params['IC'][0] == 'r':
+                fname = io.make_file_name(params, iterate = True)
+            # don't iterate file names with a unique IC name
+        else:
+            fname = io.make_file_name(params, iterate = False)
+            # set the file name for each simulation
+        params['fname'] = fname
+
 
     # see if sim has already ran
     f = h5py.File(fname, 'r')
@@ -280,41 +268,57 @@ def run_sim(params, force_rewrite = False,
         if 'two_site' in sim_tasks:
             data['two_site'] = np.zeros((T+1, L, L, 4, 4), dtype = complex)
 
+        if 'IPT' in sim_tasks:
+            data['IPT'] = np.zeros(T+1)
+
         if 'bi_partite' in sim_tasks:
             # each cut is stored as a different data set of length T
-            cdata = {}
             rdm_dims = [2**len(bi_partite_inds(L, cut))
                     for cut in range(L-1)]
 
             for cut, dim in enumerate(rdm_dims):
-                cdata['bi_partite/cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
+                data['cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
 
         # loop through quantum states
         for t, state in enumerate(time_evolve(params)):
+            # store the entire initial state
+            if t == 0:
+                data['init_state'] = state
+
+            if 'IPT' in sim_tasks:
+                data['IPT'][t] = inv_participation_ratio(L, state)
 
             # first loop through lattice, make single site matrices
             for j in range(L):
                 if 'one_site' in sim_tasks:
                     rtj = mx.rdms(state, [j])
-                    data['one_site'][t, j][::] = rtj[::]
+                    data['one_site'][t, j] = rtj
 
                 # second loop through lattice
                 if 'two_site' in sim_tasks:
                     for k in range(j+1, L):
                         rtjk = mx.rdms(state, [j, k])
-                        data['two_site'][t, j, k][::] = rtjk[::]
-                        data['two_site'][t, k, j][::] = rtjk[::]
+                        data['two_site'][t, j, k] = rtjk
+                        data['two_site'][t, k, j] = rtjk
 
             if 'bi_partite' in sim_tasks:
                 for cut in range(L-1):
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
-                    cdata['bi_partite/cut'+str(cut)][t][::] = rtc[::]
-                    io.write_hdf5(fname, cdata)
+                    data['cut'+str(cut)][t] = rtc
+        if 'IPT' in sim_tasks:
+            freqs, amps = ms.make_ft(data['IPT'])
+            data['FIPT'] = amps
+            data['freqs'] = freqs
+    else:
+        if 'bi_partite' in sim_tasks:
+            for cut in range(params['L']-1):
+                sim_tasks.append('cut'+str(cut))
+            sim_tasks.append('FIPT')
+            sim_tasks.append('freqs')
+            sim_tasks.remove('bi_partite')
+        data = io.read_hdf5(fname, sim_tasks)
 
-        # write the simulation results to disk
-        io.write_hdf5(fname, data, force_rewrite=force_rewrite)
-        print("data saved to: ", fname)
-    return fname
+    return data
 
 
 
@@ -324,9 +328,8 @@ if __name__ == "__main__":
     import csv
     import matplotlib as mpl
     import matplotlib.pyplot as plt
-    import plotting as pt
-    import processing as pp
-    import fitting as ft
+    import simulation.plotting as pt
+    import simulation.fitting as ft
 
     font = {'family':'serif', 'size':10}
     mpl.rc('font',**font)
@@ -335,21 +338,21 @@ if __name__ == "__main__":
     # Simulation time scaling with L
     # ------------------------------
     # set up loop to time 1 iteration of evolution for increasing L
-    L_list = [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    L_list = [7]
     t_list = []
     for L in L_list:
 
     # dicts of params specifying the simulation
         params =  {
-                        'output_dir' : 'testing/state_saving',
-                        'fname' : '../output/testing/state_saving/cuts.hdf5',
+                        'output_dir' : 'tmp/trash',
 
                         'L'    : L,
-                        'T'    : 1,
+                        'T'    : 0,
                         'mode' : 'sweep',
                         'R'    : 102,
                         'V'    : ['H'],
-                        'IC'   : 'c1s0'
+                        'IC'   : 'l0',
+                        'BC'   : '1'
                                            }
 
 
@@ -361,8 +364,8 @@ if __name__ == "__main__":
 
     # save data to compare as improvements are made
     # NOTE: Change file names after each optimization!!
-    data_fname = io.base_name('timing', 'data')+'cutting_nobi.csv'
-    plots_fname = io.base_name('timing', 'plots')+'cutting_nobi.pdf'
+    data_fname = io.base_name('timing', 'data')+'vectorized_iteration_timing.csv'
+    plots_fname = io.base_name('timing', 'plots')+'vectorized_iteration_timing.pdf'
     with open(data_fname, 'w') as f:
         writer = csv.writer(f)
         writer.writerows(zip(L_list, t_list))

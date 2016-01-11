@@ -15,6 +15,7 @@ import simulation.matrix          as mx
 import simulation.fio             as io
 import h5py
 import simulation.networkmeasures as nm
+import scipy.fftpack       as spf
 
 # Measures
 # ========
@@ -26,16 +27,37 @@ def vn_entropy(rho, tol=1e-14):
     s = -sum(el*log(el, 2) if el >= tol else 0.0  for el in evals)
     return s
 
+# make Fourier transform of time series data
+# ------------------------------------------
+def make_ft(time_series, dt=1):
+    time_series = np.nan_to_num(time_series)
+    Nsteps = len(time_series)
+    times = [n*dt for n in range(Nsteps)]
+
+    if Nsteps%2 == 1:
+        time_sereis = np.delete(time_series,-1)
+        Nsteps = Nsteps - 1
+
+    # dt = 2*pi*dt
+    time_series = time_series - np.mean(time_series)
+    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])
+    freqs = np.linspace(0.0,1.0/(2.0*dt), Nsteps/2)
+    return freqs, amps
+
 # compute spacetime grid of local von Neumann entropy
 # ---------------------------------------------------
-def stj_calc(one_site, L, T):
+def stj_calc(results, L, T, tasks=None):
+    one_site = results['one_site']
     stj = np.array( [[vn_entropy(one_site[t, j])
           for j in range(L)] for t in range(T+1)] )
+    results['s'] = stj
     return stj
 
 # compute mutual information adjacency matrix at each time step
 # -------------------------------------------------------------
-def mtjk_calc(stj, two_site, L, T):
+def mtjk_calc(results, L, T, tasks=None):
+        stj = results['s']
+        two_site = results ['two_site']
         mtjk = np.zeros((T+1, L, L))
         for t in range(T+1):
             for j in range(L):
@@ -47,6 +69,7 @@ def mtjk_calc(stj, two_site, L, T):
                         mtjk[t, j, k ] = mtjk[t, k, j] = \
                                 0.5*(stj[t, j] + stj[t, k] - stjk)
 
+        results['m'] = mtjk
         return mtjk
 
 # wrappers for nm calculations
@@ -59,7 +82,11 @@ def eveccentrality(net):
 
 # calculate network measures on state
 # -----------------------------------
-def nm_calc(mtjk, typ = 'scalar', m_tasks=['ND', 'CC', 'Y']):
+def nm_calc(results, L, T, tasks = ['ND', 'CC', 'Y']):
+
+    typ = 'scalar'
+
+    mtjk = results['m']
     nm_func_dict = { 'scalar' : {
                          'CC'  : nm.clustering,
                          'ND'  : nm.density,
@@ -73,9 +100,14 @@ def nm_calc(mtjk, typ = 'scalar', m_tasks=['ND', 'CC', 'Y']):
                          'EV'  : eveccentrality,
                          }
               }
+
     nm_dict = {}
-    for key in m_tasks:
-        nm_dict[key] = np.array([nm_func_dict[typ][key](mjk) for mjk in mtjk])
+    for key in tasks:
+        meas = np.array([nm_func_dict[typ][key](mjk) for mjk in mtjk])
+        nm_dict[key] = meas[::]
+        nm_dict['F'+key] = make_ft(meas)[1]
+
+    results.update(nm_dict)
     return nm_dict
 
 # pull diagonals from a list of matrices
@@ -121,8 +153,9 @@ def gtjk( c2tjk, c1_alphatj, c1_betatk):
 
 # make spacetime grid of g_jk(t) with fixed j
 # -------------------------------------------
-def g_calc(moment_dict, L, T, g_tasks = ['xx', 'yy', 'zz']):
+def g_calc(results, L, T, tasks = ['xx', 'yy', 'zz']):
     # initialize dictionary of arrays to hold results
+    moment_dict = {task: results[task] for task in tasks}
     g_dict = {}
     for task, moment in moment_dict.items():
         g_dict['g'+task] = np.zeros((T+1, L, L))
@@ -147,21 +180,24 @@ def g_calc(moment_dict, L, T, g_tasks = ['xx', 'yy', 'zz']):
                           gtjk(two_moment[t, j, k],
                                one_moment_alpha[t, j],
                                one_moment_beta[t, k] )
+    results.update(g_dict)
     return g_dict
 
 # calculate the marix of spin moments
 # -----------------------------------
-def moments_calc(one_site, two_site, L, T, moment_tasks=['xx', 'yy', 'zz'] ):
+def moments_calc(results, L, T, tasks=['xx', 'yy', 'zz'] ):
+    one_site = results['one_site']
+    two_site = results['two_site']
     # construct 2pt ops for second order moment calculations
     twopt_ops = {task : mx.listkron([ss.ops[s.upper()]
-        for s in task]) for task in moment_tasks}
+        for s in task]) for task in tasks}
 
     onept_ops = {task : mx.listdot([ss.ops[s.upper()]
-        for s in task]) for task in moment_tasks}
+        for s in task]) for task in tasks}
 
     # initialize dictionary of arrays to hold results
     moment_dict = {}
-    for task in moment_tasks:
+    for task in tasks:
         moment_dict[task] = np.zeros((T+1, L, L))
 
     for t in range(T+1):
@@ -174,18 +210,18 @@ def moments_calc(one_site, two_site, L, T, moment_tasks=['xx', 'yy', 'zz'] ):
                 # store one-point moments on diagonals for non-cross correlators
                 # knowing the diagonal ought to be one for the 2pt matrix
                 if j == k:
-                    if 'xx' in moment_tasks:
+                    if 'xx' in tasks:
                         moment_dict['xx'][t, j, j] =\
                                 np.trace(rtj.dot(ss.ops['X'])).real
-                    if 'yy' in moment_tasks:
+                    if 'yy' in tasks:
                         moment_dict['yy'][t, j, j] =\
                                 np.trace(rtj.dot(ss.ops['Y'])).real
-                    if 'zz' in moment_tasks:
+                    if 'zz' in tasks:
                         moment_dict['zz'][t, j, j] =\
                                 np.trace(rtj.dot(ss.ops['Z'])).real
 
                 # store the diagonal for cross correlations propperly
-                    for task in moment_tasks:
+                    for task in tasks:
                         if task not in ('xx', 'yy', 'zz'):
                             moment_dict[task][t, j, j] =\
                                     np.trace(rtj.dot(onept_ops[task])).real
@@ -193,24 +229,28 @@ def moments_calc(one_site, two_site, L, T, moment_tasks=['xx', 'yy', 'zz'] ):
                 # store two-point moments symmetrically on off diagonals
                 else:
                     rtjk = two_site[t, j, k]
-                    for task in moment_tasks:
+                    for task in tasks:
                         moment_dict[task][t, j, k] = moment_dict[task][t, k, j] =\
                                 np.trace( rtjk.dot(twopt_ops[task]) ).real
+    results.update(moment_dict)
     return moment_dict
 
-def stc_calc(bi_partite, L, T):
+def stc_calc(results, L, T, tasks=None):
     stc = np.zeros((T+1, L-1))
     for t in range(T+1):
         for c in range(L-1):
-            rct = bi_partite[c][t]
+            rct = results['cut'+str(c)][t]
             stc[t, c] = vn_entropy(rct)
+    results['sc'] = stc
     return stc
 
 # measure reduced density matrices. Includes making MI nets and measures
 # -------------------------------------------------------------------------
-def measure(params, fname, force_rewrite = False,
-        moment_tasks = ['xx', 'yy', 'zz'], g_tasks = ['xx', 'yy', 'zz']):
+def measure(params, results, force_rewrite = False,
+        measure_tasks=['s', 'sc', 'mom', 'g', 'm', 'nm'],
+        coord_tasks=['xx', 'yy', 'zz'], nm_tasks=['ND', 'CC', 'Y']):
 
+    fname = params['fname']
     # detemine if measures have been made for this simulation yet
     f = h5py.File(fname, 'r')
     meas_ran = 'zz' in f
@@ -218,57 +258,38 @@ def measure(params, fname, force_rewrite = False,
 
     if force_rewrite or not meas_ran:
         print('Measuring simulation...')
-
         # ensure zz moment is calculated. That is how the meas_ran is determined
-        if 'zz' not in moment_tasks:
+        if 'zz' not in coord_tasks:
             moment_tasks.append('zz')
 
         L = params['L']
         T = params['T']
-        # fname must be populated with one and two site density matricies
-        one_site, two_site, bi_partite = \
-                io.read_hdf5(fname, ['one_site', 'two_site', 'bi_partite'])
 
-        # calculate local von Neumann entropy at each time step t and site j
-        stj = stj_calc(one_site, L, T)
+        meas_map = {
+            's' : stj_calc,
+            'sc' :stc_calc,
+            'm' : mtjk_calc,
+            'nm' : nm_calc,
+            'mom' : moments_calc,
+            'g' : g_calc}
 
-        # calculate local von Neumann entropy of the smaller of each bi-partitioning
-        # of the lattice (cut c) at each time step t.
-        stc = stc_calc(bi_partite, L, T)
+        for meas_task in measure_tasks:
+            if meas_task in ('g', 'mom'):
+                tasks = coord_tasks
+            elif meas_task is 'nm':
+                tasks = nm_tasks
+            else:
+                tasks = None
+            meas_map[meas_task](results, L, T, tasks = tasks)
 
-        # calculate mutual information adjacency matices (with site indices j, k) at
-        # each time step t.
-        mtjk = mtjk_calc(stj, two_site, L, T)
-
-        # calculate moment matrices (with site indices j, k) j=k holds the one point
-        # correlator. j != k holds the two point correlator.
-        moment_dict = moments_calc(one_site, two_site, L, T,
-                moment_tasks = moment_tasks)
-
-        # calculate two point correlator matricies. g_tasks must be a subset of moment_tasks
-        g_dict = g_calc(moment_dict, L, T,
-                g_tasks = g_tasks)
-
-        # store von Neumann entropy as a dictonary
-        stj_dict = {'s' : stj}
-
-        # store cut entropy as a dictonary
-        stc_dict = {'sc' : stc}
-
-        # store mutual info matrices as a dictonary
-        mtjk_dict = {'m' : mtjk}
-
-        # apply mutual information measures to the matrices
-        nm_dict = nm_calc(mtjk)
-
-        # collect all results in a single dictionary
-        results = mx.listdicts([moment_dict, g_dict, stj_dict,stc_dict,  mtjk_dict, nm_dict])
-
-        # write the results to the same file
+        # write the simulation results to disk
         io.write_hdf5(fname, results, force_rewrite=force_rewrite)
+        print("data saved to: ", fname)
     elif not force_rewrite:
-        pass
-    return
+        with h5py.File(fname, 'r') as f:
+            keys = [key for key in f.keys()]
+        results = io.read_hdf5(fname, keys)
+    return results
 
 if __name__ == "__main__":
     import fio as io
