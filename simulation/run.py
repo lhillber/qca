@@ -26,7 +26,7 @@ L_list = [18]
 
 T_list = [60]
 
-S_list = [6]
+S_list = [6, 1]
 
 V_list = ['H']
 
@@ -92,10 +92,27 @@ if __name__ == '__main__':
         # each core selects params to simulate without the need for a master
         if i % nprocs == rank:
 
+            t0 = time.time()
             state_res = time_evolve.run_sim(params,
                     sim_tasks=['one_site', 'two_site', 'IPR'],
-                    force_rewrite=True)
-            res = measures.measure(params, state_res, force_rewrite=True)
-            plotting.plot(params, res)
+                    force_rewrite=False)
+            t1 = time.time()
+            res = measures.measure(params, state_res, force_rewrite=False)
+            t2 = time.time()
+            out_fname = plotting.plot(params, res)
+            t3 = time.time()
             plt.clf
+
+            print_string = \
+            '='*80                 + '\n'\
+            + 'Rank: ' + str(rank) + '\n'\
+            + 'Data file:'         + '\n'\
+            + params['fname']      + '\n'\
+            + 'Plots file:'        + '\n'\
+            + out_fname            + '\n'\
+            + 'simulating states took {:.2f} s'.format(t1-t0) + '\n'\
+            + 'measuring states took {:.2f} s'.format(t2-t1)  + '\n'\
+            + 'plotting took {:.2f} s'.format(t3-t2)          + '\n'\
+            + '='*80
+            print(print_string)
     plt.close('all')

@@ -292,6 +292,7 @@ def measure(params, results, force_rewrite = False,
         io.write_hdf5(fname, results, force_rewrite=force_rewrite)
         print("data saved to: ", fname)
     elif not force_rewrite:
+        print('Importing measures...')
         with h5py.File(fname, 'r') as f:
             keys = [key for key in f.keys()]
         results = io.read_hdf5(fname, keys)

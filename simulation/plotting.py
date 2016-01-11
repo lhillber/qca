@@ -427,7 +427,7 @@ def plot(params, results, j=0):
 
     # save all figures to one pdf
     io.multipage(out_fname)
-    print('plots saved to: ', out_fname)
+    return out_fname
 
 def fft_check():
     from math import sin

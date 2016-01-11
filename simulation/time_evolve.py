@@ -309,6 +309,7 @@ def run_sim(params, force_rewrite = False,
             data['FIPR'] = amps
             data['freqs'] = freqs
     else:
+        print('Importing states...')
         if 'bi_partite' in sim_tasks:
             for cut in range(params['L']-1):
                 sim_tasks.append('cut'+str(cut))
