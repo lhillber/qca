@@ -18,6 +18,8 @@ import simulation.measures as measures
 
 from django.contrib.auth import authenticate
 
+from qcasite.settings import BASE_DIR
+
 def home(request):
     return render(request,"qcaadmin/home.html")
 
@@ -62,13 +64,13 @@ def startSimulation(request):
 
 
     ip = request.META['REMOTE_ADDR']
-    if  not (ip == "127.0.0.1" or "131.215." in ip): return HttpResponse("Must be on Caltech or Mines campus.")
+    if  not (ip == "127.0.0.1" or "131.215." in ip or '138.67.20' in ip): return HttpResponse("Must be on Caltech or Mines campus.")
 
     if (len(SimResult.objects.filter(V=data["V"],R=data["R"],IC=data["IC"],mode=(data["isSweep"]))) > 0): return HttpResponse("Simulation already evaluated.")
 
     if (len(SimResult.objects.filter(completed=False)) >= 4): return HttpResponse("Too many simulations running.")
 
-    time = 50
+    time = 100
 
     ic = InitialCondition.objects.get(pk=data["IC"])
     result = SimResult(V=data["V"],R=data["R"],IC=ic,T=time,location="None",completed=False)
@@ -80,7 +82,7 @@ def startSimulation(request):
 
 
     cmd = ["nohup","python"]
-    cmd.append("/home/prall/development/qca/manage.py")
+    cmd.append(BASE_DIR+"/manage.py")
     cmd.append("compute")
     cmd.append(str(data["R"]))
     cmd.append(str(data["V"]))
@@ -158,6 +160,13 @@ def getICData(request):
     body = request.body.decode("utf-8")
     data = json.loads(request.body.decode("utf-8"))
 
+    user = authenticate(username="simuser",password=data["Password"])
+    if user is None: return HttpResponse("Wrong password.")
+
+
+    ip = request.META['REMOTE_ADDR']
+    if  not (ip == "127.0.0.1" or "131.215." in ip or '138.67.20' in ip): return HttpResponse("Must be on Caltech or Mines campus.")
+
     if ("pk" in data):
         icobj = InitialCondition.objects.get(pk=data['pk'])
         iclist = json.loads(icobj.data)
@@ -218,6 +227,13 @@ def getICData(request):
 def saveIC(request):
     body = request.body.decode("utf-8")
     data = json.loads(request.body.decode("utf-8"))
+
+    user = authenticate(username="simuser",password=data["Password"])
+    if user is None: return HttpResponse("Wrong password.")
+
+    ip = request.META['REMOTE_ADDR']
+    if  not (ip == "127.0.0.1" or "131.215." in ip or '138.67.20' in ip): return HttpResponse("Must be on Caltech or Mines campus.")
+
 
     length = len(data["compList"][0]["values"])
     ic= np.zeros(2**length,dtype=complex)

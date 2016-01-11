@@ -1,5 +1,7 @@
 var QCAAdmin = angular.module('QCAAdmin', []);
 
+window.prefix = ''
+if (window.location.href.includes('prallcase.caltech.edu/qca')) window.prefix = '/qca'
 
 function readCookie(name) {
         var nameEQ = name + "=";
@@ -25,7 +27,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
     $scope.icfilter = ""
    
     $scope.rules = [102,150]
-    $scope.Vs = ["X", "H", "HX", "HT", "HXT", "HTX"]
+    $scope.Vs = ["X", "H", "HX", "HT", "HXT"]
 
     $scope.sims = {}
     $rootScope.selectedsims = []
@@ -35,8 +37,8 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
     $scope.error = ""
     $scope.reload = function() {window.location.reload()}
 
-    $scope.reqpass = false
-    $scope.password = 'muffins'
+    $rootScope.reqpass = false
+    $rootScope.password = ''
 
     $rootScope.displaymode = 'Sim'
     $rootScope.inspectedIC = false
@@ -54,7 +56,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
         $scope.fetchICS()
         })
     $scope.fetchICS = function(extraic,extrasim) {
-        $http.get('/iclist/?filter='+$scope.icfilter, {}).then(function(response) {
+        $http.get(window.prefix+'/iclist/?filter='+$scope.icfilter, {}).then(function(response) {
             $scope.ics = response.data
             $scope.fetchSimList(extraic,extrasim)
         },function(response) {
@@ -100,7 +102,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
             var title = $scope.selectedictitles[i]
             titles.push(title)
 
-            $http.get('/datalist/?ic='+$scope.selectedics[i], {}).then(callback(title),
+            $http.get(window.prefix+'/datalist/?ic='+$scope.selectedics[i], {}).then(callback(title),
             function(response) {
                 $scope.error = response.statusText
             })
@@ -137,8 +139,10 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
         return {'background': ''}
     }
 
-    $scope.startSim = function(ic,V,rule,isSweep) {
-        icname = $scope.selectedictitles[ic]
+    $scope.startSim = function(icname,V,rule,isSweep) {
+
+        ic = $scope.selectedictitles.indexOf(icname)
+
         for (var i = 0; i < $scope.sims[icname].length; i++) {
             var sim = $scope.sims[icname][i]
             if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
@@ -147,15 +151,15 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
         }
 
 
-        if ($scope.password == '') {
-            $scope.reqpass = true
+        if ($rootScope.password == '') {
+            $rootScope.reqpass = true
             return
         }
 
         if ($scope.numsimsrunning == 4) return
         var args = {
             'X-CSRFToken': readCookie("csrftoken"),
-            'Password':$scope.password,
+            'Password':$rootScope.password,
             "R":rule,
             "V":V,
             "IC":$scope.selectedics[ic],
@@ -163,11 +167,11 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
         }
         
 
-        $http.post('/startSimulation/?',JSON.stringify(args), {}).then(function(response) {
+        $http.post(window.prefix+'/startSimulation/?',JSON.stringify(args), {}).then(function(response) {
             if (response.data != "Launched") {
                 if (response.data == "Wrong password.") {
-                    $scope.reqpass = true
-                    $scope.password = ''
+                    $rootScope.reqpass = true
+                    $rootScope.password = ''
                     return
                 }
 
@@ -196,7 +200,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
             $scope.delayfetch = false
             $timeout($scope.simUpdate,5000)
         }
-        $http.get('/simStatus/', {}).then(function(response) {
+        $http.get(window.prefix+'/simStatus/', {}).then(function(response) {
             if (JSON.stringify($scope.simsrunning) != JSON.stringify(response.data.sort()) || $scope.simupdateflag) {
                 $scope.simupdateflag = false
                 $scope.simsrunning = response.data.sort()
@@ -243,6 +247,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
          for (var i = 0; i < $scope.sims[icname].length; i++) {
             var sim = $scope.sims[icname][i]
             if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+                if (!sim.completed) return
                 var idx = $rootScope.selectedsims.indexOf(sim.pk)
                 if (idx == -1) $rootScope.selectedsims.push(sim.pk)
                 else $rootScope.selectedsims.splice(idx,1)

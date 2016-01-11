@@ -31,7 +31,7 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
                 $scope.simlist[color] = $scope.simcache[pk]
             } else {
                 console.log("requested: "+pk)
-                $http.get('/simData/?pk='+pk,{}).then(function(response) {
+                $http.get(window.prefix+'/simData/?pk='+pk,{}).then(function(response) {
                     var pk = JSON.parse(response.data.meta).pk
                     console.log("received: "+pk)
                     $scope.simcache[pk] = response.data
@@ -114,7 +114,7 @@ QCAAdmin.directive("plot", function ()
            $scope.context = $scope.canvas.getContext('2d');
            
 
-            if ($scope.max === undefined) $scope.max = 0.1
+            if ($scope.max === undefined) $scope.max = 0.01
 
 
             $scope.redraw = function() { 
@@ -194,9 +194,9 @@ QCAAdmin.directive("plot", function ()
                          ctx.lineTo(leftaxis + div*x/divstep, canvas.height-botaxis+l);
                          ctx.stroke()
                         
-                         if (x%divx == 0) {
+                         //if (x%divx == 0) {
                             ctx.fillText(x, leftaxis+div*x/divstep, canvas.height-botaxis+13); 
-                         }
+                         //}
                      }
                  } else {
                      for (var i = 0; i < freqs.length; i++) {
@@ -208,7 +208,7 @@ QCAAdmin.directive("plot", function ()
                          ctx.moveTo(leftaxis + div*x/divstep, canvas.height-botaxis-l);
                          ctx.lineTo(leftaxis + div*x/divstep, canvas.height-botaxis+l);
                          ctx.stroke()
-                         if (i%2 == 0) ctx.fillText(math.round(x,2), leftaxis+div*x/divstep, canvas.height-botaxis+13); 
+                         if (i%4 == (freqs.length-1)%4) ctx.fillText(math.round(x,2), leftaxis+div*x/divstep, canvas.height-botaxis+13); 
                      }
                  
                  }
@@ -256,7 +256,7 @@ QCAAdmin.directive("plot", function ()
                  ctx.font = "13px sans";
                  var xaxis = "Frequency (Inverse Iterations)"
                  if ($scope.domain == 'time') xaxis = "Iteration"
-                 ctx.fillText("",leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5); 
+                 ctx.fillText(xaxis,leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5); 
                 
                  ctx.translate(15,canvas.height/2)
                  ctx.rotate(-Math.PI/2)
@@ -434,9 +434,9 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                      for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
                         for (var j = 0; j+1 < statelength  ; j++) {
                             if ($scope.bubbles["sc"][i] === undefined) continue
-                            if (Math.abs($scope.bubble["sc"][i][j]*4) < 1e-3) continue
+                            if (Math.abs($scope.bubbles["sc"][i][j]*4) < 1e-3) continue
                             //if ($scope.bubbles["sc"][i][j] > maxcut) maxcut =$scope.bubbles["sc"][i][j]
-                            ctx.lineWidth = Math.abs($scope.bubble["sc"][i][j]*4)
+                            ctx.lineWidth = Math.abs($scope.bubbles["sc"][i][j]*4)
                             ctx.beginPath();
                             ctx.moveTo(boxx(j)+boxdim/2,boxy(i)+boxdim/2)
                             ctx.lineTo(boxx(j+1)+boxdim/2,boxy(i)+boxdim/2)
