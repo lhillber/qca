@@ -20,6 +20,13 @@ font = {'family':'serif','size':10}
 mpl.rc('font',**font)
 import matplotlib.pyplot as plt
 
+
+# Labeling functions
+# ------------------
+def inner_title(ax, title, l=0.1, u=0.95): return ax.text(l, u, str(title),
+        horizontalalignment='left', transform=ax.transAxes, fontsize=12)
+
+
 # plot spacetime grid on an axis
 # ------------------------------
 def plot_grid(data, ax, nc=1,
@@ -52,7 +59,7 @@ def plot_grid(data, ax, nc=1,
     ax.yaxis.set_ticks(range(span[0], span[1]))
     ax.locator_params(axis='x', nbins=nx_ticks)
     ax.locator_params(axis='y', nbins=ny_ticks)
-    ax.grid(True)
+    #ax.grid(True)
 
 
 
@@ -102,7 +109,7 @@ def plot_grid_avgs(data, ax, avg='space',
         nx_ticks=nx_ticks, ny_ticks=ny_ticks,
         plot_kwargs=plot_kwargs, span=span, rotate=rotate)
 
-def plot_grid_with_avgs(data, fignum=1, span=[0,60]):
+def plot_grid_with_avgs(data, fignum=1, span=[0,60], suptitle=''):
     fig = plt.figure(fignum)
     L = len(data[0])
     T = len(data)
@@ -145,27 +152,27 @@ def plot_grid_with_avgs(data, fignum=1, span=[0,60]):
 
     plot_grid_avgs(data, axT, avg='time', xtick_labels=False,
             title='temporal', xlabel='', ylabel='', ny_ticks=4)
-
+    inner_title(axC,'Average Probability of measuring 1' , l=-.9, u=1.33)
 
 # plot multiple spacetime grids as subplots
 # -----------------------------------------
 def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
-        titles=None, xlabels=None, ylabel='Iteration', suptitle=''):
+        titles=None, xlabels=None, ylabels=None, suptitle=''):
     nc = len(grid_data)
     if titles is None:
         titles = ['']*nc
     if xlabels is None:
         xlabels = ['']*nc
+    if ylabels is None:
+        ylabels = ['Iteration'] + ['']*(nc - 1)
     gs = gridspec.GridSpec(1, nc)
     fig = plt.figure(fignum)
-    for c, (grid, title, xlabel) in \
-            enumerate(zip(grid_data, titles, xlabels)):
+    for c, (grid, title, xlabel, ylabel) in \
+            enumerate(zip(grid_data, titles, xlabels, ylabels)):
         ax = fig.add_subplot(gs[c])
         ytick_labels=False
-        ylabel = ''
-        if c is 0:
+        if c == 0:
             ytick_labels=True
-            ylabel = ylabel
         plot_grid(grid, ax,
                 nc=nc,
                 ylabel=ylabel,
@@ -341,7 +348,6 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
 # call plotting sequence
 # ----------------------
 def plot(params, results, j=0):
-    print('Plotting measures...')
 
     # get spin projections along x, y, and z
     x_grid, y_grid, z_grid = [measures.get_diag_vecs(results[ab])
@@ -352,7 +358,7 @@ def plot(params, results, j=0):
                 for ab in ['gxx', 'gyy', 'gzz']]
 
     # get mi measure results and place in ordered dict for plotting
-    meas_keys = ['ND', 'CC', 'Y', 'IPT']
+    meas_keys = ['ND', 'CC', 'Y', 'IPR']
     meas_list = [results[meas_key] for meas_key in meas_keys]
     freqs = results['freqs']
     Fmeas_list = [results['F'+meas_key] for meas_key in meas_keys]
@@ -361,10 +367,9 @@ def plot(params, results, j=0):
     Fmeas_dict = OrderedDict( (key, Fdata)
             for key, Fdata in zip(meas_keys, Fmeas_list))
 
-    # get local and bond entropies
+    # get local and entropies
     stj = results['s']
 
-    stc = results['sc']
 
     # get mutual information adjacency matrices
     mtjk = results['m']
@@ -373,6 +378,7 @@ def plot(params, results, j=0):
     plot_grids([x_grid, y_grid, z_grid],
             titles=['$X$', '$Y$', '$Z$'],
             suptitle='Spin projections',
+            xlabels=['site', 'site', 'site'],
             wspace=-0.20,
             fignum=0)
 
@@ -380,11 +386,16 @@ def plot(params, results, j=0):
     plot_grids([x_g2grid, y_g2grid, z_g2grid],
             titles=['$X$', '$Y$', '$Z$'],
             suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
+            xlabels=['site', 'site', 'site'],
             wspace=-0.20,
             fignum=3)
 
     # plot local and bond entropies
-    plot_grids([stj, stc],
+    entropies = [stj]
+    if 'sc' in results:
+        stc = results['sc']
+        entropies.append(stc)
+    plot_grids(entropies,
             titles=[r'$S(i,t)$', r'$S_c(i,t)$'],
             xlabels=['site', 'cut'],
             suptitle='von Neumann entropies',
@@ -392,15 +403,17 @@ def plot(params, results, j=0):
             fignum=4)
 
     # plot probabilities of spin down and space/time averages
-    plot_grid_with_avgs(z_grid, 5)
+    plot_grid_with_avgs(z_grid, 5, suptitle='average probability of measuring 1')
 
     # plot mi measures and their FT's
     plot_measures(meas_dict, fignum=6)
+
+    # plot measure Fourier transforms
     plot_measure_fts(Fmeas_dict, freqs, fignum=7)
 
     # plot distribution of mutual information over time
     plot_edge_strength_contour(mtjk,
-            bins=60, rng=(0,.1), emax=30, fignum=8)
+            bins=60, rng=(0,.1), emax=60, fignum=8)
 
     # create the full path to where plots will be saved
     fname = params['fname']

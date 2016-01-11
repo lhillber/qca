@@ -22,7 +22,7 @@ output_dir = 'tmp'
 
 mode_list = ['alt']
 
-L_list = [15]
+L_list = [18]
 
 T_list = [60]
 
@@ -48,8 +48,7 @@ params_list = [
             'T' : T,
             'S' : S,
             'V' : V,
-            'init_state': ss.make_state(L, IC), #len 2^L np array of  quantum state goes here
-            'IC_name': 'custom_name', # if not priveded, defaults to 'custom'
+            'IC': IC,
             'BC': BC
              }
 
@@ -78,8 +77,7 @@ if __name__ == '__main__':
             if 'fname' in params:
                 fname = params['fname']
             else:
-                if 'IC' in params:
-                    if params['IC'][0] == 'r':
+                if 'IC' in params and params['IC'][0] == 'r':
                         fname = io.make_file_name(params, iterate = True)
                     # don't iterate file names with a unique IC name
                 else:
@@ -93,8 +91,10 @@ if __name__ == '__main__':
 
         # each core selects params to simulate without the need for a master
         if i % nprocs == rank:
-            state_res = time_evolve.run_sim(params, force_rewrite=True)
 
+            state_res = time_evolve.run_sim(params,
+                    sim_tasks=['one_site', 'two_site', 'IPR'],
+                    force_rewrite=True)
             res = measures.measure(params, state_res, force_rewrite=True)
             plotting.plot(params, res)
             plt.clf

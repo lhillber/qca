@@ -228,14 +228,13 @@ def inv_participation_ratio(L, state):
 # and all one and two point spin averages
 # -----------------------------------------------------------------------------
 def run_sim(params, force_rewrite = False,
-        sim_tasks=['one_site', 'two_site', 'bi_partite', 'IPT']):
+        sim_tasks=['one_site', 'two_site', 'bi_partite', 'IPR']):
 
     if 'fname' in params:
         fname = params['fname']
     else:
-        if 'IC' in params:
-            if params['IC'][0] == 'r':
-                fname = io.make_file_name(params, iterate = True)
+        if 'IC' in params and params['IC'][0] == 'r':
+            fname = io.make_file_name(params, iterate = True)
             # don't iterate file names with a unique IC name
         else:
             fname = io.make_file_name(params, iterate = False)
@@ -268,8 +267,8 @@ def run_sim(params, force_rewrite = False,
         if 'two_site' in sim_tasks:
             data['two_site'] = np.zeros((T+1, L, L, 4, 4), dtype = complex)
 
-        if 'IPT' in sim_tasks:
-            data['IPT'] = np.zeros(T+1)
+        if 'IPR' in sim_tasks:
+            data['IPR'] = np.zeros(T+1)
 
         if 'bi_partite' in sim_tasks:
             # each cut is stored as a different data set of length T
@@ -285,8 +284,8 @@ def run_sim(params, force_rewrite = False,
             if t == 0:
                 data['init_state'] = state
 
-            if 'IPT' in sim_tasks:
-                data['IPT'][t] = inv_participation_ratio(L, state)
+            if 'IPR' in sim_tasks:
+                data['IPR'][t] = inv_participation_ratio(L, state)
 
             # first loop through lattice, make single site matrices
             for j in range(L):
@@ -305,15 +304,15 @@ def run_sim(params, force_rewrite = False,
                 for cut in range(L-1):
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
                     data['cut'+str(cut)][t] = rtc
-        if 'IPT' in sim_tasks:
-            freqs, amps = ms.make_ft(data['IPT'])
-            data['FIPT'] = amps
+        if 'IPR' in sim_tasks:
+            freqs, amps = ms.make_ft(data['IPR'])
+            data['FIPR'] = amps
             data['freqs'] = freqs
     else:
         if 'bi_partite' in sim_tasks:
             for cut in range(params['L']-1):
                 sim_tasks.append('cut'+str(cut))
-            sim_tasks.append('FIPT')
+            sim_tasks.append('FIPR')
             sim_tasks.append('freqs')
             sim_tasks.remove('bi_partite')
         data = io.read_hdf5(fname, sim_tasks)
@@ -338,7 +337,7 @@ if __name__ == "__main__":
     # Simulation time scaling with L
     # ------------------------------
     # set up loop to time 1 iteration of evolution for increasing L
-    L_list = [7]
+    L_list = [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     t_list = []
     for L in L_list:
 
@@ -347,7 +346,7 @@ if __name__ == "__main__":
                         'output_dir' : 'tmp/trash',
 
                         'L'    : L,
-                        'T'    : 0,
+                        'T'    : 1,
                         'mode' : 'sweep',
                         'R'    : 102,
                         'V'    : ['H'],
@@ -364,8 +363,8 @@ if __name__ == "__main__":
 
     # save data to compare as improvements are made
     # NOTE: Change file names after each optimization!!
-    data_fname = io.base_name('timing', 'data')+'vectorized_iteration_timing.csv'
-    plots_fname = io.base_name('timing', 'plots')+'vectorized_iteration_timing.pdf'
+    data_fname = io.base_name('timing', 'data')+'no_save_iteration_timing.csv'
+    plots_fname = io.base_name('timing', 'plots')+'no_save_iteration_timing.pdf'
     with open(data_fname, 'w') as f:
         writer = csv.writer(f)
         writer.writerows(zip(L_list, t_list))

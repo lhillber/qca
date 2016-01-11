@@ -250,6 +250,12 @@ def measure(params, results, force_rewrite = False,
         measure_tasks=['s', 'sc', 'mom', 'g', 'm', 'nm'],
         coord_tasks=['xx', 'yy', 'zz'], nm_tasks=['ND', 'CC', 'Y']):
 
+    if 'cut0' not in results:
+        if 'sc' in measure_tasks:
+            measure_tasks.remove('sc')
+            print('can not measure sc (cut entropies) without bi_partite')
+
+
     fname = params['fname']
     # detemine if measures have been made for this simulation yet
     f = h5py.File(fname, 'r')
