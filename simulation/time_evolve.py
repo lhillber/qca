@@ -313,9 +313,9 @@ def run_sim(params, force_rewrite = False,
         if 'bi_partite' in sim_tasks:
             for cut in range(params['L']-1):
                 sim_tasks.append('cut'+str(cut))
-            sim_tasks.append('FIPR')
-            sim_tasks.append('freqs')
-            sim_tasks.remove('bi_partite')
+                sim_tasks.remove('bi_partite')
+        sim_tasks.append('FIPR')
+        sim_tasks.append('freqs')
         data = io.read_hdf5(fname, sim_tasks)
 
     return data

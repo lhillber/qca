@@ -22,11 +22,11 @@ output_dir = 'tmp'
 
 mode_list = ['alt']
 
-L_list = [18]
+L_list = [18, 19, 20]
 
-T_list = [60]
+T_list = [30, 60, 90]
 
-S_list = [6, 1]
+S_list = [1]
 
 V_list = ['H']
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
                     sim_tasks=['one_site', 'two_site', 'IPR'],
                     force_rewrite=False)
             t1 = time.time()
-            res = measures.measure(params, state_res, force_rewrite=False)
+            res = measures.measure(params, state_res, force_rewrite=True)
             t2 = time.time()
             out_fname = plotting.plot(params, res)
             t3 = time.time()

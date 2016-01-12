@@ -16,6 +16,7 @@ import simulation.fio             as io
 import h5py
 import simulation.networkmeasures as nm
 import scipy.fftpack       as spf
+from sys import getsizeof
 
 # Measures
 # ========
@@ -288,14 +289,17 @@ def measure(params, results, force_rewrite = False,
                 tasks = None
             meas_map[meas_task](results, L, T, tasks = tasks)
 
+
         # write the simulation results to disk
         io.write_hdf5(fname, results, force_rewrite=force_rewrite)
-        print("data saved to: ", fname)
+
     elif not force_rewrite:
         print('Importing measures...')
         with h5py.File(fname, 'r') as f:
             keys = [key for key in f.keys()]
         results = io.read_hdf5(fname, keys)
+    res_size = sum(val.nbytes for val in results.values())
+    print('final res size', res_size/1e6, ' MB')
     return results
 
 if __name__ == "__main__":
