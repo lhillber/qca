@@ -114,31 +114,32 @@ def nm_calc(results, L, T, tasks = ['ND', 'CC', 'Y']):
 # pull diagonals from a list of matrices
 # --------------------------------------
 def get_diag_vecs(mats):
-    return np.array([mat.diagonal() for mat in mats])
+    return mats.diagonal(axis1=1, axis2=2)
 
 # zero out the diagonal of list of matrices
 # -----------------------------------------
 def get_offdiag_mats(mats, diag_fill=0.0):
     L = len(mats[0])
     mats_out = copy.deepcopy(mats)
-    for t, mat in enumerate(mats_out):
-        mat[np.arange(L), np.arange(L)] = diag_fill
-        mats_out[t][::] = mat[::]
+    for mat in mats_out:
+        np.fill_diagonal(mat, diag_fill)
     return mats_out
 
 # pull row of constant j from a list of matrices
 # ----------------------------------------------
 def get_row_vecs(mats, j=0):
-    return np.array([mat[j, ::] for mat in mats])
+    return mats[::, j, ::]
 
 # extract one and two point correlators
 # -------------------------------------
+# NOTE: diag_fill=1.0 for the g2 correlator sypically.
+# Set to 0.0 for beter use of colorbar in plot
 def make_moments(moment, alphas=None, betas=None):
     if (alphas, betas) == (None, None):
         one_moment = get_diag_vecs(moment)
-        one_moment_alpha = one_moment[::]
-        one_moment_beta = one_moment[::]
-        two_moment = get_offdiag_mats(moment, diag_fill=1.0)
+        one_moment_alpha = copy.deepcopy(one_moment)
+        one_moment_beta = copy.deepcopy(one_moment)
+        two_moment = get_offdiag_mats(moment, diag_fill=0.0)
 
     else:
         one_moment_alpha = get_diag_vecs(alphas)
@@ -176,7 +177,7 @@ def g_calc(results, L, T, tasks = ['xx', 'yy', 'zz']):
         for t in range(T+1):
             for j in range(L):
                 # second loop through the lattice fills g_jk symmetrically
-                for k in range(j, L):
+                for k in range(L):
                     g_dict['g'+task][t, j, k] = g_dict['g'+task][t, k, j] =\
                           gtjk(two_moment[t, j, k],
                                one_moment_alpha[t, j],
@@ -272,6 +273,7 @@ def measure(params, results, force_rewrite = False,
         L = params['L']
         T = params['T']
 
+        # bank of measure functions, all take the same args
         meas_map = {
             's' : stj_calc,
             'sc' :stc_calc,

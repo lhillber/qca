@@ -18,19 +18,19 @@ import simulation.states as ss
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'tmp'
+output_dir = 'allS/random_test'
 
 mode_list = ['alt']
 
-L_list = [18, 19, 20]
+L_list = [21]
 
-T_list = [30, 60, 90]
+T_list = [300]
 
-S_list = [1]
+S_list = [8]
 
 V_list = ['H']
 
-IC_list = ['c1l0']
+IC_list = ['r5', 'l0_14']
 
 BC_list = ['1']
 
@@ -67,10 +67,13 @@ params_list = [
 if __name__ == '__main__':
     # initialize communication
     comm = MPI.COMM_WORLD
+
     # get the rank of the processor
     rank = comm.Get_rank()
+
     # get the number of processsors
     nprocs = comm.Get_size()
+
     # use rank 0 to give each simulation a file name
     if rank == 0:
         for params in params_list:
@@ -87,6 +90,7 @@ if __name__ == '__main__':
 
     # boradcast updated params list to each core
     params_list = comm.bcast(params_list, root=0)
+
     for i, params in enumerate(params_list):
 
         # each core selects params to simulate without the need for a master
@@ -96,10 +100,15 @@ if __name__ == '__main__':
             state_res = time_evolve.run_sim(params,
                     sim_tasks=['one_site', 'two_site', 'IPR'],
                     force_rewrite=False)
+
             t1 = time.time()
+
             res = measures.measure(params, state_res, force_rewrite=True)
+
             t2 = time.time()
+
             out_fname = plotting.plot(params, res)
+
             t3 = time.time()
             plt.clf
 

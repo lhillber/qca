@@ -217,12 +217,11 @@ def bi_partite_rdm(L, state):
 # compute the inverse participation ratio
 # ---------------------------------------
 def inv_participation_ratio(L, state):
-    ipr = 0.0
-    for basis_num in range(2**L):
-        ipr = ipr + abs(state[basis_num])**4
-    if ipr == 0.0:
+    pr = np.sum(np.abs(state)**4)
+    if pr == 0.0:
         return 0.0
-    return 1.0 / ipr
+    else:
+        return 1.0 / pr
 
 # import/create simulation results of one and two site reduced density matrices
 # and all one and two point spin averages
@@ -304,6 +303,8 @@ def run_sim(params, force_rewrite = False,
                 for cut in range(L-1):
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
                     data['cut'+str(cut)][t] = rtc
+
+
         if 'IPR' in sim_tasks:
             freqs, amps = ms.make_ft(data['IPR'])
             data['FIPR'] = amps
@@ -338,7 +339,7 @@ if __name__ == "__main__":
     # Simulation time scaling with L
     # ------------------------------
     # set up loop to time 1 iteration of evolution for increasing L
-    L_list = [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    L_list = [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
     t_list = []
     for L in L_list:
 
@@ -358,14 +359,15 @@ if __name__ == "__main__":
 
         # get run time of simulation, append to timing list
         tic = time.time()
-        run_sim(params, force_rewrite = True)
+        run_sim(params, force_rewrite = True, sim_tasks=['one_site', 'two_site',
+            'IPR'])
         toc = time.time()
         t_list.append(toc-tic)
 
     # save data to compare as improvements are made
     # NOTE: Change file names after each optimization!!
-    data_fname = io.base_name('timing', 'data')+'no_save_iteration_timing.csv'
-    plots_fname = io.base_name('timing', 'plots')+'no_save_iteration_timing.pdf'
+    data_fname = io.base_name('timing', 'data')+'nocut_iteration_timing2.csv'
+    plots_fname = io.base_name('timing', 'plots')+'nocut_iteration_timing2.pdf'
     with open(data_fname, 'w') as f:
         writer = csv.writer(f)
         writer.writerows(zip(L_list, t_list))
@@ -393,6 +395,7 @@ if __name__ == "__main__":
             + "\n  $\chi^2 = {:.2e}$".format(chi2))
     plt.xlabel('L')
     plt.ylabel('time to simulate and save one iteration [s]')
+    plt.grid('on')
     plt.legend(loc='upper left')
     plt.savefig(plots_fname)
     plt.close()

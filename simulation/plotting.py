@@ -62,8 +62,8 @@ def plot_grid(data, ax, nc=1,
     #ax.grid(True)
 
 
-
-    fig.subplots_adjust(top=0.9, wspace=wspace)
+    ##wspace kwg
+    fig.subplots_adjust(top=0.9, wspace=0.5)
     if cbar is True:
         im_ext = im.get_extent()
         box = ax.get_position()
@@ -108,55 +108,53 @@ def plot_grid_avgs(data, ax, avg='space',
         xtick_labels=xtick_labels, ytick_labels=ytick_labels,
         nx_ticks=nx_ticks, ny_ticks=ny_ticks,
         plot_kwargs=plot_kwargs, span=span, rotate=rotate)
-
-def plot_grid_with_avgs(data, fignum=1, span=[0,60], suptitle=''):
+def plot_grid_with_avgs(data, fignum=1, span=None, suptitle=''):
     fig = plt.figure(fignum)
     L = len(data[0])
     T = len(data)
     gs = gridspec.GridSpec(100, 100, bottom=0.15, left=0.15, right=0.95)
+    if span is None:
+        span = [0, min([60, T])]
 
-    dx=1
-    dy=2
-    w1=12
-    w2=16
-    h=16
-    axC = fig.add_subplot(gs[h+dy:, w1+dx:w1+dx+w2])
-    axT = fig.add_subplot(gs[0   :h,w1+dx:w1+dx+w2], sharex=axC)
-    axR = fig.add_subplot(gs[h+dy:, 0:w1], sharey=axC)
+    dx=3
+    dy=-9
+    w1=16
+    w2=12
+    h=16 
 
-    axC.spines['right'].set_position(('data',L-1))
-    axC.spines['left'].set_position(('data',0))
+    axC = fig.add_subplot(gs[h+dy:, 0:w1])
+    axT = fig.add_subplot(gs[0:h, 0:w1], sharex=axC)
+    axR = fig.add_subplot(gs[h+dy:, w1+dx:w1+dx+w2], sharey=axC)
+
     axC.spines['top'].set_position(('data', span[1]))
-    axC.spines['bottom'].set_position(('data',0))
-    axT.spines['right'].set_position(('data',L-1))
-    axT.spines['left'].set_position(('data',0))
-
-    axC.spines['right'].set_smart_bounds(True)
+    axC.spines['bottom'].set_position('zero')
     axC.spines['left'].set_smart_bounds(True)
-    axC.spines['top'].set_smart_bounds(True)
-    axC.spines['bottom'].set_smart_bounds(True)
-    axT.spines['right'].set_smart_bounds(True)
-    axT.spines['left'].set_smart_bounds(True)
-    axT.spines['top'].set_smart_bounds(True)
-    axT.spines['bottom'].set_smart_bounds(True)
+    axC.spines['right'].set_smart_bounds(True)
 
-    extent = axC.get_window_extent().transformed(plt.gcf().dpi_scale_trans.inverted())
+
+    axR.spines['top'].set_position(('data', span[1]))
+    axR.spines['bottom'].set_position('zero')
+    axR.spines['left'].set_smart_bounds(True)
+    axR.spines['right'].set_smart_bounds(True)
+
+
     data = (1.0-data)/2
 
     plot_grid(data, axC, cbar=False,
-            ytick_labels=False, xlabel='Site', ylabel='', span=span)
+            nx_ticks=5, xlabel='Site', ylabel='Iteration', span=span)
 
     plot_grid_avgs(data, axR, avg='space', rotate=True,
-        ylabel='Iteration', xlabel='', title = 'spatial      ',
-        nx_ticks=4, span=span)
+        ylabel='', xlabel='P', ytick_labels=False,
+        nx_ticks=3, span=span)
+    inner_title(axR, 'Spatial', u=.87)
 
     plot_grid_avgs(data, axT, avg='time', xtick_labels=False,
-            title='temporal', xlabel='', ylabel='', ny_ticks=4)
-    inner_title(axC,'Average Probability of measuring 1' , l=-.9, u=1.33)
+            title='temporal', xlabel='', ylabel='P', ny_ticks=5)
+    inner_title(axC, 'Average Probability of measuring 1', l=-.85, u=1.16)
 
 # plot multiple spacetime grids as subplots
 # -----------------------------------------
-def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
+def plot_grids(grid_data, fignum=1, span=None, wspace=-0.25,
         titles=None, xlabels=None, ylabels=None, suptitle=''):
     nc = len(grid_data)
     if titles is None:
@@ -165,6 +163,8 @@ def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
         xlabels = ['']*nc
     if ylabels is None:
         ylabels = ['Iteration'] + ['']*(nc - 1)
+    if span is None:
+        span = [0, min([60, len(grid_data[0])])]
     gs = gridspec.GridSpec(1, nc)
     fig = plt.figure(fignum)
     for c, (grid, title, xlabel, ylabel) in \
@@ -250,7 +250,7 @@ def plot_ft(freqs, amps, ax, dt=1,
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_xlim([low_freq, high_freq])
-    ax.set_ylim(amp_ave/100., 10.*amps.max())
+    ax.set_ylim(amp_ave/10, 2*amps.max())
 
     if loc is not None:
         ax.legend(loc=loc)
@@ -347,8 +347,10 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
 
 # call plotting sequence
 # ----------------------
-def plot(params, results, j=0):
+def plot(params, results, j='L/2'):
 
+    if j == 'L/2':
+        j = int(params['L']/2)
     # get spin projections along x, y, and z
     x_grid, y_grid, z_grid = [measures.get_diag_vecs(results[ab])
                 for ab in ['xx', 'yy', 'zz']]
@@ -370,7 +372,6 @@ def plot(params, results, j=0):
     # get local and entropies
     stj = results['s']
 
-
     # get mutual information adjacency matrices
     mtjk = results['m']
 
@@ -379,7 +380,8 @@ def plot(params, results, j=0):
             titles=['$X$', '$Y$', '$Z$'],
             suptitle='Spin projections',
             xlabels=['site', 'site', 'site'],
-            wspace=-0.20,
+            wspace=.05,
+
             fignum=0)
 
     # plot two-point correlator w.r.t site j
@@ -387,7 +389,7 @@ def plot(params, results, j=0):
             titles=['$X$', '$Y$', '$Z$'],
             suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
             xlabels=['site', 'site', 'site'],
-            wspace=-0.20,
+            wspace=0.05,
             fignum=3)
 
     # plot local and bond entropies
@@ -403,7 +405,7 @@ def plot(params, results, j=0):
             fignum=4)
 
     # plot probabilities of spin down and space/time averages
-    plot_grid_with_avgs(z_grid, 5, suptitle='average probability of measuring 1')
+    plot_grid_with_avgs(z_grid, fignum=5, suptitle='average probability of measuring 1')
 
     # plot mi measures and their FT's
     plot_measures(meas_dict, fignum=6)
@@ -413,7 +415,7 @@ def plot(params, results, j=0):
 
     # plot distribution of mutual information over time
     plot_edge_strength_contour(mtjk,
-            bins=60, rng=(0,.1), emax=60, fignum=8)
+            bins=60, rng=(0,.1), emax=150, fignum=8)
 
     # create the full path to where plots will be saved
     fname = params['fname']
