@@ -57,41 +57,49 @@ bvecs = {
 # Initial State Creation
 # ======================
 
+# qubit on the block sphere. th is from vertical and ph is from x around z.
+# th and ph are expected in degrees
+def qubit(t, p):
+    t = pi/180.0 * t
+    p = pi/180.0 * p
+    return cos(t/2.0) * bvecs['0'] + exp(1j*p) * sin(t/2) * bvecs['1']
+
+def make_config_dict(config):
+    config_list = config.split('_')
+    n = len(config_list)
+    if n == 1:
+        conf_dict = {'ex_list' : [int(ex) for ex in config.split('-')],
+                'ex_config' : {'t':180, 'p':0},
+                'bg_config' : {'t':0, 'p':0} }
+
+    elif n == 2:
+        ex_list = [int(ex) for ex in config_list[0].split('-')]
+        ex_config = {ang[0] : eval(ang[1:]) for ang in config_list[1].split('-')}
+        conf_dict = {'ex_list': ex_list,
+                'ex_config' : ex_config,
+                'bg_config' : {'t':0, 'p':0} }
+
+    elif n == 3:
+        ex_list = [int(ex) for ex in config_list[0].split('-')]
+        ex_config = {ang[0] : eval(ang[1:]) for ang in config_list[1].split('-')}
+        bg_config = {ang[0] : eval(ang[1:]) for ang in config_list[2].split('-')}
+        conf_dict = {'ex_list': ex_list,
+                'ex_config' : ex_config,
+                'bg_config' : bg_config}
+    return conf_dict
+
+
 # Create Fock state
 # -----------------
-def fock (L, config, zero = '0', one = '1'):
-    dec = int(config)
-    state = [el.replace('0', zero).replace('1', one)
-            for el in list('{0:0b}'.format(dec).rjust(L, '0'))]
-    return mx.listkron([bvecs[key] for key in state])
+def fock(L, config):
+    config_dict = make_config_dict(config)
+    ex_list = np.array(config_dict['ex_list'])
+    qubits = np.array([qubit(**config_dict['bg_config'])]*L)
+    for ex in ex_list:
+        qubits[ex, ::] = qubit(**config_dict['ex_config'])
+    state = mx.listkron(qubits)
+    return state
 
-# Create state with set of alive sites
-# -------------------------------------
-def alive_list(L, config):
-    js = map(int, config.split('_'))
-    js = [L - j - 1 for j in js]
-    dec = sum((2**x for x in js))
-    return fock(L, dec)
-
-# Create state with one live sites
-# --------------------------------
-def one_alive (L, config):
-    dec = 2**int(config)
-    return fock(L, dec)
-
-# Create states with equal superposition locally
-# ----------------------------------------------
-def es_list(L, config):
-    js = map(int, config.split('_'))
-    js = [L - j - 1 for j in js]
-    dec = sum((2**x for x in js))
-    return fock(L, dec, one='es')
-
-# Create state with all sites living
-# ----------------------------------
-def all_alive (L, config):
-    dec = sum ([2**n for n in range(0,L)])
-    return fock(L, dec)
 
 # Create GHZ state
 # ----------------
@@ -104,14 +112,13 @@ def GHZ (L, congif):
 
 # Create W state
 # --------------
-def W (L, config):
-    return (1.0/sqrt(L)) \
-            * sum ([one_alive(L, k) for k in range(L)])
+def W(L, config):
+    return 1.0/sqrt(L) * sum(fock(L, str(j)) for j in range(L))
 
 # Create a state with GHZ-type entanglement.
 # Reduces to 1/sqrt(2) (|00> + |11>) in L = 2 limit
 # ------------------------------------------------------
-def entangled_list (L, config):
+def entangled_list(L, config):
     js = map(int, config.split('_'))
     js = [L - j - 1 for j in js]
     dec = sum((2**x for x in js))
@@ -136,11 +143,7 @@ def center(L, config):
     else:
         return mx.listkron([left, cent, right])
 
-
-def qubit(th, ph):
-    return cos(th/2.0) * bvecs['0'] + exp(1j*ph) * sin(th/2) * bvecs['1']
-
-def qubits(L, config):
+def spin_wave(L, config):
     Tt, Pp = config.split('-')
     ang_dict = {'T' : np.linspace(0.0,  pi*float(Tt[1:]), L),
                 't' : [float(Tt[1:])*pi/180.0]*L,
@@ -192,26 +195,22 @@ def rand_state(L, config):
 
 # Make the specified state
 # ------------------------
-smap = { 'd' : fock,
-         's' : es_list,
-         'l' : alive_list,
-         'a' : all_alive,
+smap = { 'f' : fock,
          'c' : center,
-         'q' : qubits,
+         's' : spin_wave,
          'r' : rand_state,
          'G' : GHZ,
          'W' : W,
          'E' : entangled_list }
 
 def make_state (L, IC):
-    state = np.array([0.0]*(2**L), dtype = complex)
-
     if type(IC) == str:
         name = IC[0]
         config = IC[1:]
         state = smap[name](L, config)
 
     elif type(IC) == list:
+        state = np.zeros(2**L, dtype = complex)
         for s in IC:
                 name = s[0][0]
                 config = s[0][1:]
@@ -221,17 +220,20 @@ def make_state (L, IC):
 
 
 if __name__ == '__main__':
-    import measures as ms
-    import states as ss
+    import simulation.measures as ms
+    import simulation.states as ss
 
 
     L = 8
     T = 0
-    IC = 'r5'
+    IC = 'f1-4_t90-p0'
 
     state = make_state(L, IC)
     rj = np.asarray([mx.rdms(state, [j]) for j in range(L)])
-    zj = np.asarray([np.trace(r.dot(ops['Z'])) for r in rj])
+    zj = np.asarray([np.trace(r.dot(ops['Z'])).real for r in rj])
+    print(zj)
+
+    '''
     r0k = np.asarray([mx.rdms(state, [0,k]) for k in range(1, L)])
     z0k = np.asarray([1.0]+[np.trace(r.dot(np.kron(ops['Z'], ops['Z']))) for r in r0k])
 
@@ -283,4 +285,4 @@ if __name__ == '__main__':
 
         print('expectation value along Z axis:')
         print(meas_list)
-
+    '''
