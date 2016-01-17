@@ -12,6 +12,7 @@ from math import pi
 from collections import OrderedDict
 
 import matplotlib.gridspec as gridspec
+import h5py
 import matplotlib.transforms as trans
 
 # default plot font
@@ -19,6 +20,13 @@ import matplotlib.transforms as trans
 font = {'family':'serif','size':10}
 mpl.rc('font',**font)
 import matplotlib.pyplot as plt
+
+
+# Labeling functions
+# ------------------
+def inner_title(ax, title, l=0.1, u=0.95): return ax.text(l, u, str(title),
+        horizontalalignment='left', transform=ax.transAxes, fontsize=12)
+
 
 # plot spacetime grid on an axis
 # ------------------------------
@@ -52,11 +60,11 @@ def plot_grid(data, ax, nc=1,
     ax.yaxis.set_ticks(range(span[0], span[1]))
     ax.locator_params(axis='x', nbins=nx_ticks)
     ax.locator_params(axis='y', nbins=ny_ticks)
-    ax.grid(True)
+    #ax.grid(True)
 
 
-
-    fig.subplots_adjust(top=0.9, wspace=wspace)
+    ##wspace kwg
+    fig.subplots_adjust(top=0.9, wspace=0.5)
     if cbar is True:
         im_ext = im.get_extent()
         box = ax.get_position()
@@ -102,70 +110,71 @@ def plot_grid_avgs(data, ax, avg='space',
         nx_ticks=nx_ticks, ny_ticks=ny_ticks,
         plot_kwargs=plot_kwargs, span=span, rotate=rotate)
 
-def plot_grid_with_avgs(data, fignum=1, span=[0,60]):
+def plot_grid_with_avgs(data, fignum=1, span=None, suptitle=''):
     fig = plt.figure(fignum)
     L = len(data[0])
     T = len(data)
     gs = gridspec.GridSpec(100, 100, bottom=0.15, left=0.15, right=0.95)
+    if span is None:
+        span = [0, min([60, T])]
 
-    dx=1
-    dy=2
-    w1=12
-    w2=16
-    h=16
-    axC = fig.add_subplot(gs[h+dy:, w1+dx:w1+dx+w2])
-    axT = fig.add_subplot(gs[0   :h,w1+dx:w1+dx+w2], sharex=axC)
-    axR = fig.add_subplot(gs[h+dy:, 0:w1], sharey=axC)
+    dx=3
+    dy=-9
+    w1=16
+    w2=12
+    h=16 
 
-    axC.spines['right'].set_position(('data',L-1))
-    axC.spines['left'].set_position(('data',0))
+    axC = fig.add_subplot(gs[h+dy:, 0:w1])
+    axT = fig.add_subplot(gs[0:h, 0:w1], sharex=axC)
+    axR = fig.add_subplot(gs[h+dy:, w1+dx:w1+dx+w2], sharey=axC)
+
     axC.spines['top'].set_position(('data', span[1]))
-    axC.spines['bottom'].set_position(('data',0))
-    axT.spines['right'].set_position(('data',L-1))
-    axT.spines['left'].set_position(('data',0))
-
-    axC.spines['right'].set_smart_bounds(True)
+    axC.spines['bottom'].set_position('zero')
     axC.spines['left'].set_smart_bounds(True)
-    axC.spines['top'].set_smart_bounds(True)
-    axC.spines['bottom'].set_smart_bounds(True)
-    axT.spines['right'].set_smart_bounds(True)
-    axT.spines['left'].set_smart_bounds(True)
-    axT.spines['top'].set_smart_bounds(True)
-    axT.spines['bottom'].set_smart_bounds(True)
+    axC.spines['right'].set_smart_bounds(True)
 
-    extent = axC.get_window_extent().transformed(plt.gcf().dpi_scale_trans.inverted())
+
+    axR.spines['top'].set_position(('data', span[1]))
+    axR.spines['bottom'].set_position('zero')
+    axR.spines['left'].set_smart_bounds(True)
+    axR.spines['right'].set_smart_bounds(True)
+
+
     data = (1.0-data)/2
 
     plot_grid(data, axC, cbar=False,
-            ytick_labels=False, xlabel='Site', ylabel='', span=span)
+            nx_ticks=5, xlabel='Site', ylabel='Iteration', span=span)
 
     plot_grid_avgs(data, axR, avg='space', rotate=True,
-        ylabel='Iteration', xlabel='', title = 'spatial      ',
-        nx_ticks=4, span=span)
+        ylabel='', xlabel='P', ytick_labels=False,
+        nx_ticks=3, span=span)
+    inner_title(axR, 'Spatial', u=.87)
 
     plot_grid_avgs(data, axT, avg='time', xtick_labels=False,
-            title='temporal', xlabel='', ylabel='', ny_ticks=4)
-
+            title='temporal', xlabel='', ylabel='P', ny_ticks=5)
+    inner_title(axC, 'Average Probability of measuring 1', l=-.85, u=1.16)
 
 # plot multiple spacetime grids as subplots
 # -----------------------------------------
-def plot_grids(grid_data, fignum=1, span=[0, 60], wspace=-0.25,
-        titles=None, xlabels=None, ylabel='Iteration', suptitle=''):
+def plot_grids(grid_data, fignum=1, span=None, wspace=-0.25,
+        titles=None, xlabels=None, ylabels=None, suptitle=''):
     nc = len(grid_data)
     if titles is None:
         titles = ['']*nc
     if xlabels is None:
         xlabels = ['']*nc
+    if ylabels is None:
+        ylabels = ['Iteration'] + ['']*(nc - 1)
+    if span is None:
+        span = [0, min([60, len(grid_data[0])])]
     gs = gridspec.GridSpec(1, nc)
     fig = plt.figure(fignum)
-    for c, (grid, title, xlabel) in \
-            enumerate(zip(grid_data, titles, xlabels)):
+    for c, (grid, title, xlabel, ylabel) in \
+            enumerate(zip(grid_data, titles, xlabels, ylabels)):
         ax = fig.add_subplot(gs[c])
         ytick_labels=False
-        ylabel = ''
-        if c is 0:
+        if c == 0:
             ytick_labels=True
-            ylabel = ylabel
         plot_grid(grid, ax,
                 nc=nc,
                 ylabel=ylabel,
@@ -221,7 +230,8 @@ def plot_time_series(time_series, ax,
 # ---------------------------------
 def plot_ft(freqs, amps, ax, dt=1,
         title='', ylabel='Intensity', xlabel='Frequency',
-        xtick_labels=True, ytick_labels=True, loc=None, plot_kwargs=None):
+        xtick_labels=True, ytick_labels=True, loc=None, plot_kwargs=None,
+        nx_ticks=None, ny_ticks=None):
 
     if plot_kwargs is None:
         plot_kwargs = {'label':'', 'color':'B',
@@ -235,7 +245,7 @@ def plot_ft(freqs, amps, ax, dt=1,
 
     amp_ave = np.mean(amps)
     if amp_ave>1e-14:
-        ax.semilogy(freqs, amps, )
+        ax.semilogy(freqs, amps)
     else:
         ax.plot(freqs, amps, **plot_kwargs)
 
@@ -243,7 +253,7 @@ def plot_ft(freqs, amps, ax, dt=1,
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_xlim([low_freq, high_freq])
-    ax.set_ylim(amp_ave/100., 10.*amps.max())
+    ax.set_ylim(amp_ave/5, 1.5*amps.max())
 
     if loc is not None:
         ax.legend(loc=loc)
@@ -252,6 +262,10 @@ def plot_ft(freqs, amps, ax, dt=1,
     if not xtick_labels:
         plt.setp([ax.get_xticklabels()], visible=False)
 
+    if nx_ticks is not None:
+        ax.locator_params(axis='x', nbins=nx_ticks)
+    if ny_ticks is not None:
+        ax.locator_params(axis='y', nbins=ny_ticks)
 
 # plot time series of many measures
 # ---------------------------------
@@ -296,7 +310,7 @@ def plot_measure_fts(Fmeas_dict, freqs, fignum=1):
         amps = Fmeas_dict[name]
         plot_ft(freqs, amps, ax,
                 xlabel=xlabel,
-                ylabel=r'$\mathcal{F}$('+name+')',
+                ylabel=r'$|\mathcal{F}$('+name+r'$)|^2$',
                 xtick_labels=xtick_labels)
 
         ax.grid( 'on' )
@@ -338,69 +352,171 @@ def plot_edge_strength_contour(mtjk, bins=30, rng=(0,1), emax=40,
     ax.set_ylabel('Iteration')
     ax.set_title('Mutual information edge strength')
 
+
+
+def plot_grid_time_avg_stats(grids_stats_dict, fignum=1, 
+                titles=['x', 'y', 'z'], coords = ['xx', 'yy', 'zz']):
+    typ = 'time'
+    suptitle = 'Temporal averages'
+    fig = plt.figure(fignum)
+    fig.subplots_adjust(top=0.91, wspace=0.5, hspace=0.5)
+    fignum = fignum+1
+    for i, (coord, title) in enumerate(zip(coords, titles)):
+        ylabels =['']*3
+        if i == 0:
+            ylabels = ['avg', 'std',
+                    '$|\mathcal{F}(\mathrm{avg})|^2$']
+
+        for j, (stat, ylabel) in enumerate(zip(
+            ['avg', 'std','amps'], ylabels)):
+            ax = fig.add_subplot(3,3,i+1+(j*3))
+
+            if j == 1:
+                title = ''
+            if j == 2:
+                plot_ft(grids_stats_dict[coord][typ]['freqs'][::],
+                        grids_stats_dict[coord][typ]['amps'][::],
+                        ax, ylabel = ylabel, nx_ticks=4)
+            elif j != 2:
+                xlabel = 'site'
+                plot_time_series(grids_stats_dict[coord][typ][stat][::], ax,
+                        xlabel=xlabel, ylabel=ylabel, ny_ticks=4,
+                        title=title)
+            ax.grid('on')
+    plt.suptitle('Temporal averages')
+
+
+def plot_grid_space_avg_stats(grids_stats_dict, fignum=1,
+                titles=['x', 'y', 'z'], coords = ['xx', 'yy', 'zz']):
+    typ = 'space'
+    for i, (coord, title) in enumerate(zip(coords, titles)):
+        xlabel = 'Iteration'
+        ylabels =['']*3
+        ylabels = ['avg', 'std',
+                '$|\mathcal{F}(\mathrm{avg})|^2$']
+
+
+        for j, (stat, ylabel) in enumerate(zip(['avg','std','amps'], ylabels)):
+            fig = plt.figure(fignum)
+
+            fig = plt.figure(fignum)
+            ax = fig.add_subplot(3,1,j+1)
+            fig.subplots_adjust(top=0.91, wspace=0.5, hspace=0.5)
+
+            if j == 1:
+                title = ''
+            if j == 2:
+                plot_ft(grids_stats_dict[coord][typ]['freqs'][::],
+                        grids_stats_dict[coord][typ]['amps'][::],
+                        ax, ylabel = ylabel, nx_ticks=6)
+            elif j != 2:
+                plot_time_series(grids_stats_dict[coord][typ][stat][::], ax,
+                        xlabel=xlabel, ylabel=ylabel, ny_ticks=4,
+                        title=title)
+            ax.grid('on')
+        fignum = fignum+1
+        plt.suptitle('Spatial averages')
+        #plt.tight_layout()
+
 # call plotting sequence
 # ----------------------
-def plot(params, results, j=0):
-    print('Plotting measures...')
-
+def plot(params, corrj=None):
+    print('Plotting results...')
+    results = h5py.File(params['fname'], 'r')
     # get spin projections along x, y, and z
-    x_grid, y_grid, z_grid = [measures.get_diag_vecs(results[ab])
-                for ab in ['xx', 'yy', 'zz']]
+    x_grid, y_grid, z_grid = [ measures.get_diag_vecs(results[ab][::])
+                for ab in ('xx', 'yy', 'zz') ]
 
-    # get correlators at constant row j
-    x_g2grid, y_g2grid, z_g2grid = [measures.get_row_vecs(results[ab], j=j)
-                for ab in ['gxx', 'gyy', 'gzz']]
+    proj_grids_stats = results['stats']
+
+    # get g2 correlators at constant row j
+    if corrj is None:
+        corrj = results['gstats']['corrj'][0]
+    x_g2grid, y_g2grid, z_g2grid = [measures.get_row_vecs(
+        results[ab][::], j=corrj) for ab in ['gxx', 'gyy', 'gzz']]
+
+    g2grids_stats = results['gstats']
 
     # get mi measure results and place in ordered dict for plotting
-    meas_keys = ['ND', 'CC', 'Y', 'IPT']
-    meas_list = [results[meas_key] for meas_key in meas_keys]
-    freqs = results['freqs']
-    Fmeas_list = [results['F'+meas_key] for meas_key in meas_keys]
+    meas_keys = ['ND', 'CC', 'Y', 'IPR']
+    meas_list = [results[meas_key][::] for meas_key in meas_keys]
+    freqs = results['freqs'][::]
+    Fmeas_list = [results['F'+meas_key][::] for meas_key in meas_keys]
     meas_dict = OrderedDict( (key, data)
             for key, data in zip(meas_keys, meas_list))
     Fmeas_dict = OrderedDict( (key, Fdata)
             for key, Fdata in zip(meas_keys, Fmeas_list))
 
-    # get local and bond entropies
-    stj = results['s']
-
-    stc = results['sc']
+    # get local and entropies
+    stj = results['s'][::]
 
     # get mutual information adjacency matrices
-    mtjk = results['m']
+    mtjk = results['m'][::]
 
     # plot spin projections
-    plot_grids([x_grid, y_grid, z_grid],
-            titles=['$X$', '$Y$', '$Z$'],
-            suptitle='Spin projections',
-            wspace=-0.20,
-            fignum=0)
+    proj_titles = [r'$\langle \sigma^x_j \rangle$', 
+                   r'$\langle \sigma^y_j \rangle$',
+                   r'$\langle \sigma^z_j \rangle$']
+    plot_grids([x_grid, y_grid, z_grid], fignum=0,
+            titles=proj_titles,
+            suptitle='Spin Projections',
+            xlabels=['site', 'site', 'site'],
+            wspace=.05)
 
-    # plot two-point correlator w.r.t site j
-    plot_grids([x_g2grid, y_g2grid, z_g2grid],
-            titles=['$X$', '$Y$', '$Z$'],
-            suptitle=r'$g_2(j=$'+str(j)+r'$,k;t)$',
-            wspace=-0.20,
-            fignum=3)
+
+    plot_grid_time_avg_stats(proj_grids_stats, fignum=1,
+            titles=proj_titles)
+
+    # this makes three figures
+    plot_grid_space_avg_stats(proj_grids_stats, fignum=2, titles=proj_titles)
+
+    # plot two-point correlator w.r.t site corrj
+    g2_titles = ['$g_2(\sigma^x_{%i},\sigma^x_k;t)$' % corrj,
+                 '$g_2(\sigma^y_{%i},\sigma^y_k;t)$' % corrj,
+                 '$g_2(\sigma^z_{%i},\sigma^z_k;t)$' % corrj]
+
+    plot_grids([x_g2grid, y_g2grid, z_g2grid], fignum=5,
+            titles=g2_titles,
+            suptitle='Two Point Correlator',
+            xlabels=['site', 'site', 'site'],
+            wspace=0.05)
+
+    plot_grid_time_avg_stats(g2grids_stats, fignum=6, titles=g2_titles)
+
+    plot_grid_space_avg_stats(g2grids_stats, fignum=7, titles=g2_titles)
 
     # plot local and bond entropies
-    plot_grids([stj, stc],
-            titles=[r'$S(i,t)$', r'$S_c(i,t)$'],
+    entropies = [stj]
+    if 'sc' in results:
+        stc = results['sc'][::]
+        entropies.append(stc)
+
+    if len(entropies) == 2:
+        wspace=0.088
+    elif len(entropies) == 1:
+        wspace=-0.23
+
+    plot_grids(entropies,
+            titles=[r'$S(j,t)$', r'$S_c(j,t)$'],
             xlabels=['site', 'cut'],
             suptitle='von Neumann entropies',
-            wspace=-0.29,
-            fignum=4)
+            wspace=wspace,
+            fignum=10)
 
     # plot probabilities of spin down and space/time averages
-    plot_grid_with_avgs(z_grid, 5)
+    plot_grid_with_avgs(z_grid, fignum=11, suptitle='average probability of measuring 1')
 
     # plot mi measures and their FT's
-    plot_measures(meas_dict, fignum=6)
-    plot_measure_fts(Fmeas_dict, freqs, fignum=7)
+    plot_measures(meas_dict, fignum=12)
+
+    # plot measure Fourier transforms
+    plot_measure_fts(Fmeas_dict, freqs, fignum=13)
 
     # plot distribution of mutual information over time
     plot_edge_strength_contour(mtjk,
-            bins=60, rng=(0,.1), emax=30, fignum=8)
+            bins=60, rng=(0,.1), emax=150, fignum=14)
+
+
 
     # create the full path to where plots will be saved
     fname = params['fname']
@@ -414,7 +530,9 @@ def plot(params, results, j=0):
 
     # save all figures to one pdf
     io.multipage(out_fname)
-    print('plots saved to: ', out_fname)
+    results.close()
+    plt.close('all')
+    return out_fname
 
 def fft_check():
     from math import sin

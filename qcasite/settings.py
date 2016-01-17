@@ -23,9 +23,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'oc8t3fiea-po14=h8eu&7+mn&9d&9=nb&^%r8$s9syug^yus#b'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['prallcase.caltech.edu','prallcase']
 
 
 # Application definition
@@ -100,4 +100,5 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = '/qca/static/'
+STATIC_ROOT = '/srv/django/qca/static'

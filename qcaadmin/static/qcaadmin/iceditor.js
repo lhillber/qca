@@ -131,7 +131,13 @@ QCAAdmin.controller('ICEditor', ["$scope", "$rootScope",'$http','$timeout',  fun
             args['compList'] = $scope.stateData
         }
         
-        $http.post('/getICData/',JSON.stringify(args), {}).then(function(response) {
+        args['Password'] = $rootScope.password
+        $http.post(window.prefix+'/getICData/',JSON.stringify(args), {}).then(function(response) {
+            if (response.data == "Wrong password.") {
+                    $rootScope.reqpass = true
+                    $rootScope.password = ''
+                    return
+                }
             $scope.icdataset = response.data
 
             for (key in $scope.icdataset) {
@@ -158,7 +164,13 @@ QCAAdmin.controller('ICEditor', ["$scope", "$rootScope",'$http','$timeout',  fun
         var args = {}
         args['compList'] = $scope.stateData
         args['title'] = $scope.title
-        $http.post('/saveIC/',JSON.stringify(args), {}).then(function(response) {
+        args['Password'] = $rootScope.password
+        $http.post(window.prefix+'/saveIC/',JSON.stringify(args), {}).then(function(response) {
+            if (response.data == "Wrong password.") {
+                    $rootScope.reqpass = true
+                    $rootScope.password = ''
+                    return
+                }
             $rootScope.inspectedIC  = response.data
             $rootScope.$broadcast('newIC')
         },function(response) {

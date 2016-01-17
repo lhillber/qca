@@ -217,25 +217,23 @@ def bi_partite_rdm(L, state):
 # compute the inverse participation ratio
 # ---------------------------------------
 def inv_participation_ratio(L, state):
-    ipr = 0.0
-    for basis_num in range(2**L):
-        ipr = ipr + abs(state[basis_num])**4
-    if ipr == 0.0:
+    pr = np.sum(np.abs(state)**4)
+    if pr == 0.0:
         return 0.0
-    return 1.0 / ipr
+    else:
+        return 1.0 / pr
 
 # import/create simulation results of one and two site reduced density matrices
 # and all one and two point spin averages
 # -----------------------------------------------------------------------------
 def run_sim(params, force_rewrite = False,
-        sim_tasks=['one_site', 'two_site', 'bi_partite', 'IPT']):
+        sim_tasks=['one_site', 'two_site', 'bi_partite', 'IPR']):
 
     if 'fname' in params:
         fname = params['fname']
     else:
-        if 'IC' in params:
-            if params['IC'][0] == 'r':
-                fname = io.make_file_name(params, iterate = True)
+        if 'IC' in params and params['IC'][0] == 'r':
+            fname = io.make_file_name(params, iterate = True)
             # don't iterate file names with a unique IC name
         else:
             fname = io.make_file_name(params, iterate = False)
@@ -268,16 +266,17 @@ def run_sim(params, force_rewrite = False,
         if 'two_site' in sim_tasks:
             data['two_site'] = np.zeros((T+1, L, L, 4, 4), dtype = complex)
 
-        if 'IPT' in sim_tasks:
-            data['IPT'] = np.zeros(T+1)
+        if 'IPR' in sim_tasks:
+            data['IPR'] = np.zeros(T+1)
 
         if 'bi_partite' in sim_tasks:
             # each cut is stored as a different data set of length T
+            data['bi_partite'] = {}
             rdm_dims = [2**len(bi_partite_inds(L, cut))
                     for cut in range(L-1)]
 
             for cut, dim in enumerate(rdm_dims):
-                data['cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
+                data['bi_partite']['cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
 
         # loop through quantum states
         for t, state in enumerate(time_evolve(params)):
@@ -285,8 +284,8 @@ def run_sim(params, force_rewrite = False,
             if t == 0:
                 data['init_state'] = state
 
-            if 'IPT' in sim_tasks:
-                data['IPT'][t] = inv_participation_ratio(L, state)
+            if 'IPR' in sim_tasks:
+                data['IPR'][t] = inv_participation_ratio(L, state)
 
             # first loop through lattice, make single site matrices
             for j in range(L):
@@ -304,18 +303,17 @@ def run_sim(params, force_rewrite = False,
             if 'bi_partite' in sim_tasks:
                 for cut in range(L-1):
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
-                    data['cut'+str(cut)][t] = rtc
-        if 'IPT' in sim_tasks:
-            freqs, amps = ms.make_ft(data['IPT'])
-            data['FIPT'] = amps
+                    data['bi_partite']['cut'+str(cut)][t] = rtc
+
+
+        if 'IPR' in sim_tasks:
+            freqs, amps = ms.make_ft(data['IPR'])
+            data['FIPR'] = amps
             data['freqs'] = freqs
     else:
-        if 'bi_partite' in sim_tasks:
-            for cut in range(params['L']-1):
-                sim_tasks.append('cut'+str(cut))
-            sim_tasks.append('FIPT')
-            sim_tasks.append('freqs')
-            sim_tasks.remove('bi_partite')
+        print('Importing states...')
+        sim_tasks.append('FIPR')
+        sim_tasks.append('freqs')
         data = io.read_hdf5(fname, sim_tasks)
 
     return data
@@ -338,7 +336,7 @@ if __name__ == "__main__":
     # Simulation time scaling with L
     # ------------------------------
     # set up loop to time 1 iteration of evolution for increasing L
-    L_list = [7]
+    L_list = [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
     t_list = []
     for L in L_list:
 
@@ -347,7 +345,7 @@ if __name__ == "__main__":
                         'output_dir' : 'tmp/trash',
 
                         'L'    : L,
-                        'T'    : 0,
+                        'T'    : 1,
                         'mode' : 'sweep',
                         'R'    : 102,
                         'V'    : ['H'],
@@ -358,14 +356,14 @@ if __name__ == "__main__":
 
         # get run time of simulation, append to timing list
         tic = time.time()
-        run_sim(params, force_rewrite = True)
+        run_sim(params, force_rewrite = True, sim_tasks=['one_site', 'two_site', 'IPR'])
         toc = time.time()
         t_list.append(toc-tic)
 
     # save data to compare as improvements are made
     # NOTE: Change file names after each optimization!!
-    data_fname = io.base_name('timing', 'data')+'vectorized_iteration_timing.csv'
-    plots_fname = io.base_name('timing', 'plots')+'vectorized_iteration_timing.pdf'
+    data_fname = io.base_name('timing', 'data')+'nocut_iteration_timing2.csv'
+    plots_fname = io.base_name('timing', 'plots')+'nocut_iteration_timing2.pdf'
     with open(data_fname, 'w') as f:
         writer = csv.writer(f)
         writer.writerows(zip(L_list, t_list))
@@ -393,6 +391,7 @@ if __name__ == "__main__":
             + "\n  $\chi^2 = {:.2e}$".format(chi2))
     plt.xlabel('L')
     plt.ylabel('time to simulate and save one iteration [s]')
+    plt.grid('on')
     plt.legend(loc='upper left')
     plt.savefig(plots_fname)
     plt.close()

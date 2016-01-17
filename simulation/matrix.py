@@ -97,6 +97,7 @@ def op_on_state(meso_op, js, state, ds = None):
 # partial trace of a state vector, js are the site indicies kept
 # --------------------------------------------------------------
 def rdms(state, js, ds=None):
+    js = np.array(js)
     if ds is None:
         L = int( log(len(state), 2) )
         ds = [2]*L
@@ -104,8 +105,9 @@ def rdms(state, js, ds=None):
         L = len(ds)
 
 
-    rest = list(np.setdiff1d(np.arange(L), js))
-    ordering = list(js) + list(rest)
+
+    rest = np.setdiff1d(np.arange(L), js)
+    ordering = np.concatenate((js, rest))
     dL = np.prod(ds)
     djs = np.prod(np.array(ds).take(js))
     drest = np.prod(np.array(ds).take(rest))
@@ -230,10 +232,11 @@ def big_mat(local_op_list, js, state):
 
 # compare timing of various methods
 # ---------------------------------
+
 def comp_plot():
     from math import sqrt
     j=0
-    LMAX = 27
+    LMAX = 26
     LMax = 21
     Lmax = 13
 
@@ -255,6 +258,9 @@ def comp_plot():
         for L in Llist:
             print('L=',L)
             init_state = ss.make_state(L, 'l0')
+            nbyts = init_state.nbytes
+            print(nbyts/1e9)
+            mem_list = np.append(mem_list, nbyts)
 
             ta_list = np.append(ta_list, time.time())
             state2 = op_on_state(mop, js, init_state)
@@ -264,18 +270,20 @@ def comp_plot():
                 tc_list = np.append(tc_list, time.time())
                 state1 = op_on_state2(mop, js, init_state)
                 td_list = np.append(td_list, time.time())
-                print('V2=V1:', np.array_equal(state2, state1))
+                del state1
+                #print('V2=V1:', np.array_equal(state2, state1))
 
             if L < Lmax: 
                 te_list = np.append(te_list, time.time())
                 state0 = big_mat(lops, js, init_state)
                 tf_list = np.append(tf_list, time.time())
-                print('V2=V0:', np.array_equal(state2, state0))
-                print('V1=V0:', np.array_equal(state1, state0))
-                print()
+                #print('V2=V0:', np.array_equal(state2, state0))
+                #print('V1=V0:', np.array_equal(state1, state0))
+                #print()
+                del state0
 
-            nbyts = init_state.nbytes
-            mem_list = np.append(mem_list, nbyts)
+            del state2
+            del init_state
 
         fig = plt.figure(1)
         t_ax = fig.add_subplot(211)
@@ -302,8 +310,57 @@ def comp_plot():
     m_ax.grid('on')
     plt.tight_layout()
     plt.savefig(environ['HOME'] +
-            '/documents/qca/notebook_figs/'+'3-site_op_timing'+'.pdf', 
+            '/documents/research/cellular_automata/qeca/qca_notebook/notebook_figs/'+'numba_timing'+'.pdf', 
             format='pdf', dpi=300, bbox_inches='tight')
+
+
+
+def rdm_plot():
+    Llist = range(4, 20)
+    for L in Llist:
+        ta_list = np.array([])
+        tb_list = np.array([])
+        mem_list = np.array([])
+        trace_list = range(1, int(L/2))
+        for n_trace in trace_list:
+            js = range(n_trace)
+            print('L=',L)
+            init_state = ss.make_state(L, 'G')
+
+            ta_list = np.append(ta_list, time.time())
+            rdm = rdms(init_state, js)
+            tb_list = np.append(tb_list, time.time())
+            nbyts = rdm.nbytes
+            print(nbyts/1e9)
+            mem_list = np.append(mem_list, nbyts)
+            del rdm
+            del init_state
+
+        fig = plt.figure(1)
+        t_ax = fig.add_subplot(211)
+        m_ax = fig.add_subplot(212, sharex=t_ax)
+        t_ax.plot(trace_list, tb_list - ta_list, '-o')
+        m_ax.plot(trace_list, mem_list)
+
+    t_ax.set_yscale('log')
+    t_ax.set_xlabel('size of cut [n]')
+    t_ax.set_ylabel('computation time [s]')
+    t_ax.set_title('Trace out L-n qubits')
+    t_ax.grid('on')
+    #t_ax.legend(loc = 'upper left')
+
+    m_ax.set_yscale('log')
+    m_ax.set_xlabel('size of cut [n]')
+    m_ax.set_ylabel('memory required [bytes]')
+    m_ax.set_title('Size of rdm')
+    m_ax.grid('on')
+    plt.tight_layout()
+    #plt.show()
+    plt.savefig(environ['HOME'] +
+            '/documents/research/cellular_automata/qeca/qca_notebook/notebook_figs/'+'trace_timing_numba'+'.pdf', 
+            format='pdf', dpi=300, bbox_inches='tight')
+
+
 
 if __name__ == '__main__':
 
@@ -330,4 +387,4 @@ if __name__ == '__main__':
     final_Z_exp = [round(np.trace(r.dot(ss.ops['Z'])).real) for r in final_rj]
     print('final Z exp vals:', final_Z_exp) 
 
-    #comp_plot()
+    rdm_plot()

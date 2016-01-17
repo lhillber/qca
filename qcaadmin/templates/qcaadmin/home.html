@@ -21,8 +21,8 @@
                 <table class="sidebartable">
                     <div class="overlay" ng-show="error != ''"></div>
         <div class="dialog" ng-show="error != ''">Error: {{ error }}<div><span ng-click="error = ''">Close</span><span ng-click="reload()">Reload</span></div></div>
-        <div class="overlay" ng-show="reqpass"></div>
-        <div class="dialog" ng-show="reqpass">Please enter the password and try again.<form ng-submit="reqpass=false" ><input ng-model="password" type="password"></input></form><div><span ng-click="reqpass=false">Close</span></div></div>
+        <div class="overlay" ng-show="$root.reqpass"></div>
+        <div class="dialog" ng-show="$root.reqpass">Please enter the password and try again.<form ng-submit="$root.reqpass=false" ><input ng-model="$root.password" type="password"></input></form><div><span ng-click="$root.reqpass=false">Close</span></div></div>
 
                     <tr><td class="title">QCA Simulations</td></tr>
                     <tr><td class="simlist"><div class="simlistcontainer">
@@ -42,8 +42,8 @@
                             </tr>
                             <tr ng-repeat="V in Vs">
                                 <td>{{ V }}</td>
-                                <td ng-repeat-start="rule in rules" ng-class="simClass(icname,V,rule,false)" ng-style="simColor(icname,V,rule,false)" ng-dblclick="startSim($parent.$parent.$index,V,rule,false)" ng-click="selectSim(icname,V,rule,false)"><div class="icon"></div></td>
-                                <td ng-repeat-end ng-class="simClass(icname,V,rule,true)" ng-style="simColor(icname,V,rule,true)" ng-dblclick="startSim($parent.$parent.$index,V,rule,true)" ng-click="selectSim(icname,V,rule,true)" ><div class="icon"></div></td>
+                                <td ng-repeat-start="rule in rules" ng-class="simClass(icname,V,rule,false)" ng-style="simColor(icname,V,rule,false)" ng-dblclick="startSim(icname,V,rule,false)" ng-click="selectSim(icname,V,rule,false)"><div class="icon"></div></td>
+                                <td ng-repeat-end ng-class="simClass(icname,V,rule,true)" ng-style="simColor(icname,V,rule,true)" ng-dblclick="startSim(icname,V,rule,true)" ng-click="selectSim(icname,V,rule,true)" ><div class="icon"></div></td>
                             </tr>
                         </table>
                     </div></td></tr>

@@ -213,35 +213,24 @@ def make_file_name(params, sub_dir='data', ext='.hdf5', iterate=False):
     h5py.File(fname, 'a').close()
     return fname
 
+def flatten_dict(d):
+    def items():
+        for key, value in list(d.items()):
+            if isinstance(value, dict):
+                for subkey, subvalue in flatten_dict(value).items():
+                    yield key + "/" + subkey, subvalue
+            else:
+                yield key, value
+            del d[key]
+    return dict(items())
 
-# save simulation results
-# ----------------------
-def write_states(fname, state_gen):
-        f = h5py.File(fname, 'w')
-        for t, state in enumerate(state_gen):
-            f.create_dataset(str(t), data=state, dtype=complex)
-        f.close()
 
-# load simulation results
-# ----------------------
-def read_states(fname):
-    f = h5py.File(fname, 'r')
-    for t in f:
-        state = f[t]
-        yield state
-    f.close()
-
-# load simulation result at a specific time step
-# ----------------------------------------------
-def read_state(fname, t):
-    f = h5py.File(fname, 'r')
-    state = f[t]
-    f.close()
-    return state
 
 def write_hdf5(fname, data_dict, force_rewrite=False):
     f = h5py.File(fname, 'a')
-    for key, dat in data_dict.items():
+    flat_data_dict = flatten_dict(data_dict)
+    res_size = sum(val.nbytes for val in flat_data_dict.values())
+    for key, dat in flat_data_dict.items():
         dt = dat.dtype
         if key in f:
             if force_rewrite or dat.shape != f[key].shape:
@@ -251,6 +240,7 @@ def write_hdf5(fname, data_dict, force_rewrite=False):
         if key not in f:
             f.create_dataset(key, data=dat, dtype=dt)
     f.close()
+    return res_size
 
 def read_hdf5(fname, keys):
     f = h5py.File(fname, 'r')
@@ -276,7 +266,6 @@ def read_hdf5(fname, keys):
 
             elif isinstance(f[key], h5py.Dataset):
                 dat[key] = f[key][::]
-
     f.close()
     return dat
 
