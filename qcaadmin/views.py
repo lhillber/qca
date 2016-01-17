@@ -158,6 +158,13 @@ def getICData(request):
     body = request.body.decode("utf-8")
     data = json.loads(request.body.decode("utf-8"))
 
+    user = authenticate(username="simuser",password=data["Password"])
+    if user is None: return HttpResponse("Wrong password.")
+
+    ip = request.META['REMOTE_ADDR']
+    if  not (ip == "127.0.0.1" or "131.215." in ip): return HttpResponse("Must be on Caltech or Mines campus.")
+
+
     if ("pk" in data):
         icobj = InitialCondition.objects.get(pk=data['pk'])
         iclist = json.loads(icobj.data)
@@ -218,6 +225,14 @@ def getICData(request):
 def saveIC(request):
     body = request.body.decode("utf-8")
     data = json.loads(request.body.decode("utf-8"))
+
+    user = authenticate(username="simuser",password=data["Password"])
+    if user is None: return HttpResponse("Wrong password.")
+
+    ip = request.META['REMOTE_ADDR']
+    if  not (ip == "127.0.0.1" or "131.215." in ip): return HttpResponse("Must be on Caltech or Mines campus.")
+
+
 
     length = len(data["compList"][0]["values"])
     ic= np.zeros(2**length,dtype=complex)
