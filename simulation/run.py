@@ -1,45 +1,54 @@
 #!/usr/bin/python3
+# =============================================================================
+# order matters, in measure_tasks. Keep roughly this order (A before B = A -> B)
+# s -> m
+# m -> nm
+# mom -> g
+# mom,g -> stats
+# ==============r==============================================================
 
 from cmath  import sqrt, sin, cos, pi
-from collections import OrderedDict
-from os.path import isfile
-import numpy as np
-from mpi4py import MPI
-import matplotlib.pyplot as plt
-import simulation.plotting as plotting
-import simulation.time_evolve as time_evolve
-import simulation.measures as measures
-import simulation.fio as io
-import time
-import simulation.states as ss
+import simulation.launch as launch
 
-# Execute simulations
-# ===================
 
 # lists of parameters to simulate
 # -------------------------------
 output_dir = 'testing'
 
-mode_list = ['alt']
+mode_list = ['sweep']
 
-L_list = [14]
+L_list = [16]
 
-T_list = [30]
+T_list = [60]
 
 S_list = [6]
 
 V_list = ['H']
 
-IC_list = ['c1f0_t90-p0','c1f0_t90-p90']
+IC_list = ['f0','f0_t90-p0','f0_t90-p90']
 
 BC_list = ['1']
 
+# list of tasks to complete
+#--------------------------
+# tasks on the full quantum states
+sim_tasks = ['one_site', 'two_site', 'IPR']
+rewrite_states = False
 
+# tasks on the reduced density matricies (sc requires bi_bartite in sim_tasks).
+measure_tasks = ['s', 'sc', 'mom', 'g', 'm', 'nm', 'stats']
+rewrite_measures = False
 
-#IC_list = [[ ('W', sin(th)), ('c1l0', cos(th))]
-#        for th in np.linspace(0, pi/2.0, 10)]
+# sub tasks for spin prjections ('mom') and g2 ('g')
+coord_tasks = ['xx', 'yy', 'zz']
 
+# network measures on 'm'
+nm_tasks = ['ND', 'CC', 'Y']
 
+# site w.r.t. which g2 is plotted (any integer less than L or use string 'L/2')
+corrj = 'L/2'
+
+# nest parameter lists
 params_list = [
            {
             'output_dir' : output_dir,
@@ -51,7 +60,6 @@ params_list = [
             'IC': IC,
             'BC': BC
              }
-
         for mode in mode_list  \
         for L    in L_list     \
         for T    in T_list     \
@@ -60,68 +68,14 @@ params_list = [
         for IC   in IC_list    \
         for BC   in BC_list    ]
 
-
-
-# run independent simulations in parallel
-# ---------------------------------------
+# launch the simulations in parallel
 if __name__ == '__main__':
-    # initialize communication
-    comm = MPI.COMM_WORLD
-
-    # get the rank of the processor
-    rank = comm.Get_rank()
-
-    # get the number of processsors
-    nprocs = comm.Get_size()
-
-    # use rank 0 to give each simulation a file name
-    if rank == 0:
-        for params in params_list:
-            if 'fname' in params:
-                fname = params['fname']
-            else:
-                if 'IC' in params and params['IC'][0] == 'r':
-                        fname = io.make_file_name(params, iterate = True)
-                    # don't iterate file names with a unique IC name
-                else:
-                    fname = io.make_file_name(params, iterate = False)
-                    # set the file name for each simulation
-                params['fname'] = fname
-
-    # boradcast updated params list to each core
-    params_list = comm.bcast(params_list, root=0)
-
-    for i, params in enumerate(params_list):
-
-        # each core selects params to simulate without the need for a master
-        if i % nprocs == rank:
-
-            t0 = time.time()
-            state_res = time_evolve.run_sim(params,
-                    sim_tasks=['one_site', 'two_site', 'IPR','bi_partite'],
-                    force_rewrite=False)
-
-            t1 = time.time()
-
-            res_size = measures.measure(params, state_res, force_rewrite=False)
-
-            t2 = time.time()
-
-            out_fname = plotting.plot(params)
-
-            t3 = time.time()
-
-            print_string = \
-            '='*80                 + '\n'\
-            + 'Rank: ' + str(rank) + '\n'\
-            + 'Data file:'         + '\n'\
-            + params['fname']      + '\n'\
-            + 'Plots file:'        + '\n'\
-            + out_fname            + '\n'\
-            + 'simulating states took {:.2f} s'.format(t1-t0) + '\n'\
-            + 'measuring states took  {:.2f} s'.format(t2-t1)  + '\n'\
-            + 'plotting measures took {:.2f} s'.format(t3-t2)          + '\n'\
-            + 'data file is {:.2f} MB'.format(res_size/1e6)           + '\n'\
-            + '='*80
-            print(print_string)
-    plt.close('all')
+    launch.launch_parallel( params_list,
+                            sim_tasks=sim_tasks,
+                            rewrite_states = rewrite_states,
+                            measure_tasks=measure_tasks,
+                            coord_tasks=coord_tasks, 
+                            nm_tasks=nm_tasks, 
+                            corrj=corrj ,
+                            rewrite_measures = rewrite_measures
+                            )

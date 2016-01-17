@@ -531,6 +531,7 @@ def plot(params, corrj=None):
     # save all figures to one pdf
     io.multipage(out_fname)
     results.close()
+    plt.close('all')
     return out_fname
 
 def fft_check():
