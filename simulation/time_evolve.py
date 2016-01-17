@@ -271,11 +271,12 @@ def run_sim(params, force_rewrite = False,
 
         if 'bi_partite' in sim_tasks:
             # each cut is stored as a different data set of length T
+            data['bi_partite'] = {}
             rdm_dims = [2**len(bi_partite_inds(L, cut))
                     for cut in range(L-1)]
 
             for cut, dim in enumerate(rdm_dims):
-                data['cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
+                data['bi_partite']['cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
 
         # loop through quantum states
         for t, state in enumerate(time_evolve(params)):
@@ -302,7 +303,7 @@ def run_sim(params, force_rewrite = False,
             if 'bi_partite' in sim_tasks:
                 for cut in range(L-1):
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
-                    data['cut'+str(cut)][t] = rtc
+                    data['bi_partite']['cut'+str(cut)][t] = rtc
 
 
         if 'IPR' in sim_tasks:
@@ -311,10 +312,6 @@ def run_sim(params, force_rewrite = False,
             data['freqs'] = freqs
     else:
         print('Importing states...')
-        if 'bi_partite' in sim_tasks:
-            for cut in range(params['L']-1):
-                sim_tasks.append('cut'+str(cut))
-                sim_tasks.remove('bi_partite')
         sim_tasks.append('FIPR')
         sim_tasks.append('freqs')
         data = io.read_hdf5(fname, sim_tasks)
@@ -359,8 +356,7 @@ if __name__ == "__main__":
 
         # get run time of simulation, append to timing list
         tic = time.time()
-        run_sim(params, force_rewrite = True, sim_tasks=['one_site', 'two_site',
-            'IPR'])
+        run_sim(params, force_rewrite = True, sim_tasks=['one_site', 'two_site', 'IPR'])
         toc = time.time()
         t_list.append(toc-tic)
 

@@ -18,19 +18,19 @@ import simulation.states as ss
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'allS/random_test'
+output_dir = 'testing'
 
 mode_list = ['alt']
 
-L_list = [21]
+L_list = [14]
 
-T_list = [300]
+T_list = [30]
 
-S_list = [8]
+S_list = [6]
 
 V_list = ['H']
 
-IC_list = ['r5', 'l0_14']
+IC_list = ['c1f0_t90-p0','c1f0_t90-p90']
 
 BC_list = ['1']
 
@@ -98,19 +98,18 @@ if __name__ == '__main__':
 
             t0 = time.time()
             state_res = time_evolve.run_sim(params,
-                    sim_tasks=['one_site', 'two_site', 'IPR'],
+                    sim_tasks=['one_site', 'two_site', 'IPR','bi_partite'],
                     force_rewrite=False)
 
             t1 = time.time()
 
-            res = measures.measure(params, state_res, force_rewrite=True)
+            res_size = measures.measure(params, state_res, force_rewrite=False)
 
             t2 = time.time()
 
-            out_fname = plotting.plot(params, res)
+            out_fname = plotting.plot(params)
 
             t3 = time.time()
-            plt.clf
 
             print_string = \
             '='*80                 + '\n'\
@@ -120,8 +119,9 @@ if __name__ == '__main__':
             + 'Plots file:'        + '\n'\
             + out_fname            + '\n'\
             + 'simulating states took {:.2f} s'.format(t1-t0) + '\n'\
-            + 'measuring states took {:.2f} s'.format(t2-t1)  + '\n'\
-            + 'plotting took {:.2f} s'.format(t3-t2)          + '\n'\
+            + 'measuring states took  {:.2f} s'.format(t2-t1)  + '\n'\
+            + 'plotting measures took {:.2f} s'.format(t3-t2)          + '\n'\
+            + 'data file is {:.2f} MB'.format(res_size/1e6)           + '\n'\
             + '='*80
             print(print_string)
     plt.close('all')

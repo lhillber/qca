@@ -132,10 +132,12 @@ def center(L, config):
     len_back = L - len_cent
     len_L = int(len_back/2)
     len_R = len_back - len_L
-    cent_IC = [(config[1:], 1.0)]
-    left = fock(len_L, 0)
+    cent_IC = config[1:]
+    config_dict = make_config_dict(cent_IC[1::])
+    bg_qubit = qubit(**config_dict['bg_config'])
+    left = mx.listkron([bg_qubit for _ in range(len_L)])
     cent = make_state(len_cent, cent_IC)
-    right = fock(len_R, 0)
+    right = mx.listkron([bg_qubit for _ in range(len_R)])
     if len_back == 0:
         return cent
     elif len_back == 1:
