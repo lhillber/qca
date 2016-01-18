@@ -392,16 +392,16 @@ def plot_grid_time_avg_stats(grids_stats_dict, fignum=1,
     plt.suptitle('Temporal averages')
 
 
-def plot_grid_space_center_stats(grids_stats_dict, fignum=1,
+def plot_grid_center_stats(grids_stats_dict, fignum=1,
                 titles=['x', 'y', 'z'], coords = ['xx', 'yy', 'zz']):
-    typ = 'space'
+    typ = 'center'
     for i, (coord, title) in enumerate(zip(coords, titles)):
         xlabel = 'Iteration'
         ylabels =['']*3
         ylabels = ['Site', 'std',
                 '$|\mathcal{F}(\mathrm{avg})|^2$']
 
-        for j, (stat, ylabel) in enumerate(zip(['center','std','amps'], ylabels)):
+        for j, (stat, ylabel) in enumerate(zip(['avg','std','Favg'], ylabels)):
             fig = plt.figure(fignum)
 
             fig = plt.figure(fignum)
@@ -410,10 +410,9 @@ def plot_grid_space_center_stats(grids_stats_dict, fignum=1,
 
             if j == 2:
                 plot_ft(grids_stats_dict[coord][typ]['freqs'][::],
-                        grids_stats_dict[coord][typ]['amps'][::],
+                        grids_stats_dict[coord][typ][stat][::],
                         ax, ylabel = ylabel, nx_ticks=6)
             elif j != 2:
-                set_title = title
                 plot_time_series(grids_stats_dict[coord][typ][stat][::], ax,
                         xlabel=xlabel, ylabel=ylabel, ny_ticks=4)
             ax.grid('on')
@@ -475,7 +474,7 @@ def plot(params, corrj=None):
             titles=proj_titles)
 
     # this makes three figures
-    plot_grid_space_center_stats(proj_grids_stats, fignum=2, titles=prob_titles)
+    plot_grid_center_stats(proj_grids_stats, fignum=2, titles=prob_titles)
 
     # plot two-point correlator w.r.t site corrj
     g2_titles = ['$g_2(\sigma^x_{%i},\sigma^x_k;t)$' % corrj,

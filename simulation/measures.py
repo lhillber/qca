@@ -257,11 +257,10 @@ def stc_calc(results, L, T, tasks=None):
 # typ is 'mom' or 'g' for density or correlator grid stats
 def grids_stats_calc(results, L, T, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
     for typ in ('mom', 'g'):
-        stats = {coord : {'space':{}, 'time':{}} for coord in tasks}
+        stats = {coord : {'space':{}, 'center':{}, 'time':{}} for coord in tasks}
 
         if typ == 'mom':
             lbl=''
-
         elif typ == 'g':
             lbl='g'
             if corrj == 'L/2':
@@ -271,28 +270,48 @@ def grids_stats_calc(results, L, T, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
         for coord in tasks:
             if typ == 'mom':
                 grid = get_diag_vecs(results[lbl + coord])
-
             elif typ == 'g':
                 grid = get_row_vecs(results[lbl + coord], j=corrj)
 
             space_avg = np.mean(grid, axis=1)
+            space_freqs, space_avg_amps = make_ft(space_avg)
+            space_std = np.std(grid, axis=1)
+            space_freqs, space_std_amps = make_ft(space_std)
+
             pgrid = (1.0 - grid)/2.0
-            space_center= np.array([sum(j*pgrid[t, j] for j in range(L))/
+            jbar = np.array([sum(j*pgrid[t, j] for j in range(L))/
                        sum(pgrid[t,j] for j in range(L))
                        for t in range(T)])
-            space_center_freqs, space_center_amps = make_ft(space_center)
-            pgrid = (1.0 - grid)/2.0
-            time_avg= np.mean(grid, axis=0)
-            time_avg_freqs, time_avg_amps = make_ft(time_avg)
-            stats[coord]['space']['avg'] = space_avg
-            stats[coord]['space']['center'] = space_center
-            stats[coord]['space']['std'] = np.std(grid, axis=1)
-            stats[coord]['space']['freqs'] = space_center_freqs
-            stats[coord]['space']['amps'] = space_center_amps
-            stats[coord]['time']['avg'] = time_avg
-            stats[coord]['time']['std'] = np.std(grid, axis=0)
-            stats[coord]['time']['freqs'] = time_avg_freqs
-            stats[coord]['time']['amps'] = time_avg_amps
+            space_freqs, Fjbar = make_ft(jbar)
+            jstd = np.array(np.sqrt([sum((j - jbar[t])**2 * pgrid[t, j] 
+                        for j in range(L)) / sum(pgrid[t,j] 
+                            for j in range(L)) 
+                                for t in range(T)]))
+            space_freqs, Fjstd = make_ft(jstd)
+
+            time_avg = np.mean(grid, axis=0)
+            time_freqs, time_avg_amps = make_ft(time_avg)
+            time_std = np.std(grid, axis=0)
+            time_freqs, time_std_amps = make_ft(time_std)
+
+            stats[coord]['space']['avg']   = space_avg
+            stats[coord]['space']['Favg']  = space_avg_amps
+            stats[coord]['space']['std']   = space_std 
+            stats[coord]['space']['Fstd']  = space_std_amps
+            stats[coord]['space']['freqs'] = space_freqs
+
+            stats[coord]['center']['avg']   = jbar
+            stats[coord]['center']['Favg']  = Fjbar
+            stats[coord]['center']['std']   = jstd
+            stats[coord]['center']['Fstd']  = Fjstd
+            stats[coord]['center']['freqs'] = space_freqs
+
+            stats[coord]['time']['avg']   = time_avg
+            stats[coord]['time']['Favg']  = time_avg_amps
+            stats[coord]['time']['std']   = time_std
+            stats[coord]['time']['Fstd']  = time_std_amps
+            stats[coord]['time']['freqs'] = time_freqs
+
         results[lbl+'stats'] = stats
     return stats
 
