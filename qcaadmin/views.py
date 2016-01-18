@@ -234,7 +234,6 @@ def saveIC(request):
     ip = request.META['REMOTE_ADDR']
     if  not (ip == "127.0.0.1" or "131.215." in ip or '138.67.20' in ip): return HttpResponse("Must be on Caltech or Mines campus.")
 
-
     length = len(data["compList"][0]["values"])
     ic= np.zeros(2**length,dtype=complex)
 
