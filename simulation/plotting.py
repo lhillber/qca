@@ -28,7 +28,7 @@ def inner_title(ax, title, l=0.1, u=0.95): return ax.text(l, u, str(title),
         horizontalalignment='left', transform=ax.transAxes, fontsize=12)
 
 
-# plot spacetime grid on an axis
+# plot spacetime grid on an axis 
 # ------------------------------
 def plot_grid(data, ax, nc=1,
         title='', ylabel='Iteration', xlabel='Site',
@@ -92,6 +92,7 @@ def plot_grid_avgs(data, ax, avg='space',
             xlabel = 'Iteration'
         else: xlabel
         axis = 1
+        data = np.mean(data, axis=axis)
 
     if avg is 'time':
         if ylabel is None:
@@ -101,8 +102,13 @@ def plot_grid_avgs(data, ax, avg='space',
             xlabel = 'Site'
         else: xlabel
         axis = 0
+        data = np.mean(data, axis=axis)
 
-    data = np.mean(data, axis=axis)
+    if avg is 'center':
+        L = len(data[0])
+        data = np.asarray([[sum(j*data[t, j] for j in range(L))/sum(data[t, j] 
+            for j in range(L))] for t in range(*span)])
+
 
     plot_time_series(data, ax,
         title=title, ylabel=ylabel, xlabel=xlabel,
@@ -145,7 +151,7 @@ def plot_grid_with_avgs(data, fignum=1, span=None, suptitle=''):
     plot_grid(data, axC, cbar=False,
             nx_ticks=5, xlabel='Site', ylabel='Iteration', span=span)
 
-    plot_grid_avgs(data, axR, avg='space', rotate=True,
+    plot_grid_avgs(data, axR, avg='center', rotate=True,
         ylabel='', xlabel='P', ytick_labels=False,
         nx_ticks=3, span=span)
     inner_title(axR, 'Spatial', u=.87)
@@ -386,37 +392,33 @@ def plot_grid_time_avg_stats(grids_stats_dict, fignum=1,
     plt.suptitle('Temporal averages')
 
 
-def plot_grid_space_avg_stats(grids_stats_dict, fignum=1,
+def plot_grid_space_center_stats(grids_stats_dict, fignum=1,
                 titles=['x', 'y', 'z'], coords = ['xx', 'yy', 'zz']):
     typ = 'space'
     for i, (coord, title) in enumerate(zip(coords, titles)):
         xlabel = 'Iteration'
         ylabels =['']*3
-        ylabels = ['avg', 'std',
+        ylabels = ['Site', 'std',
                 '$|\mathcal{F}(\mathrm{avg})|^2$']
 
-
-        for j, (stat, ylabel) in enumerate(zip(['avg','std','amps'], ylabels)):
+        for j, (stat, ylabel) in enumerate(zip(['center','std','amps'], ylabels)):
             fig = plt.figure(fignum)
 
             fig = plt.figure(fignum)
             ax = fig.add_subplot(3,1,j+1)
-            fig.subplots_adjust(top=0.91, wspace=0.5, hspace=0.5)
+            fig.subplots_adjust(top=0.87, wspace=0.5, hspace=0.5)
 
-            if j == 1:
-                title = ''
             if j == 2:
                 plot_ft(grids_stats_dict[coord][typ]['freqs'][::],
                         grids_stats_dict[coord][typ]['amps'][::],
                         ax, ylabel = ylabel, nx_ticks=6)
             elif j != 2:
+                set_title = title
                 plot_time_series(grids_stats_dict[coord][typ][stat][::], ax,
-                        xlabel=xlabel, ylabel=ylabel, ny_ticks=4,
-                        title=title)
+                        xlabel=xlabel, ylabel=ylabel, ny_ticks=4)
             ax.grid('on')
         fignum = fignum+1
-        plt.suptitle('Spatial averages')
-        #plt.tight_layout()
+        plt.suptitle('Center of Probability  ' + title)
 
 # call plotting sequence
 # ----------------------
@@ -457,6 +459,11 @@ def plot(params, corrj=None):
     proj_titles = [r'$\langle \sigma^x_j \rangle$', 
                    r'$\langle \sigma^y_j \rangle$',
                    r'$\langle \sigma^z_j \rangle$']
+
+    prob_titles = [r'$\frac{\sum_j j P_j(x-)}{\sum_j P_j(x-)}$', 
+                   r'$\frac{\sum_j j P_j(y-)}{\sum_j P_j(y-)}$',
+                   r'$\frac{\sum_j j P_j(z-)}{\sum_j P_j(z-)}$']
+
     plot_grids([x_grid, y_grid, z_grid], fignum=0,
             titles=proj_titles,
             suptitle='Spin Projections',
@@ -468,7 +475,7 @@ def plot(params, corrj=None):
             titles=proj_titles)
 
     # this makes three figures
-    plot_grid_space_avg_stats(proj_grids_stats, fignum=2, titles=proj_titles)
+    plot_grid_space_center_stats(proj_grids_stats, fignum=2, titles=prob_titles)
 
     # plot two-point correlator w.r.t site corrj
     g2_titles = ['$g_2(\sigma^x_{%i},\sigma^x_k;t)$' % corrj,
@@ -483,7 +490,7 @@ def plot(params, corrj=None):
 
     plot_grid_time_avg_stats(g2grids_stats, fignum=6, titles=g2_titles)
 
-    plot_grid_space_avg_stats(g2grids_stats, fignum=7, titles=g2_titles)
+    #plot_grid_space_center_stats(g2grids_stats, fignum=7, titles=g2_titles)
 
     # plot local and bond entropies
     entropies = [stj]

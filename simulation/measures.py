@@ -45,7 +45,7 @@ def make_ft(time_series, dt=1):
     # dt = 2*pi*dt
     time_series = time_series - np.mean(time_series)
     amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])**2
-    freqs = np.linspace(0.0,1.0/(2.0*dt), Nsteps/2)
+    freqs = np.linspace(0.0, 1.0/(2.0*dt), Nsteps/2)
     return freqs, amps
 
 # compute spacetime grid of local von Neumann entropy
@@ -119,8 +119,8 @@ def nm_calc(results, L, T, tasks = ['ND', 'CC', 'Y']):
 def get_diag_vecs(mats):
     return mats.diagonal(axis1=1, axis2=2)
 
-# zero out the diagonal of list of matrices
-# -----------------------------------------
+# fill the diagonal of list of matrices
+# -------------------------------------
 def get_offdiag_mats(mats, diag_fill=0.0):
     L = len(mats[0])
     mats_out = copy.deepcopy(mats)
@@ -138,12 +138,14 @@ def get_row_vecs(mats, j=0):
 # NOTE: diag_fill=1.0 for the g2 correlator sypically.
 # Set to 0.0 for beter use of colorbar in plot
 def make_moments(moment, alphas=None, betas=None):
+    # case A == B
     if (alphas, betas) == (None, None):
         one_moment = get_diag_vecs(moment)
         one_moment_alpha = copy.deepcopy(one_moment)
         one_moment_beta = copy.deepcopy(one_moment)
         two_moment = get_offdiag_mats(moment, diag_fill=1.0)
 
+    # case A != B
     else:
         one_moment_alpha = get_diag_vecs(alphas)
         one_moment_beta = get_diag_vecs(betas)
@@ -173,6 +175,7 @@ def g_calc(results, L, T, tasks = ['xx', 'yy', 'zz']):
         if alpha != beta:
             alphas = moment_dict[alpha+alpha]
             betas = moment_dict[beta+beta]
+
         one_moment_alpha, one_moment_beta, two_moment = \
                 make_moments(moment, alphas=alphas, betas=betas)
 
@@ -180,7 +183,7 @@ def g_calc(results, L, T, tasks = ['xx', 'yy', 'zz']):
         for t in range(T+1):
             for j in range(L):
                 # second loop through the lattice fills g_jk symmetrically
-                for k in range(L):
+                for k in range(j, L):
                     g_dict['g'+task][t, j, k] = g_dict['g'+task][t, k, j] =\
                           gtjk(two_moment[t, j, k],
                                one_moment_alpha[t, j],
@@ -255,32 +258,37 @@ def stc_calc(results, L, T, tasks=None):
 def grids_stats_calc(results, L, T, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
     for typ in ('mom', 'g'):
         stats = {coord : {'space':{}, 'time':{}} for coord in tasks}
+
         if typ == 'mom':
             lbl=''
+
         elif typ == 'g':
             lbl='g'
             if corrj == 'L/2':
                 corrj = int(L/2)
             stats['corrj'] = np.array([corrj])
-        for coord in tasks:
 
+        for coord in tasks:
             if typ == 'mom':
                 grid = get_diag_vecs(results[lbl + coord])
 
             elif typ == 'g':
                 grid = get_row_vecs(results[lbl + coord], j=corrj)
-            space_avg = np.mean(grid, axis=1)
-            space_avg_freqs, space_avg_amps = make_ft(space_avg)
+
+            #space_avg = np.mean(grid, axis=1)
             pgrid = (1.0 - grid)/2.0
-            space_avg= np.array([sum(j*pgrid[t, j] for j in range(L))/
+            space_center= np.array([sum(j*pgrid[t, j] for j in range(L))/
                        sum(pgrid[t,j] for j in range(L))
                        for t in range(T)])
+            space_center_freqs, space_center_amps = make_ft(space_center)
+            pgrid = (1.0 - grid)/2.0
             time_avg= np.mean(grid, axis=0)
             time_avg_freqs, time_avg_amps = make_ft(time_avg)
             stats[coord]['space']['avg'] = space_avg
+            stats[coord]['space']['center'] = space_center
             stats[coord]['space']['std'] = np.std(grid, axis=1)
-            stats[coord]['space']['freqs'] = space_avg_freqs
-            stats[coord]['space']['amps'] = space_avg_amps
+            stats[coord]['space']['freqs'] = space_center_freqs
+            stats[coord]['space']['amps'] = space_center_amps
             stats[coord]['time']['avg'] = time_avg
             stats[coord]['time']['std'] = np.std(grid, axis=0)
             stats[coord]['time']['freqs'] = time_avg_freqs
