@@ -252,7 +252,7 @@ def stc_calc(results, L, T, tasks=None):
     return stc
 
 # typ is 'mom' or 'g' for density or correlator grid stats
-def grids_stats_calc(results, L, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
+def grids_stats_calc(results, L, T, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
     for typ in ('mom', 'g'):
         stats = {coord : {'space':{}, 'time':{}} for coord in tasks}
         if typ == 'mom':
@@ -271,6 +271,10 @@ def grids_stats_calc(results, L, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
                 grid = get_row_vecs(results[lbl + coord], j=corrj)
             space_avg = np.mean(grid, axis=1)
             space_avg_freqs, space_avg_amps = make_ft(space_avg)
+            pgrid = (1.0 - grid)/2.0
+            space_avg= np.array([sum(j*pgrid[t, j] for j in range(L))/
+                       sum(pgrid[t,j] for j in range(L))
+                       for t in range(T)])
             time_avg= np.mean(grid, axis=0)
             time_avg_freqs, time_avg_amps = make_ft(time_avg)
             stats[coord]['space']['avg'] = space_avg
@@ -323,7 +327,7 @@ def measure(params, results, force_rewrite = False,
 
         for meas_task in measure_tasks:
             if meas_task is 'stats':
-                meas_map[meas_task](results, L, tasks = coord_tasks, corrj=corrj)
+                meas_map[meas_task](results, L, T, tasks = coord_tasks, corrj=corrj)
             else:
                 if meas_task in ('g', 'mom'):
                     tasks = coord_tasks

@@ -66,7 +66,7 @@ output_dir = 'testing'
 
 mode_list = ['sweep']
 
-L_list = [21]
+L_list = [10]
 
 T_list = [60]
 
@@ -86,7 +86,7 @@ rewrite_states = False
 
 # tasks on the reduced density matricies ('sc' requires bi_bartite in sim_tasks).
 measure_tasks = ['s', 'sc', 'mom', 'g', 'm', 'nm', 'stats']
-rewrite_measures = False
+rewrite_measures = True
 
 # sub tasks for spin projections ('mom') and g2 ('g')
 coord_tasks = ['xx', 'yy', 'zz']
