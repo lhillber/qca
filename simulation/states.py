@@ -6,8 +6,66 @@
 # initial states in the qca project. the make_state function takes a littice
 # size L and a state spec IC, which is either a string or a list of tuples. The
 # List of tuples is for global superpositions: each tuple is a coefficient and a
-# string
-# Examples are provided below in the default behavior of this file.
+# spec string.
+#
+# the spec string starts with a single letter corresponding to a function in
+# this file (its a key for the dictionary smap below). Everything after that
+# first letter is a configuration. Underscores separate different config
+# sections and dashes separate data within a config section.
+#
+#   function  | key |             config               |       example
+# ----------------------------------------------------------------------------
+#             |     |                                  | 'f0-3_t90-p0_t45_p180'
+#     fock    |  f  |<i-j-k...>_t<th>-p<ph>_t<th>-p<ph>| 'f2_t90-p90'
+#             |     |                                  | 'f0-2-4-6'
+# ----------------------------------------------------------------------------
+#  rand_state |  r  |     <p>_t<th>-p<ph>_t<th>-p<ph>  | 'r75_t45_p90'
+# ----------------------------------------------------------------------------
+#             |     |                                  | 'st90-P1'
+#  spin_wave  |  s  |    T<n> OR t<th>-P<m> OR p<ph>   | 'sT2-p30'
+#             |     |                                  | 'sT2-P1'
+# ----------------------------------------------------------------------------
+#     Bell    |  B  |              <j-k>_<b>           | 'B0-1_3'
+# ----------------------------------------------------------------------------
+#     GHZ     |  G  |                NA                | 'G'
+# ----------------------------------------------------------------------------
+#      W      |  W  |                NA                | 'W'
+# ----------------------------------------------------------------------------
+#             |     |                                  | 'c2r'
+#   center    |  c  |           <Lc><IC>               | 'c4W'
+#             |     |                                  | 'c1f0'
+# 
+# Description of config sections:
+#   + fock: a fock state of qubits
+#       + section 1, <i-j-k...>: site indices of excitation
+#       + section 2, t<th>-p<ph>: theta and phi in deg on Bloch sphere describing
+#                                excitation qubits (default t180_p0 if not given)
+#       + section 3, t<th>-p<ph>: theta and phi in deg on Bloch sphere describing
+#                                bacground qubits (default t0_p0 if not given)
+
+#   + rand_state: a random fock state:
+#       + section 1, <p>: probability of excitation at each site expressed as an
+#                         int. That is, p=75 means prop of 3/4 for an excitation
+#       + sections 2 and 3, same ase sections 2 and 3 above
+#
+#   + spin_wave: fock states with twists in theata and/or phi across the lattice
+#       + section 1, t<th> (p<ph>) holds theta (phi) constant at th (ph)
+#                    T<n> (P<m>) twists theta (phi) n (m) times
+#
+#   + Bell: a member of the Bell basis embeded in the lattice
+#       + section 1 <j-k>, two site indices to share the bell state
+#       + section 2 <b>, specify which Bell state according to b. (b : state)
+#                       0 : 1/|/2 (|00>+|11>)
+#                       1 : 1/|/2 (|00>-|11>)
+#                       2 : 1/|/2 (|01>+|10>)
+#                       3 : 1/|/2 (|01>-|10>)
+#
+#   + center: embed any IC into the center of the lattice
+#       + section 1 <LC>, the length of the central region. <IC> some other
+#         IC spec
+#
+#
+# By Logan Hillberry
 # =============================================================================
 
 
@@ -19,12 +77,6 @@ import simulation.matrix as mx
 # ================
 # dictionary of local operators and local basis (b for basis)
 # -----------------------------------------------------------
-pauli = {
-        '0' : np.array( [[1.0,  0.0 ],[0.0,   1.0]], dtype=complex ),
-        '1' : np.array( [[0.0,  1.0 ],[1.0,   0.0]], dtype=complex ),
-        '2' : np.array( [[0.0, -1.0j],[1.0j,  0.0]], dtype=complex ),
-        '3' : np.array( [[1.0,  0.0 ],[0.0 , -1.0]], dtype=complex )
-        }
 
 ops = {
         'H' : 1.0 / sqrt(2.0) * \
@@ -53,6 +105,8 @@ bvecs = {
 
         'es' : np.array( [1./sqrt(2), 1./sqrt(2)], dtype=complex ),
         }
+
+
 
 # Initial State Creation
 # ======================
@@ -106,9 +160,12 @@ def fock(L, config):
 def GHZ (L, congif):
     s1=['1']*(L)
     s2=['0']*(L)
-    return (1.0/sqrt(2.0)) \
-            * ((mx.listkron([bvecs[key] for key in s1]) \
-                + mx.listkron([bvecs[key] for key in s2])))
+    state = (1.0/sqrt(2.0)) \
+            * (mx.listkron([bvecs[key] for key in s1]) \
+                + mx.listkron([bvecs[key] for key in s2]))
+
+    return state
+
 
 # Create W state
 # --------------
@@ -118,22 +175,32 @@ def W(L, config):
 # Create a state with GHZ-type entanglement.
 # Reduces to 1/sqrt(2) (|00> + |11>) in L = 2 limit
 # ------------------------------------------------------
-def entangled_list(L, config):
-    js = map(int, config.split('_'))
-    js = [L - j - 1 for j in js]
-    dec = sum((2**x for x in js))
-    return 1./sqrt(2) * (fock(L, 0) + fock(L, dec))
+def Bell(L, config):
+    jk, typ = config.split('_')
+    j, k = jk.split('-')
+    coeff = 1.0
+    if typ in ('1', '3'):
+        coeff = -1.0
+    if typ in ('2', '3'):
+        state = 1/sqrt(2)*(fock(L, j) + coeff*fock(L, k))
+
+    elif typ in ('0', '1'):
+        state = 1/sqrt(2)*(mx.listkron([qubit(0.0, 0.0)]*L) + coeff*fock(L, jk))
+    return state
 
 # Create a state with any of the obove states
 # embeded in the center of the lattice
 # -------------------------------------------
 def center(L, config):
-    len_cent = int(config[0])
+    Lcent, cent_IC = config.split('_')[:2]
+    len_cent = int(Lcent)
     len_back = L - len_cent
     len_L = int(len_back/2)
     len_R = len_back - len_L
-    cent_IC = config[1:]
-    config_dict = make_config_dict(cent_IC[1::])
+    if cent_IC[0] == 'f':
+        config_dict = make_config_dict(cent_IC[1::])
+    else:
+        config_dict = make_config_dict('f0')
     bg_qubit = qubit(**config_dict['bg_config'])
     left = mx.listkron([bg_qubit for _ in range(len_L)])
     cent = make_state(len_cent, cent_IC)
@@ -148,9 +215,9 @@ def center(L, config):
 def spin_wave(L, config):
     Tt, Pp = config.split('-')
     ang_dict = {'T' : np.linspace(0.0,  pi*float(Tt[1:]), L),
-                't' : [float(Tt[1:])*pi/180.0]*L,
+                't' : [float(Tt[1:])]*L,
                 'P' : np.linspace(0.0, 2*pi*float(Pp[1:]), L),
-                'p' : [float(Pp[1:])*pi/180.0]*L,
+                'p' : [float(Pp[1:])]*L,
                     }
     th_list = ang_dict[Tt[0]]
     ph_list = ang_dict[Pp[0]]
@@ -171,19 +238,19 @@ def rand_state(L, config):
 
     if len(p_qex_qbg_conf)==2:
         ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
-        ex_th = pi/180.0*float(ex_th[1:])
-        ex_ph = pi/180.0*float(ex_ph[1:])
+        ex_th = float(ex_th[1:])
+        ex_ph = float(ex_ph[1:])
 
         state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':bvecs['0']}
 
     if len(p_qex_qbg_conf)==3:
         ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
-        ex_th = pi/180.0*float(ex_th[1:])
-        ex_ph = pi/180.0*float(ex_ph[1:])
+        ex_th = float(ex_th[1:])
+        ex_ph = float(ex_ph[1:])
 
         bg_th, bg_ph = p_qex_qbg_conf[2].split('-')
-        bg_th = pi/180.0*float(bg_th[1:])
-        bg_ph = pi/180.0*float(bg_ph[1:])
+        bg_th = float(bg_th[1:])
+        bg_ph = float(bg_ph[1:])
 
         state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':qubit(bg_th, bg_ph)}
 
@@ -203,7 +270,7 @@ smap = { 'f' : fock,
          'r' : rand_state,
          'G' : GHZ,
          'W' : W,
-         'E' : entangled_list }
+         'B' : Bell }
 
 def make_state (L, IC):
     if type(IC) == str:
@@ -224,47 +291,55 @@ def make_state (L, IC):
 if __name__ == '__main__':
     import simulation.measures as ms
     import simulation.states as ss
+    import simulation.time_evolve as te
+    import matplotlib.pyplot as plt
 
+    ND_list = []
+    Y_list = []
+    CC_list = []
+    IPR_list = []
+    L_list = range(2, 15)
+    for L in L_list:
+        T = 0
+        IC = 'B0-'+str(L-1)+'_3'
+        state = make_state(L, IC)
+        one_site = np.zeros((T+1, L, 2, 2), dtype = complex)
+        s = np.zeros((T+1, L), dtype = complex)
+        two_site = np.zeros((T+1, L, L, 4, 4), dtype = complex)
+        for t in range(T+1):
+            for j in range(L):
+                rtj = mx.rdms(state, [j])
+                stj = ms.vn_entropy(rtj)
+                one_site[t, j] = rtj[::]
+                s[t, j] = stj
+                for k in range(j+1, L):
+                    rtjk = mx.rdms(state, [j, k])
+                    two_site[t, j, k] = two_site[t, k, j] = rtjk[::]
+        results = {'one_site': one_site, 'two_site' : two_site, 's':s}
 
-    L = 8
-    T = 0
-    IC = 'f1-4_t90-p0'
+        results['IPR'] = te.inv_participation_ratio(L, state)
 
-    state = make_state(L, IC)
-    rj = np.asarray([mx.rdms(state, [j]) for j in range(L)])
-    zj = np.asarray([np.trace(r.dot(ops['Z'])).real for r in rj])
-    print(zj)
+        ms.moments_calc(results, L, T)
+        ms.g_calc(results, L, T)
+        ms.mtjk_calc(results, L, T)
+        ms.nm_calc(results, L, T)
+
+        ND_list = ND_list + list(results['ND'])
+        CC_list = CC_list + list(results['CC'])
+        Y_list  = Y_list  + list(results['Y'])
+        IPR_list = IPR_list + list([results['IPR']])
+
+    plt.plot(L_list, ND_list)
+    plt.plot(L_list[1::], CC_list[1::])
+    plt.plot(L_list, Y_list)
+    #plt.plot(L_list, IPR_list)
+    plt.show()
 
     '''
-    r0k = np.asarray([mx.rdms(state, [0,k]) for k in range(1, L)])
-    z0k = np.asarray([1.0]+[np.trace(r.dot(np.kron(ops['Z'], ops['Z']))) for r in r0k])
-
-    g = z0k - zj[0]*zj
-    print(zj)
-    print(g)
-    print()
-
-    one_site = np.zeros((T+1, L, 2, 2), dtype = complex)
-    two_site = np.zeros((T+1, L, L, 4, 4), dtype = complex)
-    for t in range(T+1):
-        for j in range(L):
-            rtj = mx.rdms(state, [j])
-            one_site[t, j] = rtj[::]
-            for k in range(j+1, L):
-                rtjk = mx.rdms(state, [j, k])
-                two_site[t, j, k] = two_site[t, k, j] = rtjk[::]
-
-    moment_dict = ms.moments_calc(one_site, two_site, L, T)
-    g_dict = ms.g_calc(moment_dict, L, T)
-
-    print('gzz')
-    print(ms.get_row_vecs(g_dict['gzz'], j=0))
-    print()
-    print()
     L_list = [4]
 
     # spin down (or |1>) at sites 0 and 2 spin up (or |0>) at 1 and 3
-    IC_list = ['l0_2']
+    IC_list = ['f0-2']
 
     for L, IC in zip(L_list, IC_list):
         print ("L = ", str(L), " IC = ", str(IC) )

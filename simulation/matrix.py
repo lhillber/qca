@@ -104,8 +104,6 @@ def rdms(state, js, ds=None):
     else:
         L = len(ds)
 
-
-
     rest = np.setdiff1d(np.arange(L), js)
     ordering = np.concatenate((js, rest))
     dL = np.prod(ds)

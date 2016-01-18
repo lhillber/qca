@@ -42,11 +42,16 @@ def launch_single(  params, comm=None,
         init_files_single(params)
     else:
        rank = comm.Get_rank()
+
     t0 = time.time()
     state_res = time_evolve.run_sim(params, 
             sim_tasks=sim_tasks, force_rewrite=rewrite_states)
     t1 = time.time()
     res_size = measures.measure(params, state_res,
+            measure_tasks=measure_tasks,
+            coord_tasks=coord_tasks,
+            nm_tasks=nm_tasks,
+            corrj=corrj,
             force_rewrite=rewrite_measures)
     t2 = time.time()
     out_fname = plotting.plot(params)
@@ -117,5 +122,6 @@ def launch_parallel(params_list,
                                           measure_tasks=measure_tasks,
                                           coord_tasks=coord_tasks, 
                                           nm_tasks=nm_tasks, 
-                                          corrj=corrj )
+                                          corrj=corrj ,
+                                          rewrite_measures = rewrite_measures )
             print(print_string)
