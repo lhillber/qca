@@ -275,7 +275,7 @@ def grids_stats_calc(results, L, T, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
             elif typ == 'g':
                 grid = get_row_vecs(results[lbl + coord], j=corrj)
 
-            #space_avg = np.mean(grid, axis=1)
+            space_avg = np.mean(grid, axis=1)
             pgrid = (1.0 - grid)/2.0
             space_center= np.array([sum(j*pgrid[t, j] for j in range(L))/
                        sum(pgrid[t,j] for j in range(L))
