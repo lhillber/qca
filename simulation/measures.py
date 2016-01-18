@@ -36,7 +36,7 @@ def make_ft(time_series, dt=1):
     Nsteps = len(time_series)
 
     if Nsteps == 1 :
-        return ([0],[0])
+        return (np.array([0]),np.array([0]))
 
     if Nsteps%2 == 1:
         time_sereis = np.delete(time_series,-1)
