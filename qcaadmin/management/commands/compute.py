@@ -62,14 +62,14 @@ class Command(BaseCommand):
                 }
 
 
+        sim_tasks = ['one_site','two_site']
+        if (ic.length <= 17): sim_tasks.append("bi_partite")
+        if (ic.length <= 17): sim_tasks.append("IPR")
 
         params["fname"] = io.make_file_name(params, iterate = True)
 
-
-
-        state_res = time_evolve.run_sim(params, force_rewrite=True)
+        state_res = time_evolve.run_sim(params, force_rewrite=True, sim_tasks=sim_tasks)
         res = measures.measure(params, state_res, force_rewrite=True)
-
 
         result = SimResult.objects.get(pk=options["pk"][0])
         result.completed=True

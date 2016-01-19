@@ -19,6 +19,7 @@ import simulation.measures as measures
 from django.contrib.auth import authenticate
 
 from qcasite.settings import BASE_DIR
+import decimal
 
 def home(request):
     return render(request,"qcaadmin/home.html")
@@ -49,7 +50,7 @@ def datalist(request):
             "pk": sim.pk,
             "V": sim.V,
             "R": sim.R,
-            "isSweep": sim.mode,
+            "mode": sim.mode,
             "completed": sim.completed,
             })
     return HttpResponse(json.dumps(result))
@@ -66,7 +67,7 @@ def startSimulation(request):
     ip = request.META['REMOTE_ADDR']
     if  not (ip == "127.0.0.1" or "131.215." in ip or '138.67.20' in ip): return HttpResponse("Must be on Caltech or Mines campus.")
 
-    if (len(SimResult.objects.filter(V=data["V"],R=data["R"],IC=data["IC"],mode=(data["isSweep"]))) > 0): return HttpResponse("Simulation already evaluated.")
+    if (len(SimResult.objects.filter(V=data["V"],R=data["R"],IC=data["IC"],mode=(data["mode"]))) > 0): return HttpResponse("Simulation already evaluated.")
 
     if (len(SimResult.objects.filter(completed=False)) >= 4): return HttpResponse("Too many simulations running.")
 
@@ -74,11 +75,10 @@ def startSimulation(request):
 
     ic = InitialCondition.objects.get(pk=data["IC"])
     result = SimResult(V=data["V"],R=data["R"],IC=ic,T=time,location="None",completed=False)
-    result.mode = data["isSweep"]
+    result.mode = data["mode"]
 
     result.save()
-    mode = "block"
-    if (data["isSweep"]): mode = "sweep"
+
 
 
     cmd = ["nohup","python"]
@@ -86,7 +86,7 @@ def startSimulation(request):
     cmd.append("compute")
     cmd.append(str(data["R"]))
     cmd.append(str(data["V"]))
-    cmd.append(mode)
+    cmd.append(str(data["mode"]))
     cmd.append(str(data["IC"]))
     cmd.append(str(result.pk))
     cmd.append(str(time))
@@ -109,7 +109,11 @@ def listify(obj):
     if isinstance(obj, h5py.Dataset):
         return listify(list(obj))
     if isinstance(obj, h5py.Group):
-        return listify(list(obj))
+        res = {}
+        for key in obj.keys():
+            #if(key != "corrj"): res[key] = listify(obj[key])
+            res[key] = listify(obj[key])
+        return res
     if isinstance(obj, np.ndarray):
         return listify(list(obj))
     elif isinstance(obj,list):
@@ -121,6 +125,12 @@ def listify(obj):
             "re":obj.real,
             "im":obj.imag
                 }
+    if isinstance(obj, np.int32):
+        return int(obj)
+    if isinstance(obj, np.int64):
+        return int(obj)
+    if isinstance(obj, np.float64):
+        return float(obj)
     else:
         return obj
 
@@ -137,20 +147,20 @@ def simData(request):
                 "V":simresult.V,
                 "R":simresult.R,
                 "T":simresult.T,
-                "isSweep":simresult.mode,
+                "mode":simresult.mode,
                 }),
             }
-
-
 
 
     for key in f.keys():
         if (key == "init_state"): continue
         if ("cut" in key): continue
+        if ("bi_partite" in key): continue
+
         data = f[key]
 
-
-        result[key] = json.dumps(listify(f[key]))
+        listed = listify(f[key])
+        result[key] = json.dumps(listed)
 
     return HttpResponse(json.dumps(result))
 
@@ -206,8 +216,12 @@ def getICData(request):
         'BC': '1'
             }
 
+
+    sim_tasks = ['one_site','two_site']
+    if (length <= 17): sim_tasks.append("bi_partite")
+
     params["fname"] = io.make_file_name(params, iterate = True)
-    state_res = time_evolve.run_sim(params, force_rewrite=True)
+    state_res = time_evolve.run_sim(params, force_rewrite=True, sim_tasks=sim_tasks)
     measures.measure(params, state_res, force_rewrite=True)
 
     f = h5py.File(params["fname"])
@@ -216,10 +230,11 @@ def getICData(request):
 
     for key in f.keys():
         if (key == "init_state"): continue
+        if (key == "bi_partite"): continue
         if ("cut" in key): continue
         data = f[key]
-
-        result[key] = json.dumps(listify(f[key]))
+        listed = listify(data)
+        result[key] = json.dumps(listed)
 
     return HttpResponse(json.dumps(listify(result)))
 

@@ -46,6 +46,19 @@ td.computestatus {
     padding-bottom:8px !important;
 }
 
+td.modeselect {
+    border-top:1px solid #777;
+    height:30px;
+    position:relative;
+    text-align:center;
+    padding-top:5px !important;
+    padding-bottom:5px !important;
+    cursor:pointer;
+}
+
+td.modeselect.selected {
+    font-weight:bold;
+}
 
 .icon {
     width:25px;

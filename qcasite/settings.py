@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'oc8t3fiea-po14=h8eu&7+mn&9d&9=nb&^%r8$s9syug^yus#b'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['prallcase.caltech.edu','prallcase']
 

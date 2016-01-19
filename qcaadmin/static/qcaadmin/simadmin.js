@@ -26,8 +26,28 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
     $scope.selectedictitles = []
     $scope.icfilter = ""
    
-    $scope.rules = [102,150]
+    $rootScope.rules = [102,150]
     $scope.Vs = ["X", "H", "HX", "HT", "HXT"]
+    $rootScope.modes = ['block','sweep','alt']
+    $scope.modedisplay = {
+        'block':'Blk',
+        'sweep':'Swp',
+        'alt':'Alt'
+    }
+    $scope.cols = []
+    $rootScope.makecols = function() {
+        cols = []
+        for (var j = 0; j < $rootScope.rules.length; j++) {
+            for (var i = 0; i < $rootScope.modes.length; i++) {
+                cols.push({
+                    "rule": $rootScope.rules[j],
+                    "mode": $rootScope.modes[i],
+                })
+            } 
+        }
+        $scope.cols = cols
+    }
+    $rootScope.makecols()
 
     $scope.sims = {}
     $rootScope.selectedsims = []
@@ -115,10 +135,10 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
          }
     }
 
-    $scope.simClass = function(icname,V,rule,isSweep) {
+    $scope.simClass = function(icname,V,rule,mode) {
         for (var i = 0; i < $scope.sims[icname].length; i++) {
             var sim = $scope.sims[icname][i]
-            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+            if (sim.V == V && sim.R == rule && sim.mode == mode) {
                 if (sim.completed) return ""
                 else return "computing"
             }
@@ -128,10 +148,10 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
     }
 
 
-    $scope.simColor = function(icname,V,rule,isSweep) {
+    $scope.simColor = function(icname,V,rule,mode) {
         for (var i = 0; i < $scope.sims[icname].length; i++) {
             var sim = $scope.sims[icname][i]
-            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+            if (sim.V == V && sim.R == rule && sim.mode == mode) {
                 return {'background': $rootScope.colorforsim(sim.pk)}
             }
         
@@ -139,13 +159,13 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
         return {'background': ''}
     }
 
-    $scope.startSim = function(icname,V,rule,isSweep) {
+    $scope.startSim = function(icname,V,rule,mode) {
 
         ic = $scope.selectedictitles.indexOf(icname)
 
         for (var i = 0; i < $scope.sims[icname].length; i++) {
             var sim = $scope.sims[icname][i]
-            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+            if (sim.V == V && sim.R == rule && sim.mode == mode) {
                 return 
             }
         }
@@ -163,7 +183,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
             "R":rule,
             "V":V,
             "IC":$scope.selectedics[ic],
-            "isSweep":isSweep,
+            "mode":mode,
         }
         
 
@@ -184,7 +204,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
             $scope.fetchICS($scope.selectedictitles[ic],{
                 "V": V,
                 "R": rule,
-                "isSweep": isSweep,
+                "mode": mode,
                 "completed": false,
                 "ic":$scope.selectedics[ic]
             })
@@ -243,10 +263,10 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
         return "rgb("+Math.round(r)+","+Math.round(g)+","+Math.round(b)+")"
     }
 
-    $scope.selectSim = function(icname,V,rule,isSweep) {
+    $scope.selectSim = function(icname,V,rule,mode) {
          for (var i = 0; i < $scope.sims[icname].length; i++) {
             var sim = $scope.sims[icname][i]
-            if (sim.V == V && sim.R == rule && sim.isSweep == isSweep) {
+            if (sim.V == V && sim.R == rule && sim.mode == mode) {
                 if (!sim.completed) return
                 var idx = $rootScope.selectedsims.indexOf(sim.pk)
                 if (idx == -1) $rootScope.selectedsims.push(sim.pk)
@@ -266,3 +286,45 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
 
 
 
+QCAAdmin.controller('modeselect', ['$scope','$timeout','$http','$rootScope',function($scope,$timeout,$http,$rootScope) {
+    $scope.allrules = [204,201,198,195,156,153,150,147,108,105,102,99,60,157,57,51]
+    $scope.allmodes = ['block','sweep','alt']
+
+    $scope.setMode = function(mode) {
+        var idx = $rootScope.modes.indexOf(mode)
+        if (idx > -1) {
+            if ($rootScope.modes.length == 1) return
+            $rootScope.modes.splice(idx,1)
+        } else {
+            if (($rootScope.modes.length+1) * $rootScope.rules.length > 6) return
+            var newmodes = []
+            for (var i = 0; i < $scope.allmodes.length; i++) {
+                if ($rootScope.modes.indexOf($scope.allmodes[i]) > -1 || $scope.allmodes[i] == mode) {
+                    newmodes.push($scope.allmodes[i])
+                }
+            }
+            $rootScope.modes = newmodes
+        }
+        $rootScope.makecols()
+    }
+    
+    $scope.setRule = function(rule) {
+        var idx = $rootScope.rules.indexOf(rule)
+        if (idx > -1) {
+            if ($rootScope.rules.length == 1) return
+            $rootScope.rules.splice(idx,1)
+        } else {
+            if (($rootScope.rules.length+1) * $rootScope.modes.length > 6) return
+            var newrules = []
+            for (var i = 0; i < $scope.allrules.length; i++) {
+                if ($rootScope.rules.indexOf($scope.allrules[i]) > -1 || $scope.allrules[i] == rule) {
+                    newrules.push($scope.allrules[i])
+                }
+            }
+            $rootScope.rules = newrules
+        }
+        $rootScope.makecols()
+    }
+    
+
+}])
