@@ -36,7 +36,6 @@ def autocorr(x, h=1):
     mu = np.mean(x)
     acorr = sum( (x[j] - mu) * (x[j+h] - mu) for j in range(N-h))/\
             sum( (x[j] - mu)**2 for j in range(N) )
-    print(acorr, np.correlate(x,x)[0])
     return acorr
 
 # Red noise as a function of frequency for power spectrum amps
