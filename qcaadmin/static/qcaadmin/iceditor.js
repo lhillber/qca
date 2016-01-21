@@ -10,8 +10,9 @@ QCAAdmin.controller('ICEditor', ["$scope", "$rootScope",'$http','$timeout',  fun
     } 
 
     $scope.length = 15
+    $scope.maxlength = 21
     $scope.chLength = function(dir) {
-        if (dir == '+' && $scope.length < 24) $scope.length++
+        if (dir == '+' && $scope.length < $scope.maxlength) $scope.length++
         if (dir == '-' && $scope.length > 6) $scope.length--
         if (Number.isInteger(dir)) $scope.length = dir
 
@@ -136,6 +137,7 @@ QCAAdmin.controller('ICEditor', ["$scope", "$rootScope",'$http','$timeout',  fun
             if (response.data == "Wrong password.") {
                     $rootScope.reqpass = true
                     $rootScope.password = ''
+                    $scope.fetchingic = false
                     return
                 }
             $scope.icdataset = response.data
@@ -544,7 +546,8 @@ QCAAdmin.directive("bubble", function ($rootScope)
                  //draw content
                  $scope.strokeStyle = "black"
                 
-                 if ($scope.settings.cutent) {
+                 if ($scope.settings.cutent && $scope.bubble["sc"] !== undefined) {
+                    
                         for (var j = 0; j+1 < statelength  ; j++) {
                             if (Math.abs($scope.bubble["sc"][0][j]*4) < 1e-3) continue
                             ctx.lineWidth = Math.abs($scope.bubble["sc"][0][j]*4)

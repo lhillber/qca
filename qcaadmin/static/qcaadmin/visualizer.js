@@ -6,16 +6,19 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
 
     $scope.update = 0
 
+    $scope.cutsunavailable = false
+
     $rootScope.$watch(function() { return JSON.stringify($rootScope.selectedsims); },function() { 
         var tmplist = $scope.simlist
         $scope.simlist = {}
 
-
+        $scope.bubsettings.network = 0
 
         for (var i = 0; i < $rootScope.selectedsims.length; i++) {
             var pk = $rootScope.selectedsims[i] 
             
             var color = $rootScope.colorforsim(pk)
+            $scope.maxlength = 0
 
             for (var key in tmplist) {
                 if ($scope.simlist.hasOwnProperty(key) && tmplist[key].meta && tmplist[key].meta.pk == pk) {
@@ -29,6 +32,11 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
 
             if ($scope.simcache.hasOwnProperty(pk)) {
                 $scope.simlist[color] = $scope.simcache[pk]
+                   for (color in $scope.simlist) {
+                        if ($scope.simlist[color].loading) continue
+                        var len = $scope.simlist[color]["one_site"][0].length 
+                        if (len > $scope.maxlength )$scope.maxlength = len
+                    }
             } else {
                 console.log("requested: "+pk)
                 $http.get(window.prefix+'/simData/?pk='+pk,{}).then(function(response) {
@@ -36,9 +44,13 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
                     console.log("received: "+pk)
                     $scope.simcache[pk] = response.data
 
+                    $scope.cutsunavailable = true
                     for (key in $scope.simcache[pk]) {
+                        if (key == 'sc') $scope.cutsunavailable = false
                         $scope.simcache[pk][key] = JSON.parse($scope.simcache[pk][key])
                     }
+
+
                     /*
 
                     var sc = []
@@ -55,7 +67,15 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
                     console.log("parsed: "+pk)
 
                     if ($rootScope.selectedsims.indexOf(pk) == -1) return
+
                     $scope.simlist[$rootScope.colorforsim(pk)] = response.data
+                    
+                    for (color in $scope.simlist) {
+                        if ($scope.simlist[color].loading) continue
+                        var len = $scope.simlist[color]["one_site"][0].length 
+                        if (len > $scope.maxlength )$scope.maxlength = len
+                    }
+
                     $scope.update++
                 },function(response) {
                     $scope.error = response.statusText
@@ -75,15 +95,24 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
         else $scope.displays[idx] = true
     } 
 
-    
-
     $scope.domain = "time"
+    $scope.avgmode = "time"
     
     $scope.bubsettings = {
         "sites": "color",//'color', 'X', 'Y', 'Z', or 'none'
         "siteent": true,
         "cutent": true,
+        "network":0,
     }
+
+    $scope.maxlength = 0
+    $scope.chNetworkPos = function(dir) {
+        if (dir == '+' && $scope.bubsettings.network < $scope.maxlength-1) $scope.bubsettings.network++
+        if (dir == '-' && $scope.bubsettings.network > 0) $scope.bubsettings.network--
+        if (Number.isInteger(dir)) $scope.bubsettings.network = dir
+    }
+
+
 
     $scope.netmode = 'm'
     $scope.setnet = function(net) {
@@ -101,12 +130,16 @@ QCAAdmin.directive("plot", function ()
         restrict: 'A',
         scope: {
             plot: '=',
+            fplot: '=',
             simlist: '=',
             title: '=',
             update: '=',
             domain: '=',
+            std:'=?',
+            freqs:'=?',
             /*select: '=',*/
             max: '=?',
+            xaxis: '=?',
         },
         template: "<canvas width='500px' height='300px'></canvas>",
         link: function($scope, element, attrs) {
@@ -118,25 +151,62 @@ QCAAdmin.directive("plot", function ()
 
 
             $scope.redraw = function() { 
-                 
-                 var data = {}
-                 var freqs = false
-                 for (var color in $scope.simlist) {
-                     if ($scope.simlist[color].loading) continue
-                     if ($scope.domain == 'time') data[color] = $scope.simlist[color][$scope.plot]
-                     else {
-                         data[color] = $scope.simlist[color]['F'+$scope.plot]
-                         freqs = $scope.simlist[color]['freqs']
-                    }
- 
-                 }
-
                  var ctx = $scope.context
                  var canvas = $scope.canvas
 
                  //fill background 
                  ctx.fillStyle = "white";
                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                 var unavailable = true
+
+                 var data = {}
+                 var freqs = false
+                 for (var color in $scope.simlist) {
+                     
+                     if ($scope.simlist[color].loading) continue
+                     if ($scope.domain == 'time') {
+                          var out =  $scope.simlist[color]
+                          for (var i = 0; i < $scope.plot.length; i++) {
+                              if (out === undefined) continue
+                              out = out[$scope.plot[i]]
+                          }
+                          if (out === undefined) continue
+                          unavailable = false
+                         data[color] = out
+                     } else {
+                         var out =  $scope.simlist[color]
+                         for (var i = 0; i < $scope.plot.length; i++) {
+                            if (out === undefined) continue
+                            out = out[$scope.fplot[i]]
+                         }
+                         if (out === undefined) continue
+                         unavailable = false
+                         data[color] = out
+
+                         if ($scope.freqs !== undefined) {
+                             freqs = $scope.simlist[color]
+                             for (var i = 0; i < $scope.freqs.length; i++) {
+                                if (freqs === undefined) continue
+                                freqs = freqs[$scope.freqs[i]]
+                             }
+                             if (freqs === undefined) continue
+                         }
+                         else freqs = $scope.simlist[color]['freqs']
+                    }
+ 
+                 }
+
+            
+
+                 if (unavailable) {
+                     ctx.fillStyle = "black";
+                     ctx.font = "15px sans";
+                     ctx.textAlign = "center";
+                     ctx.fillText($scope.title + ' unavailable', canvas.width/2, canvas.height/2); 
+                     return
+                 
+                 } 
                  
                  //draw title
                  ctx.fillStyle = "black";
@@ -254,8 +324,16 @@ QCAAdmin.directive("plot", function ()
 
                  // draw axis labels
                  ctx.font = "13px sans";
-                 var xaxis = "Frequency (Inverse Iterations)"
-                 if ($scope.domain == 'time') xaxis = "Iteration"
+                 
+                 var keyword = "Iterations"
+                 if ($scope.xaxis !== undefined) {
+                    if ($scope.xaxis == "time") keyword = "Iterations"
+                    if ($scope.xaxis == "space") keyword = "Distance"
+                 } 
+
+                 var xaxis = "Frequency (Inverse "+keyword+")"
+                 if ($scope.domain == 'time') xaxis = keyword
+
                  ctx.fillText(xaxis,leftaxis-5 + (canvas.width-10-leftaxis)/2   , canvas.height-5); 
                 
                  ctx.translate(15,canvas.height/2)
@@ -270,6 +348,19 @@ QCAAdmin.directive("plot", function ()
                  var xstep = width/maxx
                  var ystep = height/maxy
 
+                 std = {}
+                 hasstd = false
+                 if ($scope.std != undefined && $scope.domain == 'time') {
+                    for (color in data) {
+                        stdc = $scope.simlist[color]
+                        for (var i = 0; i < $scope.std.length; i++) {
+                            if (stdc === undefined) continue
+                            stdc = stdc[$scope.std[i]]
+                        }
+                        std[color] = stdc
+                        hasstd = true
+                    } 
+                 }
 
                  for (color in data) {
                      ctx.beginPath(); 
@@ -284,6 +375,7 @@ QCAAdmin.directive("plot", function ()
 
                      for (var i =0; i < data[color].length; i++) {
                          if (data[color][i] === null) continue
+
                          if ($scope.domain == 'time') var xpos = leftaxis + xstep*(i)
                          else var xpos = leftaxis + xstep*(freqs[i])
 
@@ -294,9 +386,12 @@ QCAAdmin.directive("plot", function ()
                          } else {
                             ctx.lineTo(xpos,ypos);
                          }
-                        
-                        
-                         if (rect) ctx.fillRect(xpos-2,ypos-2,4,4);
+                       
+                         if (std[color] !== undefined) {
+                            ctx.fillRect(xpos-2,ypos-ystep*std[color][i],4,ystep*std[color][i]*2);
+                         } else {
+                           if (rect && !hasstd) ctx.fillRect(xpos-2,ypos-2,4,4);
+                         }
                          
                         //ctx.fillStyle = "black"
                         // if (i== $scope.select[1] && idx == $scope.select[0]) ctx.fillRect(xpos-3,ypos-3,6,6);
@@ -310,6 +405,7 @@ QCAAdmin.directive("plot", function ()
            }
             $scope.$watch(function() { return $scope.update; },$scope.redraw,true);
             $scope.$watch(function() { return $scope.domain; },$scope.redraw,true);
+            $scope.$watch(function() { return $scope.plot; },$scope.redraw,true);
           
     }}
 });
@@ -323,6 +419,8 @@ QCAAdmin.directive("bubbles", function ($rootScope)
             color: '=',
             settings: '=',
             update: '=',
+            data: '=',
+            network: '=',
             /*select: '=',*/
         },
         template: "<canvas width='250px' height='400px'></canvas>",
@@ -429,7 +527,7 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                  //draw content
                  $scope.strokeStyle = "black"
                 
-                 if ($scope.settings.cutent) {
+                 if ($scope.settings.cutent && $scope.bubbles["sc"] !== undefined ) {
                      //var maxcut = 0
                      for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
                         for (var j = 0; j+1 < statelength  ; j++) {
@@ -480,6 +578,15 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                                 var value = Math.round(255* (density[0][0].re - density[1][1].re) )
                                 ctx.fillStyle = "rgb("+value+","+value+","+value+")"
                             }
+                            if (setting == 'Network') {
+                                var net = $scope.data[$scope.color][$scope.network][i][$scope.settings.network]
+                                var max = 0.2
+                                for (var k = 0; k < statelength  ; k++) if (net[k] > max) max = net[k]
+
+                                var value = 255-Math.round(255* (  net[j]/max  ))
+                                ctx.fillStyle = "rgb("+value+","+value+","+value+")"
+                                //ctx.fillStyle = "#F0F"
+                            }
                         }
 
                         if ($scope.settings.sites != 'none' ) { 
@@ -493,6 +600,7 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                         if (  !(bubble && bubble[1]) && $scope.settings.siteent ) {
                             if ($scope.settings.sites != 'none') {
                                 var w = $scope.bubbles["s"][i][j]*2.5
+                                if (w < 1e-3) continue
                                 ctx.lineWidth = w 
                                 if ($scope.settings.cutent)  {
                                     ctx.beginPath();
@@ -501,6 +609,7 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                                 } else ctx.strokeRect(boxx(j)+w/2,boxy(i)+w/2,boxdim-w/2,boxdim-w/2)
                             } else {
                                 var w = $scope.bubbles["s"][i][j]*4*boxdim/10
+                                if (w < 1e-3) continue
                                 ctx.fillStyle = "black"
                                 if ($scope.settings.cutent)  {
                                     ctx.beginPath();

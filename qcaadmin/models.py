@@ -15,15 +15,14 @@ class SimResult(models.Model):
     # interesting:
     IC = models.ForeignKey(InitialCondition)
     MODE_CHOICES = (
-        (True, "Sweep"),
-        (False, "Block"),
+        ('sweep', "Sweep"),
+        ('block:', "Block"),
+        ('alt:', "Alt"),
     )
-    mode = models.BooleanField(choices=MODE_CHOICES) #True: Sweep, False: Block
+    mode = models.CharField(choices=MODE_CHOICES,max_length=100)
     T = models.IntegerField()
     location = models.CharField(max_length=500)
     completed = models.BooleanField()
 
     def __str__(self):
-        string = "Block"
-        if self.mode: string = "Sweep"
-        return self.V + " - " + str(self.R) + " - " + string + " - " + str(self.IC)
+        return self.V + " - " + str(self.R) + " - " + self.mode + " - " + str(self.IC)
