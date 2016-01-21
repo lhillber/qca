@@ -307,8 +307,9 @@ def run_sim(params, force_rewrite = False,
 
 
         if 'IPR' in sim_tasks:
-            freqs, amps = ms.make_ft(data['IPR'])
+            freqs, amps, rn = ms.make_ft(data['IPR'])
             data['FIPR'] = amps
+            data['RNIPR'] = rn
             data['freqs'] = freqs
     else:
         print('Importing states...')
