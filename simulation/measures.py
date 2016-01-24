@@ -34,20 +34,25 @@ def vn_entropy(rho, tol=1e-14):
 def autocorr(x, h=1):
     N = len(x)
     mu = np.mean(x)
-    acorr = sum( (x[j] - mu) * (x[j+h] - mu) for j in range(N-h))/\
-            sum( (x[j] - mu)**2 for j in range(N) )
+    denom = sum( (x[j] - mu)**2 for j in range(N) )
+    acorr = sum( (x[j] - mu) * (x[j+h] - mu) for j in range(N-h))
+    if denom > 1e-14:
+        acorr = acorr/denom
     return acorr
 
 # Red noise as a function of frequency for power spectrum amps
 # ------------------------------------------------------------
 def red_noise(amps, dt=1, h=1):
     acorr = autocorr(amps, h=h)
-    # log base 10 or base e? Check 2pi
-    T = -dt/np.log10(acorr)
+    # log base 10 or base e? Check 2pi?, abs?
     def RN(f):
-        w = 2*pi*f
-        rn = 2*T / (1 + T**2 * w**2)
-        return rn
+        if acorr > 1e-14:
+            T = -dt/np.log(abs(acorr))
+            w = 2*pi*f
+            rn = 2*T / (1 + T**2 * w**2)
+            return rn
+        else:
+            return f * np.nan
     return RN
 
 # make Fourier transform of time series data
@@ -66,11 +71,17 @@ def make_ft(time_series, dt=1, h=1):
     # dt = 2*pi*dt
     time_series = time_series - np.mean(time_series)
     freqs = np.linspace(0.0, 1.0/(2.0*dt), Nsteps/2)
+
     amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])**2
-    amps = amps/sum(amps)
+    A = sum(amps)
+    if A > 1e-14:
+        amps = amps/sum(amps)
 
     rn = red_noise(amps, dt=dt, h=h)(freqs)
-    rn = rn/sum(rn)
+    B = sum(rn)
+    if B > 1e-14:
+        rn = rn/sum(rn)
+
     return freqs, amps, rn
 
 # compute spacetime grid of local von Neumann entropy
@@ -364,7 +375,6 @@ def measure(params, results, force_rewrite = False,
     f = h5py.File(fname, 'r')
     meas_ran = 'zz' in f
     f.close()
-
     if force_rewrite or not meas_ran:
         print('Measuring simulation...')
         # ensure zz moment is calculated. That is how the meas_ran is determined
@@ -399,7 +409,7 @@ def measure(params, results, force_rewrite = False,
         # write the simulation results to disk
         res_size = io.write_hdf5(fname, results, force_rewrite=force_rewrite)
 
-    elif not force_rewrite:
+    else:
         res_size = 000
         print('Importing measures...')
         res_size = os.path.getsize(params['fname'])

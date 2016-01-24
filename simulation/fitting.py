@@ -47,20 +47,20 @@ def chi2_calc(f, betas, x, y):
         chi2 += (yval - f(betas, xval))**2
     return chi2
 
-def f_fits(func, beta_est, x_list, y_list, x_error = None, y_error = None):
-    x_error = [0.0000001] * len(x_list) if x_error is None else x_error
-    y_error = [0.0000001] * len(y_list) if y_error is None else y_error
-    fit = do_odr(func, x_list, x_error, y_list, y_error, beta_est)
+def f_fits(func, beta_est, x_list, y_list, xerr = None, yerr = None):
+    xerr = [0.0000001] * len(x_list) if xerr is None else xerr
+    yerr = [0.0000001] * len(y_list) if yerr is None else yerr
+    fit = do_odr(func, x_list, xerr, y_list, yerr, beta_est)
     chi2 = chi2_calc(func, fit.beta, x_list, y_list)
     return fit.beta, chi2
 
-def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error =
-    None, y_error = None, kwargs={}):
-    x_error = [0.0000001] * len(x_list) if x_error is None else x_error
-    y_error = [0.0000001] * len(y_list) if y_error is None else y_error
+def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, xerr =
+    None, yerr = None, kwargs={}):
+    xerr = [0.0000001] * len(x_list) if xerr is None else xerr
+    yerr = [0.0000001] * len(y_list) if yerr is None else yerr
 
     fit_beta, chi2,  = \
-            f_fits(func, beta_est, x_list, y_list, x_error = x_error, y_error = y_error)
+            f_fits(func, beta_est, x_list, y_list, xerr = xerr, yerr = yerr)
 
     xs = np.linspace(min(x_list), max(x_list), 100)
     ax.plot(x_list, y_list, 'o', label = 'tmax = ' + str(label), color = color)
@@ -119,7 +119,7 @@ if __name__ == '__main__':
             dz = 1/z
             ax.errorbar(j, pt, xerr=dz, yerr=dz)
             js = np.linspace(0, L-1, 150)
-            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, x_error=dz, y_error=dz)
+            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, xerr=dz, yerr=dz)
             print(1/Bs[0])
             ax.plot(js, flin(Bs, js),  color='k')
         ax.set_ylim([-0.5, 75.5])

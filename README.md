@@ -55,14 +55,10 @@ length. Then, each independent simulation is run in parallel up to the number of
 cores available on the machine.
 
 To run a simulation, use the following Linux terminal command while in the
-directory containing the scripts.
+directory containing the folder called 'simulation'
 
 ```
-exec -np <n> python3 run.py
+mpiexec -np <n> python3 -m simulation.run
 ```
-where n is the number of cores available on the machine (8 for my 4 core
-hyper-threaded i7).
-
-
-
+where n is the number of processes you'd like to run in paralell.
 

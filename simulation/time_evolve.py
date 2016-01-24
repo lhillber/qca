@@ -33,15 +33,26 @@ import simulation.measures as ms
 from os.path import isfile
 from collections import OrderedDict
 from math import fabs
-from cmath import sqrt
+from cmath import sqrt, pi, exp
 
 # Constructing U
 # ==============
 
 # The center site gets updated with V if the neighbors are in a suitable
 # configuration. Otherwise, the center site remains unchanged.
+
+
 def make_V(V, s):
-    return s*V + (1-s)*ss.ops['I']
+    V_conf = V.split('_')
+    if len(V_conf) == 2:
+        V_string, ph = V_conf
+    else:
+        V_string = V_conf[0]
+    ph = eval(ph)*pi/180.0
+    Pmat = np.array( [[1.0,  0.0 ],[0.0 , exp(1.0j*ph)]], dtype=complex )
+    ss.ops['P'] = Pmat 
+    Vmat= mx.listdot([ss.ops[k] for k in V_string])
+    return s*Vmat + (1-s)*ss.ops['I']
 
 
 def make_U(S, V, use_R=False):
@@ -150,7 +161,7 @@ def time_evolve(params, tol=1E-10, norm_check=False):
     T = params['T']
     mode = params['mode']
     BC = params['BC']
-    V = mx.listdot([ss.ops[k] for k in params['V']])
+    V = params['V']
 
     if 'R' in params:
         use_R = True

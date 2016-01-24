@@ -48,7 +48,7 @@ def plot_grid(data, ax, nc=1,
                 interpolation = 'none',
                 aspect = '1',
                 rasterized = True,
-                extent=[0, L-1, span[0], span[1]],
+                extent=[0, L, span[0], span[1]],
                 **plot_kwargs)
 
     ax.set_title(title)
@@ -194,7 +194,7 @@ def plot_grids(grid_data, fignum=1, span=None, wspace=-0.25,
 
 # plot time series on an axis
 # ---------------------------
-def plot_time_series(time_series, ax,
+def plot_time_series(time_series, ax, times = None,
         title='', ylabel='Measure', xlabel='Iteration',
         xtick_labels=True, ytick_labels=True, nx_ticks=None, ny_ticks=None,
         loc=None, plot_kwargs={}, span=None, rotate=False):
@@ -209,7 +209,10 @@ def plot_time_series(time_series, ax,
     if span is None:
         span = [0, len(time_series)]
 
-    indep_var = range(span[0], span[1])
+    if times is None:
+        indep_var = range(span[0], span[1])
+    else:
+        indep_var = times
     dep_var = time_series[span[0]:span[1]]
 
     if rotate:
@@ -460,7 +463,7 @@ def plot(params, corrj=None):
     g2grids_stats = results['gstats']
 
     # get mi measure results and place in ordered dict for plotting
-    meas_keys = ['ND', 'CC', 'Y']
+    meas_keys = ['ND', 'CC', 'Y', 'IPR']
     meas_list = [results[meas_key][::] for meas_key in meas_keys]
     freqs = results['freqs'][::]
     Fmeas_list = [ {'amps' : results['F'+meas_key][::],
