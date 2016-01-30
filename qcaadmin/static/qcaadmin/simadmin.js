@@ -28,7 +28,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
    
     $rootScope.rules = [102,150]
     $scope.Vs = ["X", "H", "HX", "HT", "HXT"]
-    $rootScope.modes = ['block','sweep','alt']
+    $rootScope.modes = ['sweep','block','alt']
     $scope.modedisplay = {
         'block':'Blk',
         'sweep':'Swp',
@@ -288,7 +288,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
 
 QCAAdmin.controller('modeselect', ['$scope','$timeout','$http','$rootScope',function($scope,$timeout,$http,$rootScope) {
     $scope.allrules = [204,201,198,195,156,153,150,147,108,105,102,99,60,157,57,51]
-    $scope.allmodes = ['block','sweep','alt']
+    $scope.allmodes = ['sweep','block','alt']
 
     $scope.setMode = function(mode) {
         var idx = $rootScope.modes.indexOf(mode)

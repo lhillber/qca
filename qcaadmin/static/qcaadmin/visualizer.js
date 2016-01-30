@@ -103,6 +103,7 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
         "siteent": true,
         "cutent": true,
         "network":0,
+        "iterations":4,
     }
 
     $scope.maxlength = 0
@@ -110,7 +111,12 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
         if (dir == '+' && $scope.bubsettings.network < $scope.maxlength-1) $scope.bubsettings.network++
         if (dir == '-' && $scope.bubsettings.network > 0) $scope.bubsettings.network--
         if (Number.isInteger(dir)) $scope.bubsettings.network = dir
+
     }
+    $scope.chBubIt = function(dir) {
+        if (dir == '+' && $scope.bubsettings.iterations < 10) $scope.bubsettings.iterations++
+        if (dir == '-' && $scope.bubsettings.iterations > 4) $scope.bubsettings.iterations--
+    }   
 
 
 
@@ -451,7 +457,9 @@ QCAAdmin.directive("bubbles", function ($rootScope)
 
            $scope.redraw = function()  { 
                  if ($scope.bubbles.loading) return
-                 
+                
+                $scope.canvas.height = $scope.settings.iterations*100
+
                  var leftaxis = 38
                  var rightmargin = 14
                  var botaxis = 30

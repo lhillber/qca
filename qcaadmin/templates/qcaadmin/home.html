@@ -93,6 +93,10 @@
                     <div class="picker" ng-show="bubsettings.sites == 'Network'"><span class="button" ng-class="{selected: netmode == 'gxx'}" ng-click="setnet('gxx')">g2(XX)</span> - <span class="button" ng-class="{selected: netmode == 'gyy'}" ng-click="setnet('gyy')">g2(YY)</span> - <span class="button" ng-class="{selected: netmode == 'gzz'}" ng-click="setnet('gzz')">g2(ZZ)</span>  </div>
 
                         <div class="picker" ng-show="bubsettings.sites == 'Network' && maxlength != 0">Network Position: {{ bubsettings.network }} - <span class="button square" ng-click="chNetworkPos('+')">+</span> <span class="button square" ng-click="chNetworkPos('-')">-</span> <span class="button square" ng-click="chNetworkPos(0)">0</span> <span class="button square" ng-click="chNetworkPos(maxlength-1)">{{maxlength-1}}</span></div>
+                        
+                        <div class="picker">Plot height: {{ bubsettings.iterations }}00px - <span class="button square" ng-click="chBubIt('+')">+</span> <span class="button square" ng-click="chBubIt('-')">-</span></div>
+
+
                         <div ng-repeat="(color,sim) in simlist" ng-hide="sim.loading" color="color" bubbles="sim" update="update" settings="bubsettings" data="simlist" network="netmode"></div>
                     </div>
 
