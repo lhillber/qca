@@ -33,15 +33,26 @@ import simulation.measures as ms
 from os.path import isfile
 from collections import OrderedDict
 from math import fabs
-from cmath import sqrt
+from cmath import sqrt, pi, exp
 
 # Constructing U
 # ==============
 
 # The center site gets updated with V if the neighbors are in a suitable
 # configuration. Otherwise, the center site remains unchanged.
+
+
 def make_V(V, s):
-    return s*V + (1-s)*ss.ops['I']
+    V_conf = V.split('_')
+    if len(V_conf) == 2:
+        V_string, ph = V_conf
+        ph = eval(ph)*pi/180.0
+        Pmat = np.array( [[1.0,  0.0 ],[0.0 , exp(1.0j*ph)]], dtype=complex )
+        ss.ops['P'] = Pmat 
+    else:
+        V_string = V_conf[0]
+    Vmat= mx.listdot([ss.ops[k] for k in V_string])
+    return s*Vmat + (1-s)*ss.ops['I']
 
 
 def make_U(S, V, use_R=False):
@@ -67,7 +78,6 @@ def make_U(S, V, use_R=False):
 
     # Order S into matrix [ [s00, s01], [s10, s11] ]
     S_mat = Sb[::-1].reshape((2,2)) # add .T for old R numbering (pre winter 2015)
-
     # prepare projectors for looping over in the order  {|0><0|, |1><1|}
     neighbor_projs = [ss.ops['0'], ss.ops['1']]
 
@@ -150,7 +160,7 @@ def time_evolve(params, tol=1E-10, norm_check=False):
     T = params['T']
     mode = params['mode']
     BC = params['BC']
-    V = mx.listdot([ss.ops[k] for k in params['V']])
+    V = params['V']
 
     if 'R' in params:
         use_R = True
@@ -307,8 +317,9 @@ def run_sim(params, force_rewrite = False,
 
 
         if 'IPR' in sim_tasks:
-            freqs, amps = ms.make_ft(data['IPR'])
+            freqs, amps, rn = ms.make_ft(data['IPR'])
             data['FIPR'] = amps
+            data['RNIPR'] = rn
             data['freqs'] = freqs
     else:
         print('Importing states...')

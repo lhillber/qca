@@ -29,7 +29,7 @@
 #   +'s'    : local von Neumann entropy
 #   +'sc'   : entropy of bi-partitions (requires bi_partite)
 #   +'mom'  : spin moments <AjBk>(t) for A,B \in {x, y, z}^2 (<Aj> stored on
-#             diagonal when A==B, which is typical)
+#             diagonal i=j when A==B, which is typical)
 #   +'g'    : correlator g2(Aj,Bk;t) = <AjBk> - <Aj><Bk>
 #   +'m'    : mutual information adjaceny matrix
 #   +'nm'   : network measures
@@ -62,19 +62,20 @@ import simulation.launch as launch
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'testing'
+output_dir = 'classical'
 
 mode_list = ['sweep']
 
-L_list = [10]
+L_list = [15]
 
 T_list = [60]
 
 S_list = [6]
 
-V_list = ['H']
+#V_list = ['HP_' + str(deg) for deg in range(0,91)]
+V_list = ['HP_45']
 
-IC_list = ['f0','f0_t90-p0','f0_t90-p90']
+IC_list = ['G']
 
 BC_list = ['1']
 
@@ -95,7 +96,7 @@ coord_tasks = ['xx', 'yy', 'zz']
 nm_tasks = ['ND', 'CC', 'Y']
 
 # site w.r.t. which g2 is plotted (any integer less than L or use string 'L/2')
-corrj = 'L/2'
+corrj = 0
 
 
 # nest parameter lists

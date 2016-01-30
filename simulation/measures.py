@@ -6,7 +6,7 @@
 # By Logan Hillberry
 # =============================================================================
 
-from math import log
+from math import log, pi
 import copy
 import os
 import numpy           as np
@@ -29,9 +29,35 @@ def vn_entropy(rho, tol=1e-14):
     s = -sum(el*log(el, 2) if el >= tol else 0.0  for el in evals)
     return s
 
+# Autocorrelation function of vector x with lag h
+# -----------------------------------------------
+def autocorr(x, h=1):
+    N = len(x)
+    mu = np.mean(x)
+    denom = sum( (x[j] - mu)**2 for j in range(N) )
+    acorr = sum( (x[j] - mu) * (x[j+h] - mu) for j in range(N-h))
+    if denom > 1e-14:
+        acorr = acorr/denom
+    return acorr
+
+# Red noise as a function of frequency for power spectrum amps
+# ------------------------------------------------------------
+def red_noise(amps, dt=1, h=1):
+    acorr = autocorr(amps, h=h)
+    # log base 10 or base e? Check 2pi?, abs?
+    def RN(f):
+        if acorr > 1e-14:
+            T = -dt/np.log(abs(acorr))
+            w = 2*pi*f
+            rn = 2*T / (1 + T**2 * w**2)
+            return rn
+        else:
+            return f * np.nan
+    return RN
+
 # make Fourier transform of time series data
 # ------------------------------------------
-def make_ft(time_series, dt=1):
+def make_ft(time_series, dt=1, h=1):
     time_series = np.nan_to_num(time_series)
     Nsteps = len(time_series)
 
@@ -44,9 +70,19 @@ def make_ft(time_series, dt=1):
 
     # dt = 2*pi*dt
     time_series = time_series - np.mean(time_series)
-    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])**2
     freqs = np.linspace(0.0, 1.0/(2.0*dt), Nsteps/2)
-    return freqs, amps
+
+    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])**2
+    A = sum(amps)
+    if A > 1e-14:
+        amps = amps/sum(amps)
+
+    rn = red_noise(amps, dt=dt, h=h)(freqs)
+    B = sum(rn)
+    if B > 1e-14:
+        rn = rn/sum(rn)
+
+    return freqs, amps, rn
 
 # compute spacetime grid of local von Neumann entropy
 # ---------------------------------------------------
@@ -110,6 +146,7 @@ def nm_calc(results, L, T, tasks = ['ND', 'CC', 'Y']):
         meas = np.array([nm_func_dict[typ][key](mjk) for mjk in mtjk])
         nm_dict[key] = meas[::]
         nm_dict['F'+key] = make_ft(meas)[1]
+        nm_dict['RN'+key] = make_ft(meas)[2]
 
     results.update(nm_dict)
     return nm_dict
@@ -274,42 +311,48 @@ def grids_stats_calc(results, L, T, tasks = ['xx', 'yy', 'zz'], corrj='L/2'):
                 grid = get_row_vecs(results[lbl + coord], j=corrj)
 
             space_avg = np.mean(grid, axis=1)
-            space_freqs, space_avg_amps = make_ft(space_avg)
+            space_freqs, space_avg_amps, space_avg_rn = make_ft(space_avg)
             space_std = np.std(grid, axis=1)
-            space_freqs, space_std_amps = make_ft(space_std)
+            space_freqs, space_std_amps, space_std_rn = make_ft(space_std)
 
             pgrid = (1.0 - grid)/2.0
             jbar = np.array([sum(j*pgrid[t, j] for j in range(L))/
                        sum(pgrid[t,j] for j in range(L))
                        for t in range(T)])
-            space_freqs, Fjbar = make_ft(jbar)
+            space_freqs, Fjbar, RNjbar = make_ft(jbar)
             jstd = np.array(np.sqrt([sum((j - jbar[t])**2 * pgrid[t, j] 
                         for j in range(L)) / sum(pgrid[t,j] 
                             for j in range(L)) 
                                 for t in range(T)]))
-            space_freqs, Fjstd = make_ft(jstd)
+            space_freqs, Fjstd, RNjstd = make_ft(jstd)
 
             time_avg = np.mean(grid, axis=0)
-            time_freqs, time_avg_amps = make_ft(time_avg)
+            time_freqs, time_avg_amps, time_avg_rn = make_ft(time_avg)
             time_std = np.std(grid, axis=0)
-            time_freqs, time_std_amps = make_ft(time_std)
+            time_freqs, time_std_amps, time_std_rn = make_ft(time_std)
 
             stats[coord]['space']['avg']   = space_avg
             stats[coord]['space']['Favg']  = space_avg_amps
+            stats[coord]['space']['RNavg']  = space_avg_rn
             stats[coord]['space']['std']   = space_std 
             stats[coord]['space']['Fstd']  = space_std_amps
+            stats[coord]['space']['RNstd']  = space_std_rn
             stats[coord]['space']['freqs'] = space_freqs
 
             stats[coord]['center']['avg']   = jbar
             stats[coord]['center']['Favg']  = Fjbar
+            stats[coord]['center']['RNavg']  = RNjbar
             stats[coord]['center']['std']   = jstd
             stats[coord]['center']['Fstd']  = Fjstd
+            stats[coord]['center']['RNstd']  = RNjstd
             stats[coord]['center']['freqs'] = space_freqs
 
             stats[coord]['time']['avg']   = time_avg
             stats[coord]['time']['Favg']  = time_avg_amps
+            stats[coord]['time']['RNavg']  = time_avg_rn
             stats[coord]['time']['std']   = time_std
             stats[coord]['time']['Fstd']  = time_std_amps
+            stats[coord]['time']['RNstd']  = time_std_rn
             stats[coord]['time']['freqs'] = time_freqs
 
         results[lbl+'stats'] = stats
@@ -332,7 +375,6 @@ def measure(params, results, force_rewrite = False,
     f = h5py.File(fname, 'r')
     meas_ran = 'zz' in f
     f.close()
-
     if force_rewrite or not meas_ran:
         print('Measuring simulation...')
         # ensure zz moment is calculated. That is how the meas_ran is determined
@@ -367,7 +409,7 @@ def measure(params, results, force_rewrite = False,
         # write the simulation results to disk
         res_size = io.write_hdf5(fname, results, force_rewrite=force_rewrite)
 
-    elif not force_rewrite:
+    else:
         res_size = 000
         print('Importing measures...')
         res_size = os.path.getsize(params['fname'])

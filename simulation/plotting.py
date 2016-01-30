@@ -48,7 +48,7 @@ def plot_grid(data, ax, nc=1,
                 interpolation = 'none',
                 aspect = '1',
                 rasterized = True,
-                extent=[0, L-1, span[0], span[1]],
+                extent=[0, L, span[0], span[1]],
                 **plot_kwargs)
 
     ax.set_title(title)
@@ -194,26 +194,32 @@ def plot_grids(grid_data, fignum=1, span=None, wspace=-0.25,
 
 # plot time series on an axis
 # ---------------------------
-def plot_time_series(time_series, ax,
+def plot_time_series(time_series, ax, times = None,
         title='', ylabel='Measure', xlabel='Iteration',
         xtick_labels=True, ytick_labels=True, nx_ticks=None, ny_ticks=None,
-        loc=None, plot_kwargs=None, span=None, rotate=False):
+        loc=None, plot_kwargs={}, span=None, rotate=False):
+
+    dplot_kwargs = {'label':'', 'color':'B',
+                'linewidth':1, 'linestyle':'-',
+                'marker':'s', 'markersize':1.5}
+    dplot_kwargs.update(plot_kwargs)
+    dplot_kwargs['markeredgecolor'] = dplot_kwargs['color']
+    dplot_kwargs['markerfacecolor'] = dplot_kwargs['color']
 
     if span is None:
         span = [0, len(time_series)]
-    if plot_kwargs is None:
-        plot_kwargs = {'label':'', 'color':'B',
-                'linewidth':1, 'linestyle':'-',
-                'marker':'s', 'markersize':1.5, 'markeredgecolor':'B'}
 
-    indep_var = range(span[0], span[1])
+    if times is None:
+        indep_var = range(span[0], span[1])
+    else:
+        indep_var = times
     dep_var = time_series[span[0]:span[1]]
 
     if rotate:
-        ax.plot(dep_var, indep_var,  **plot_kwargs)
+        ax.plot(dep_var, indep_var,  **dplot_kwargs)
 
     else:
-        ax.plot(indep_var, dep_var,  **plot_kwargs)
+        ax.plot(indep_var, dep_var,  **dplot_kwargs)
 
     ax.set_title(title)
     ax.set_ylabel(ylabel)
@@ -234,32 +240,44 @@ def plot_time_series(time_series, ax,
 
 # plot Fourier transform on an axis
 # ---------------------------------
-def plot_ft(freqs, amps, ax, dt=1,
+def plot_ft(freqs, amps, ax, dt=1, RN=None, aspan=None,
         title='', ylabel='Intensity', xlabel='Frequency',
-        xtick_labels=True, ytick_labels=True, loc=None, plot_kwargs=None,
+        xtick_labels=True, ytick_labels=True, loc=None, plot_kwargs={},
         nx_ticks=None, ny_ticks=None):
 
-    if plot_kwargs is None:
-        plot_kwargs = {'label':'', 'color':'B',
-                'linewidth':1, 'linestyle':'-',
-                'marker':'', 'markersize':1, 'markeredgecolor':'B'}
+    dplot_kwargs = {'label':'', 'color':'B',
+            'linewidth':1, 'linestyle':'-',
+            'marker':'', 'markersize':1, 'markeredgecolor':'B'}
+
+    dplot_kwargs.update(plot_kwargs)
+    dplot_kwargs['markeredgecolor'] = dplot_kwargs['color']
+    dplot_kwargs['markerfacecolor'] = dplot_kwargs['color']
 
     #Nyquist criterion
     #dt = 2*pi*dt
     high_freq = 1.0/(2.0*dt)
     low_freq = 1.0/(dt*len(amps))
-
     amp_ave = np.mean(amps)
     if amp_ave>1e-14:
         ax.semilogy(freqs, amps)
     else:
         ax.plot(freqs, amps, **plot_kwargs)
 
+    # plot red noise estimate
+    if RN is not None:
+        if RN.mean()>1e-14:
+            ax.semilogy(freqs, RN)
+        else:
+            ax.plot(freqs, RN)
+
+    if aspan is None:
+        aspan = [amp_ave/100, 1.5*amps.max()]
+
     ax.set_title(title)
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_xlim([low_freq, high_freq])
-    ax.set_ylim(amp_ave/5, 1.5*amps.max())
+    ax.set_ylim(*aspan)
 
     if loc is not None:
         ax.legend(loc=loc)
@@ -313,8 +331,10 @@ def plot_measure_fts(Fmeas_dict, freqs, fignum=1):
             xtick_labels=True
             xlabel = 'Frequency'
 
-        amps = Fmeas_dict[name]
+        amps = Fmeas_dict[name]['amps']
+        RN = Fmeas_dict[name]['RN']
         plot_ft(freqs, amps, ax,
+                RN=RN,
                 xlabel=xlabel,
                 ylabel=r'$|\mathcal{F}$('+name+r'$)|^2$',
                 xtick_labels=xtick_labels)
@@ -374,15 +394,17 @@ def plot_grid_time_avg_stats(grids_stats_dict, fignum=1,
                     '$|\mathcal{F}(\mathrm{avg})|^2$']
 
         for j, (stat, ylabel) in enumerate(zip(
-            ['avg', 'std','amps'], ylabels)):
+            ['avg', 'std','Favg'], ylabels)):
             ax = fig.add_subplot(3,3,i+1+(j*3))
 
             if j == 1:
                 title = ''
             if j == 2:
                 plot_ft(grids_stats_dict[coord][typ]['freqs'][::],
-                        grids_stats_dict[coord][typ]['amps'][::],
-                        ax, ylabel = ylabel, nx_ticks=4)
+                        grids_stats_dict[coord][typ][stat][::],
+                        ax,
+                        RN = grids_stats_dict[coord][typ]['RNavg'][::],
+                        ylabel = ylabel, nx_ticks=4)
             elif j != 2:
                 xlabel = 'site'
                 plot_time_series(grids_stats_dict[coord][typ][stat][::], ax,
@@ -411,7 +433,9 @@ def plot_grid_center_stats(grids_stats_dict, fignum=1,
             if j == 2:
                 plot_ft(grids_stats_dict[coord][typ]['freqs'][::],
                         grids_stats_dict[coord][typ][stat][::],
-                        ax, ylabel = ylabel, nx_ticks=6)
+                        ax,
+                        RN = grids_stats_dict[coord][typ]['RNavg'][::],
+                        ylabel = ylabel, nx_ticks=6)
             elif j != 2:
                 plot_time_series(grids_stats_dict[coord][typ][stat][::], ax,
                         xlabel=xlabel, ylabel=ylabel, ny_ticks=4)
@@ -442,7 +466,9 @@ def plot(params, corrj=None):
     meas_keys = ['ND', 'CC', 'Y', 'IPR']
     meas_list = [results[meas_key][::] for meas_key in meas_keys]
     freqs = results['freqs'][::]
-    Fmeas_list = [results['F'+meas_key][::] for meas_key in meas_keys]
+    Fmeas_list = [ {'amps' : results['F'+meas_key][::],
+                    'RN'   : results['RN'+meas_key][::]}
+                    for meas_key in meas_keys ]
     meas_dict = OrderedDict( (key, data)
             for key, data in zip(meas_keys, meas_list))
     Fmeas_dict = OrderedDict( (key, Fdata)
@@ -548,7 +574,7 @@ def fft_check():
     ts = np.array([n*dt for n in range(1000)])
     ys = np.array([sin(2*pi*t/T) + 2*sin(2*pi*f*t) for t in ts])
 
-    freqs, amps = make_ft(ys, dt=dt)
+    freqs, amps, rn = ms.make_ft(ys, dt=dt)
 
     max_index = np.argmax(amps)
     max_amp   = amps[max_index]
@@ -558,7 +584,7 @@ def fft_check():
     gs = gridspec.GridSpec(2,1)
 
     plot_time_series(ys, plt.subplot(gs[0]))
-    plot_ft(freqs, amps, plt.subplot(gs[1]), dt=dt)
+    plot_ft(freqs, amps, plt.subplot(gs[1]), RN=rn, dt=dt)
     plt.subplot(gs[1]).scatter(max_freq, max_amp)
     print('freq found: ',max_freq,' given freq: ', f)
     plt.show()

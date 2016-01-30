@@ -47,20 +47,20 @@ def chi2_calc(f, betas, x, y):
         chi2 += (yval - f(betas, xval))**2
     return chi2
 
-def f_fits(func, beta_est, x_list, y_list, x_error = None, y_error = None):
-    x_error = [0.0000001] * len(x_list) if x_error is None else x_error
-    y_error = [0.0000001] * len(y_list) if y_error is None else y_error
-    fit = do_odr(func, x_list, x_error, y_list, y_error, beta_est)
+def f_fits(func, beta_est, x_list, y_list, xerr = None, yerr = None):
+    xerr = [0.0000001] * len(x_list) if xerr is None else xerr
+    yerr = [0.0000001] * len(y_list) if yerr is None else yerr
+    fit = do_odr(func, x_list, xerr, y_list, yerr, beta_est)
     chi2 = chi2_calc(func, fit.beta, x_list, y_list)
-    return fit.beta, chi2
+    return fit.beta, chi2, fit.sd_beta
 
-def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error =
-    None, y_error = None, kwargs={}):
-    x_error = [0.0000001] * len(x_list) if x_error is None else x_error
-    y_error = [0.0000001] * len(y_list) if y_error is None else y_error
+def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, xerr =
+    None, yerr = None, kwargs={}):
+    xerr = [0.0000001] * len(x_list) if xerr is None else xerr
+    yerr = [0.0000001] * len(y_list) if yerr is None else yerr
 
     fit_beta, chi2,  = \
-            f_fits(func, beta_est, x_list, y_list, x_error = x_error, y_error = y_error)
+            f_fits(func, beta_est, x_list, y_list, xerr = xerr, yerr = yerr)
 
     xs = np.linspace(min(x_list), max(x_list), 100)
     ax.plot(x_list, y_list, 'o', label = 'tmax = ' + str(label), color = color)
@@ -78,27 +78,47 @@ def plot_f_fits(func, beta_est, x_list, y_list, ax, label, color, x_error =
 
 
 if __name__ == '__main__':
-    import fio as io
-    import measures as ms
-    import time_evolve
+    import simulation.fio as io
+    import simulation.measures as ms
+    import simulation.time_evolve as time_evolve
     import matplotlib.pyplot as plt
-    import plotting as ptt
-    params =  {
-                    'output_dir' : 'fitting',
+    import simulation.plotting as ptt
+    import scipy.stats as stats
+    import h5py
+    
 
-                    'L'    : 12,
-                    'T'    : 100,
-                    'mode' : 'sweep',
+    params =  {
+                    'output_dir' : 'Hphase',
+
+                    'L'    : 19,
+                    'T'    : 60,
+                    'mode' : 'alt',
                     'S'    :  6,
-                    'V'    : ['H'],
-                    'IC'   : 'l0'
+                    'V'    : 'HP_90',
+                    'IC'   : 'f0',
+                    'BC'   : '1'
                                     }
 
-    fname = time_evolve.run_sim(params, force_rewrite=False)
-    ms.measure(params, fname)
 
-    x_grid, y_grid, z_grid =\
-            map(ms.get_diag_vecs, io.read_hdf5(fname, ['xx', 'yy', 'zz']))
+    res = h5py.File(io.default_file_name(params, 'data', '.hdf5'))
+    z_grid = ms.get_diag_vecs(res['zz'][::])
+
+    fig = plt.figure(1)
+    ax = fig.add_subplot(111)
+    img = (1.0-z_grid)/2
+    plt.imshow(img, origin='lower', aspect=1)
+    for row in img:
+        row = row/sum(row)
+        plt.plot(row)
+        jbar = sum(j*c for j,c in enumerate(row))
+        m, s = stats.norm.fit(row)
+        print(m, jbar)
+        plt.scatter(jbar, row[int(jbar)])
+        p = stats.norm.pdf(row, m, s)
+        plt.plot(row, p)
+        plt.show()
+
+    '''
 
     def fit_speed(grid):
         fig = plt.figure(1)
@@ -119,7 +139,7 @@ if __name__ == '__main__':
             dz = 1/z
             ax.errorbar(j, pt, xerr=dz, yerr=dz)
             js = np.linspace(0, L-1, 150)
-            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, x_error=dz, y_error=dz)
+            Bs, chi2 = f_fits(flin, [1.0, 0.0], j, pt, xerr=dz, yerr=dz)
             print(1/Bs[0])
             ax.plot(js, flin(Bs, js),  color='k')
         ax.set_ylim([-0.5, 75.5])
@@ -137,15 +157,14 @@ if __name__ == '__main__':
         plt.plot(xs, func(Bs, xs))
         plt.show()
 
-    '''
     data = np.array([x**2-.3*x for x in np.linspace(-2, 3, 30)])
     data = data+np.random.rand(len(data))
     fit_measure(data, fpoly, [1.0, 1.0, 1.0,1.0,1.0,1.0])
-    '''
+
     xd = np.linspace(-10, 10, 20)
     data = np.array([e**(.2*x) + 0.1*e**(-.12*x) for x in xd])
     data = data+np.random.rand(len(data))
     fit_measure(xd, data, fnexp, [0.0, 1.0, 0.2, 0.1, -0.12])
 
     #fit_speed(z_grid)
-
+    '''

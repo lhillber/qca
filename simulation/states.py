@@ -94,6 +94,8 @@ ops = {
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
       }
 
+
+
 brhos = {
         '0' : np.array( [[1.0,   0.0],[0.0,   0.0]], dtype=complex ),
         '1' : np.array( [[0.0,   0.0],[0.0,   1.0]], dtype=complex ),
@@ -192,7 +194,10 @@ def Bell(L, config):
 # embeded in the center of the lattice
 # -------------------------------------------
 def center(L, config):
-    Lcent, cent_IC = config.split('_')[:2]
+    Lcent = config.split('_')[0]
+    cent_IC = config.split('_')[1::]
+    cent_IC = '_'.join(cent_IC)
+    print(cent_IC)
     len_cent = int(Lcent)
     len_back = L - len_cent
     len_L = int(len_back/2)
@@ -200,7 +205,7 @@ def center(L, config):
     if cent_IC[0] == 'f':
         config_dict = make_config_dict(cent_IC[1::])
     else:
-        config_dict = make_config_dict('f0')
+        config_dict = make_config_dict('0')
     bg_qubit = qubit(**config_dict['bg_config'])
     left = mx.listkron([bg_qubit for _ in range(len_L)])
     cent = make_state(len_cent, cent_IC)
@@ -281,10 +286,10 @@ def make_state (L, IC):
     elif type(IC) == list:
         state = np.zeros(2**L, dtype = complex)
         for s in IC:
-                name = s[0][0]
-                config = s[0][1:]
-                coeff = s[1]
-                state = state + coeff * smap[name](L, config)
+            name = s[0][0]
+            config = s[0][1:]
+            coeff = s[1]
+            state = state + coeff * smap[name](L, config)
     return state
 
 
