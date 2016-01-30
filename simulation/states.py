@@ -205,7 +205,7 @@ def center(L, config):
     if cent_IC[0] == 'f':
         config_dict = make_config_dict(cent_IC[1::])
     else:
-        config_dict = make_config_dict('f0')
+        config_dict = make_config_dict('0')
     bg_qubit = qubit(**config_dict['bg_config'])
     left = mx.listkron([bg_qubit for _ in range(len_L)])
     cent = make_state(len_cent, cent_IC)

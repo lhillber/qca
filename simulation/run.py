@@ -62,19 +62,20 @@ import simulation.launch as launch
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'Hphase'
+output_dir = 'classical'
 
-mode_list = ['alt', 'block', 'sweep']
+mode_list = ['sweep']
 
-L_list = [19]
+L_list = [15]
 
 T_list = [60]
 
 S_list = [6]
 
-V_list = ['HP_' + str(deg) for deg in range(0,90,5)]
+#V_list = ['HP_' + str(deg) for deg in range(0,91)]
+V_list = ['HP_45']
 
-IC_list = ['f0']
+IC_list = ['G']
 
 BC_list = ['1']
 

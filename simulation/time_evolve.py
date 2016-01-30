@@ -46,11 +46,11 @@ def make_V(V, s):
     V_conf = V.split('_')
     if len(V_conf) == 2:
         V_string, ph = V_conf
+        ph = eval(ph)*pi/180.0
+        Pmat = np.array( [[1.0,  0.0 ],[0.0 , exp(1.0j*ph)]], dtype=complex )
+        ss.ops['P'] = Pmat 
     else:
         V_string = V_conf[0]
-    ph = eval(ph)*pi/180.0
-    Pmat = np.array( [[1.0,  0.0 ],[0.0 , exp(1.0j*ph)]], dtype=complex )
-    ss.ops['P'] = Pmat 
     Vmat= mx.listdot([ss.ops[k] for k in V_string])
     return s*Vmat + (1-s)*ss.ops['I']
 
@@ -78,7 +78,6 @@ def make_U(S, V, use_R=False):
 
     # Order S into matrix [ [s00, s01], [s10, s11] ]
     S_mat = Sb[::-1].reshape((2,2)) # add .T for old R numbering (pre winter 2015)
-
     # prepare projectors for looping over in the order  {|0><0|, |1><1|}
     neighbor_projs = [ss.ops['0'], ss.ops['1']]
 
