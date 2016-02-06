@@ -197,7 +197,6 @@ def center(L, config):
     Lcent = config.split('_')[0]
     cent_IC = config.split('_')[1::]
     cent_IC = '_'.join(cent_IC)
-    print(cent_IC)
     len_cent = int(Lcent)
     len_back = L - len_cent
     len_L = int(len_back/2)

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from math import sqrt, e
+from math import sqrt, e, pi
 import numpy as np
 import scipy.odr.odrpack as odrpack
 import matplotlib.pyplot as plt
@@ -22,11 +22,18 @@ def flin(B, x):
 def fpow(B, x):
     return B[0]*x**B[1] + B[2]
 
+def gaussian(B, x):
+    return 1.0/(B[0]*sqrt(2*pi)) * e ** ( - ( x - B[1] )**2 / B[0]**2 )
+
+def ftwo_gaussian(B, x):
+    return 1.0/(B[0]*sqrt(2*pi)) * e ** ( - ( x - B[1] )**2 / B[0]**2 ) +\
+           1.0/(B[2]*sqrt(2*pi)) * e ** ( - ( x - B[3] )**2 / B[2]**2 )
+
 def fpoly(B, x):
     return sum([b*x**m for m, b in enumerate(B)])
 
 def fexp(B, x):
-    return B[0]*B[1]**(x) + B[2]
+    return B[1]*B[0]**(x)
 
 def fnexp(B, x, base=e):
     return B[0] + sum([B[i]*base**(x*B[i+1]) for i in range(1, len(B) - 1)])

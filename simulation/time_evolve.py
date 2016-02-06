@@ -55,7 +55,7 @@ def make_V(V, s):
     return s*Vmat + (1-s)*ss.ops['I']
 
 
-def make_U(S, V, use_R=False):
+def make_U(S, V, use_R=False, BC_conf='00'):
     # expand S into 4 digits of binary. 15 possible unitary ECAs
     # MSB comes first in the list: [s11, s10, s01, s00]
     Sb = np.array(mx.dec_to_bin(S, 4))
@@ -92,15 +92,15 @@ def make_U(S, V, use_R=False):
             Vmn = make_V(V, S_mat[m,n])
             U = U + mx.listkron([left_proj, Vmn, right_proj])
 
-    # 2 qubit operator for right-most site, fix right boundary to |0>
+    # 2 qubit operator for right-most site, fix right boundary to |BC_conf[1]>
     for m, left_proj in enumerate(neighbor_projs):
-        n=0
+        n=int(BC_conf[1])
         Vmn = make_V(V, S_mat[m,n])
         Ur = Ur + mx.listkron([left_proj, Vmn])
 
-    # 2 qubit operator for left-most site, fix left boundary to |0>
+    # 2 qubit operator for left-most site, fix left boundary to |BC_conf[0]>
     for n, right_proj in enumerate(neighbor_projs):
-        m=0
+        m=int(BC_conf[0])
         Vmn = make_V(V, S_mat[m,n])
         Ul = Ul + mx.listkron([Vmn, right_proj])
 
@@ -112,9 +112,9 @@ def make_U(S, V, use_R=False):
 
 # update procedure for fixed BC's
 # -------------------------------
-def update_site(j, state, Ul, Uj, Ur, L, BC = '1'):
+def update_site(j, state, Ul, Uj, Ur, L, BC_typ = '1'):
     # site 0 has only one neighbor to the right
-    if BC is '1':
+    if BC_typ is '1':
         if j == 0:
             js = [0,1]
             state = mx.op_on_state(Ul, js, state)
@@ -129,7 +129,7 @@ def update_site(j, state, Ul, Uj, Ur, L, BC = '1'):
             js = [(j-1), j, (j+1)]
             state = mx.op_on_state(Uj, js, state)
 
-    elif BC is '0':
+    elif BC_typ is '0':
         js = [(j-1)%L, j, (j+1)%L]
         state = mx.op_on_state(Uj, js, state)
     
@@ -170,8 +170,16 @@ def time_evolve(params, tol=1E-10, norm_check=False):
         use_R = False
         S = params['S']
 
+    BC_typ = BC.split('_')[0]
+    if BC_typ is '1':
+        if len(BC.split('_')) == 1:
+            BC_conf = '00'
+        else:
+            BC_conf = BC.split('_')[1]
+
+
     # make update operators for left/right boundaries and th bulk
-    Ul, Uj, Ur = make_U(S, V, use_R=use_R)
+    Ul, Uj, Ur = make_U(S, V, use_R=use_R, BC_conf=BC_conf)
 
     # If no state supplied, make from the IC param
     if 'init_state' in params:
@@ -189,19 +197,19 @@ def time_evolve(params, tol=1E-10, norm_check=False):
         # Sweep ECA
         if mode=='sweep':
             for j in range(L):
-                state = update_site(j, state, Ul, Uj, Ur, L, BC = BC)
+                state = update_site(j, state, Ul, Uj, Ur, L, BC_typ = BC_typ)
 
         # Alternating ECA (evens first)
         elif mode=='alt':
             for j in list(range(0, L, 2)) + list(range(1, L, 2)):
-                state = update_site(j, state, Ul, Uj, Ur, L, BC = BC)
+                state = update_site(j, state, Ul, Uj, Ur, L, BC_typ = BC_typ)
 
         # Block ECA
         elif mode=='block':
             for k in [0,1,2]:
                 for j in range(k, L-1+k, 3):
                     if j!=L:
-                        state = update_site(j, state, Ul, Uj, Ur, L, BC = BC)
+                        state = update_site(j, state, Ul, Uj, Ur, L, BC_typ = BC_typ)
 
         # don't check normalization by default
         if norm_check is True:

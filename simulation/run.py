@@ -62,28 +62,30 @@ import simulation.launch as launch
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'classical'
+output_dir = 'allS/L15'
 
-mode_list = ['sweep']
+mode_list = ['sweep', 'alt', 'block']
 
 L_list = [15]
 
 T_list = [60]
 
-S_list = [6]
+S_list = range(1,16)
 
 #V_list = ['HP_' + str(deg) for deg in range(0,91)]
-V_list = ['HP_45']
+V_list = ['H']
 
-IC_list = ['G']
+IC_list = ['f0_t0-p0_t180-p0', 'c1_f0_t0-p0_t180-p0']
 
-BC_list = ['1']
+BC_list = ['1_11']
+
+
 
 # list of tasks to complete
 # -------------------------
 # tasks on the full quantum states
 sim_tasks = ['one_site', 'two_site', 'IPR']
-rewrite_states = False
+rewrite_states = True
 
 # tasks on the reduced density matricies ('sc' requires bi_bartite in sim_tasks).
 measure_tasks = ['s', 'sc', 'mom', 'g', 'm', 'nm', 'stats']
