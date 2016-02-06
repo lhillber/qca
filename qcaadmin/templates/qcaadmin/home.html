@@ -66,8 +66,29 @@
                     <div ng-show="!displays.list">
                         <div ng-show="$root.selectedsims.length == 0" class="simrow">No simulations selected.</div> 
 
-                        <div ng-repeat="(color, sim) in simlist" class="simrow" ng-Style="{'border-left-color':color}" ng-class="{'loading':sim.loading}"><span ng-show="sim.loading">Loading...</span>{{ sim.meta.ictitle }} - {{ sim.meta.R }} - {{ sim.meta.mode }} -  {{ sim.meta.V }}</div> 
+                        <div ng-repeat="sim in simlist | colorOrder" class="simrow" ng-Style="{'border-left-color':sim.color}" ng-class="{'loading':sim.loading}"><span ng-show="sim.loading">Loading...</span>{{ sim.meta.ictitle }} - {{ sim.meta.R }} - {{ sim.meta.mode }} -  {{ sim.meta.V }}</div> 
                     </div>
+
+                    <h2 ng-Class="{collapsed: displays.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0" ng-init="toggle('bubbles')" >Advanced Bubble Diagrams</h2> 
+                    <div ng-hide="displays.bubbles || $root.selectedsims.length == 0">
+                        <div class="picker">Sites: <span class="button" ng-class="{selected: bubsettings.sites == 'color'}" ng-click="bubsettings.sites = 'color'">Colors</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'X'}" ng-click="bubsettings.sites = 'X'">X</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Y'}" ng-click="bubsettings.sites = 'Y'">Y</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Z'}" ng-click="bubsettings.sites = 'Z'">Z</span></div>
+                        <div class="picker"> <span class="button" ng-class="{selected: bubsettings.sites == 'NetworkSlice'}" ng-click="bubsettings.sites = 'NetworkSlice'">Network Slice</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'NetworkDegree'}" ng-click="bubsettings.sites = 'NetworkDegree'">Network Degree</span> -  <span class="button" ng-class="{selected: bubsettings.sites == 'NetworkSpread'}" ng-click="bubsettings.sites = 'NetworkSpread'">Network Spread</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'none'}" ng-click="bubsettings.sites = 'none'">Off</span> </div>    
+                        <div class="picker">Entropies: <span class="button" ng-class="{selected: bubsettings.siteent}" ng-click="bubsettings.siteent = !bubsettings.siteent">Sites</span> - <span class="button" ng-class="{selected: bubsettings.cutent}" ng-click="bubsettings.cutent = !bubsettings.cutent">Cuts</span> </div>
+                        <div class="picker" ng-show="cutsunavailable">Cut entropies may be unavailable for some runs due to large system size.</div>
+                        <div class="picker" ng-show="bubsettings.sites.indexOf('Network') > -1"><span class="button" ng-class="{selected: netmode == 'm'}" ng-click="setnet('m')">MI</span></div>
+                    <div class="picker" ng-show="bubsettings.sites.indexOf('Network') > -1"><span class="button" ng-class="{selected: netmode == 'xx'}" ng-click="setnet('xx')">XX</span> - <span class="button" ng-class="{selected: netmode == 'yy'}" ng-click="setnet('yy')">YY</span> - <span class="button" ng-class="{selected: netmode == 'zz'}" ng-click="setnet('zz')">ZZ</span></div>
+                    <div class="picker" ng-show="bubsettings.sites.indexOf('Network') > -1"><span class="button" ng-class="{selected: netmode == 'gxx'}" ng-click="setnet('gxx')">g2(XX)</span> - <span class="button" ng-class="{selected: netmode == 'gyy'}" ng-click="setnet('gyy')">g2(YY)</span> - <span class="button" ng-class="{selected: netmode == 'gzz'}" ng-click="setnet('gzz')">g2(ZZ)</span>  </div>
+
+                        <div class="picker" ng-show="bubsettings.sites == 'NetworkSlice' && maxlength != 0">Network Position: {{ bubsettings.network }} - <span class="button square" ng-click="chNetworkPos('+')">+</span> <span class="button square" ng-click="chNetworkPos('-')">-</span> <span class="button square" ng-click="chNetworkPos(0)">0</span> <span class="button square" ng-click="chNetworkPos(maxlength-1)">{{maxlength-1}}</span></div>
+                        
+                        <div class="picker" ng-show="bubsettings.sites == 'Z' || bubsettings.sites.indexOf('Network') > -1">Floor below: {{ bubsettings.zfloor}} - <span class="button square" ng-click="chZFloor('+')">+</span> <span class="button square" ng-click="chZFloor('-')">-</span></div>
+                        <div class="picker">Plot height: {{ bubsettings.iterations }}00px - <span class="button square" ng-click="chBubIt('+')">+</span> <span class="button square" ng-click="chBubIt('-')">-</span></div>
+
+
+                        <div ng-repeat="sim in simlist | colorOrder" ng-hide="sim.loading" color="sim.color" bubbles="sim" update="update" settings="bubsettings" data="simlist" network="netmode"></div>
+                    </div>
+
+
                      <h2 ng-Class="{collapsed: displays.netmeas}" ng-click="toggle('netmeas')" ng-hide="$root.selectedsims.length == 0" ng-init="toggle('netmeas')">Network Measures</h2> 
                     <div ng-hide="displays.netmeas || $root.selectedsims.length == 0">
                         <div class="picker">Domain: <span class="button" ng-class="{selected: domain == 'time'}" ng-click="domain = 'time'">Time</span> - <span class="button" ng-class="{selected: domain == 'fourier'}" ng-click="domain = 'fourier'">Frequency</span></div>
@@ -79,23 +100,12 @@
                     <div ng-hide="displays.other || $root.selectedsims.length == 0">
                         <div class="picker">Domain: <span class="button" ng-class="{selected: domain == 'time'}" ng-click="domain = 'time'">Time</span> - <span class="button" ng-class="{selected: domain == 'fourier'}" ng-click="domain = 'fourier'">Frequency</span></div>
                         <div plot="['IPR']" fplot="['FIPR']" simlist="simlist" title="'Inv. Participation Ratio'" update="update" domain="domain"></div>
-                         <div plot="['stats','zz','center','avg']" std="['stats','zz','center','std']" fplot="['stats','zz','center','Favg']" freqs="['stats','zz','center','freqs']"  simlist="simlist" title="'ZZ Center of Mass'" update="update" domain="domain" xaxis="avgmode"></div>
+                         <div plot="['stats','zz','center','avg']" fplot="['stats','zz','center','Favg']" freqs="['stats','zz','center','freqs']"  simlist="simlist" title="'ZZ Center of Mass'" update="update" domain="domain" xaxis="avgmode"></div>
+                         <div plot="['stats','zz','center','std']" fplot="['stats','zz','center','none']" freqs="['stats','zz','center','freqs']"  simlist="simlist" title="'ZZ Diffusion'" update="update" domain="domain" xaxis="avgmode"></div>
                     </div>
 
 
-                    <h2 ng-Class="{collapsed: displays.bubbles}" ng-click="toggle('bubbles')" ng-hide="$root.selectedsims.length == 0" ng-init="toggle('bubbles')" >Advanced Bubble Diagrams</h2> 
-                    <div ng-hide="displays.bubbles || $root.selectedsims.length == 0">
-                        <div class="picker">Sites: <span class="button" ng-class="{selected: bubsettings.sites == 'color'}" ng-click="bubsettings.sites = 'color'">Colors</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'X'}" ng-click="bubsettings.sites = 'X'">X</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Y'}" ng-click="bubsettings.sites = 'Y'">Y</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Z'}" ng-click="bubsettings.sites = 'Z'">Z</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'Network'}" ng-click="bubsettings.sites = 'Network'">Network</span> - <span class="button" ng-class="{selected: bubsettings.sites == 'none'}" ng-click="bubsettings.sites = 'none'">Off</span> </div>    
-                        <div class="picker">Entropies: <span class="button" ng-class="{selected: bubsettings.siteent}" ng-click="bubsettings.siteent = !bubsettings.siteent">Sites</span> - <span class="button" ng-class="{selected: bubsettings.cutent}" ng-click="bubsettings.cutent = !bubsettings.cutent">Cuts</span> </div>
-                        <div class="picker" ng-show="cutsunavailable">Cut entropies may be unavailable for some runs due to large system size.</div>
-                     <div class="picker" ng-show="bubsettings.sites == 'Network'"><span class="button" ng-class="{selected: netmode == 'm'}" ng-click="setnet('m')">MI</span></div>
-                    <div class="picker" ng-show="bubsettings.sites == 'Network'"><span class="button" ng-class="{selected: netmode == 'xx'}" ng-click="setnet('xx')">XX</span> - <span class="button" ng-class="{selected: netmode == 'yy'}" ng-click="setnet('yy')">YY</span> - <span class="button" ng-class="{selected: netmode == 'zz'}" ng-click="setnet('zz')">ZZ</span></div>
-                    <div class="picker" ng-show="bubsettings.sites == 'Network'"><span class="button" ng-class="{selected: netmode == 'gxx'}" ng-click="setnet('gxx')">g2(XX)</span> - <span class="button" ng-class="{selected: netmode == 'gyy'}" ng-click="setnet('gyy')">g2(YY)</span> - <span class="button" ng-class="{selected: netmode == 'gzz'}" ng-click="setnet('gzz')">g2(ZZ)</span>  </div>
-
-                        <div class="picker" ng-show="bubsettings.sites == 'Network' && maxlength != 0">Network Position: {{ bubsettings.network }} - <span class="button square" ng-click="chNetworkPos('+')">+</span> <span class="button square" ng-click="chNetworkPos('-')">-</span> <span class="button square" ng-click="chNetworkPos(0)">0</span> <span class="button square" ng-click="chNetworkPos(maxlength-1)">{{maxlength-1}}</span></div>
-                        <div ng-repeat="(color,sim) in simlist" ng-hide="sim.loading" color="color" bubbles="sim" update="update" settings="bubsettings" data="simlist" network="netmode"></div>
-                    </div>
-
+                    
                      <h2 ng-Class="{collapsed: displays.netdata}" ng-click="toggle('netdata')" ng-hide="$root.selectedsims.length == 0" ng-init="toggle('netdata')" >Network Statistics</h2> 
                     <div ng-hide="displays.netdata || $root.selectedsims.length == 0">
                         <div class="picker">Domain: <span class="button" ng-class="{selected: domain == 'time'}" ng-click="domain = 'time'">{{ avgmode.charAt(0).toUpperCase() + avgmode.slice(1)}}</span> - <span class="button" ng-class="{selected: domain == 'fourier'}" ng-click="domain = 'fourier'">Frequency</span></div>
@@ -116,9 +126,8 @@
                         <div class="picker"><span class="button" ng-class="{selected: netmode == 'm'}" ng-click="setnet('m')">MI</span></div>
                     <div class="picker"><span class="button" ng-class="{selected: netmode == 'xx'}" ng-click="setnet('xx')">XX</span> - <span class="button" ng-class="{selected: netmode == 'yy'}" ng-click="setnet('yy')">YY</span> - <span class="button" ng-class="{selected: netmode == 'zz'}" ng-click="setnet('zz')">ZZ</span></div>
                     <div class="picker"><span class="button" ng-class="{selected: netmode == 'gxx'}" ng-click="setnet('gxx')">g2(XX)</span> - <span class="button" ng-class="{selected: netmode == 'gyy'}" ng-click="setnet('gyy')">g2(YY)</span> - <span class="button" ng-class="{selected: netmode == 'gzz'}" ng-click="setnet('gzz')">g2(ZZ)</span>  </div>
-                        <div ng-repeat="(color,sim) in simlist" ng-hide="sim.loading" color="color" networks="sim[netmode]" update="update" key="netmode" mode="nethist" ></div>
+                        <div ng-repeat="sim in simlist | colorOrder" ng-hide="sim.loading" color="sim.color" networks="sim[netmode]" update="update" key="netmode" mode="nethist" ></div>
                     </div>
-
             
             </div></td>
             <td class="content"  ng-controller="ICEditor" ng-show="$root.displaymode == 'IC'"><div class="contentscrollbox">

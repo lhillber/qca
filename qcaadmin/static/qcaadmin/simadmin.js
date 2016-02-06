@@ -27,8 +27,9 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
     $scope.icfilter = ""
    
     $rootScope.rules = [102,150]
-    $scope.Vs = ["X", "H", "HX", "HT", "HXT"]
-    $rootScope.modes = ['block','sweep','alt']
+    //$scope.Vs = ["X", "H", "HX", "HT", "HXT"]
+    $scope.Vs = ["X", "H", "HP_15", "HP_30", "HP_45", "HP_60", "HP_75","HP_90"]
+    $rootScope.modes = ['sweep','block','alt']
     $scope.modedisplay = {
         'block':'Blk',
         'sweep':'Swp',
@@ -271,8 +272,37 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
                 var idx = $rootScope.selectedsims.indexOf(sim.pk)
                 if (idx == -1) $rootScope.selectedsims.push(sim.pk)
                 else $rootScope.selectedsims.splice(idx,1)
-                $rootScope.selectedsims.sort()
-            
+                
+
+                        
+                    $rootScope.selectedsims.sort(function(a,b) {
+                        var aSim
+                        for (ic in $scope.sims) {
+                            for (var i = 0; i < $scope.sims[ic].length; i++) {
+                                    var sim = $scope.sims[ic][i]
+                                    if (sim.pk == a) aSim = sim
+                            }
+                        }
+
+                        var bSim
+                        for (ic in $scope.sims) {
+                            for (var i = 0; i < $scope.sims[ic].length; i++) {
+                                    var sim = $scope.sims[ic][i]
+                                    if (sim.pk == b) bSim = sim
+                            }
+                        }
+
+                        if (aSim.R != bSim.R) return (aSim.R - bSim.R)
+                        
+                        var lookup = $scope.Vs
+                        if (aSim.V != bSim.V) return (lookup.indexOf(aSim.V) - lookup.indexOf(bSim.V))
+                        
+                        var lookup = $rootScope.modes
+                        return (lookup.indexOf(aSim.mode) - lookup.indexOf(bSim.mode))
+
+
+                    })
+             
                 $rootScope.displaymode = 'Sim'
                 $rootScope.inspectedIC = false
                 return
@@ -288,7 +318,7 @@ QCAAdmin.controller('qcaadmin', ['$scope','$timeout','$http','$rootScope',functi
 
 QCAAdmin.controller('modeselect', ['$scope','$timeout','$http','$rootScope',function($scope,$timeout,$http,$rootScope) {
     $scope.allrules = [204,201,198,195,156,153,150,147,108,105,102,99,60,157,57,51]
-    $scope.allmodes = ['block','sweep','alt']
+    $scope.allmodes = ['sweep','block','alt']
 
     $scope.setMode = function(mode) {
         var idx = $rootScope.modes.indexOf(mode)

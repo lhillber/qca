@@ -39,6 +39,7 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
                     }
             } else {
                 console.log("requested: "+pk)
+                $scope.simcache[pk] = {"loading":true}
                 $http.get(window.prefix+'/simData/?pk='+pk,{}).then(function(response) {
                     var pk = JSON.parse(response.data.meta).pk
                     console.log("received: "+pk)
@@ -76,6 +77,8 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
                         if (len > $scope.maxlength )$scope.maxlength = len
                     }
 
+
+
                     $scope.update++
                 },function(response) {
                     $scope.error = response.statusText
@@ -103,6 +106,8 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
         "siteent": true,
         "cutent": true,
         "network":0,
+        "iterations":4,
+        "zfloor":0,
     }
 
     $scope.maxlength = 0
@@ -110,8 +115,17 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
         if (dir == '+' && $scope.bubsettings.network < $scope.maxlength-1) $scope.bubsettings.network++
         if (dir == '-' && $scope.bubsettings.network > 0) $scope.bubsettings.network--
         if (Number.isInteger(dir)) $scope.bubsettings.network = dir
-    }
 
+    }
+    $scope.chBubIt = function(dir) {
+        if (dir == '+' && $scope.bubsettings.iterations < 10) $scope.bubsettings.iterations++
+        if (dir == '-' && $scope.bubsettings.iterations > 4) $scope.bubsettings.iterations--
+    }   
+    $scope.chZFloor = function(dir) {
+        if (dir == '+' && $scope.bubsettings.zfloor< 1.0) $scope.bubsettings.zfloor+= 0.01
+        if (dir == '-' && $scope.bubsettings.zfloor > 0) $scope.bubsettings.zfloor -= 0.01
+        $scope.bubsettings.zfloor = Math.round($scope.bubsettings.zfloor*100)/100
+    }   
 
 
     $scope.netmode = 'm'
@@ -122,6 +136,22 @@ QCAAdmin.controller('visualizer', ["$scope", "$rootScope",'$http',  function($sc
     $scope.nethist = 'arcs'
 
 }])
+
+
+QCAAdmin.filter('colorOrder', ['$rootScope', function($rootScope) {
+  return function(obj) {
+    var array = [];
+
+    Object.keys(obj).forEach(function(key) {
+        obj[key].color = key    
+        array.push(obj[key]);
+    });
+    array.sort(function(a, b) {
+      return $rootScope.selectedsims.indexOf(a) - $rootScope.selectedsims.indexOf(b)
+    });
+    return array
+}}]);
+
 
 
 QCAAdmin.directive("plot", function ()
@@ -451,7 +481,9 @@ QCAAdmin.directive("bubbles", function ($rootScope)
 
            $scope.redraw = function()  { 
                  if ($scope.bubbles.loading) return
-                 
+                
+                $scope.canvas.height = $scope.settings.iterations*100
+
                  var leftaxis = 38
                  var rightmargin = 14
                  var botaxis = 30
@@ -550,6 +582,61 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                  if (!$scope.settings.cutent) radius = boxdim/Math.sqrt(2)
 
 
+                     
+                 var networkslicenorm = 0.2
+                 if ($scope.settings.sites == 'NetworkSlice') {
+                    for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                        if ($scope.bubbles["one_site"][i] === undefined) continue
+                        var net = $scope.data[$scope.color][$scope.network][i][$scope.settings.network]
+                            
+                        for (var k = 0; k < statelength  ; k++) {
+                            if (net[k] > networkslicenorm) networkslicenorm = net[k]
+                        }
+                        
+
+                    }
+                 }
+
+
+                 var networkdegreenorm = 0.2
+                 if ($scope.settings.sites == 'NetworkDegree') {
+                    for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                        if ($scope.bubbles["one_site"][i] === undefined) continue
+                        var net = $scope.data[$scope.color][$scope.network][i]
+                        for (var k = 0; k < statelength  ; k++) {
+                            var sum = math.sum(net[k]) 
+                            if (sum > networkdegreenorm) networkdegreenorm = sum
+                        }
+
+                    }
+                 }
+
+                var spreads = []
+                var spreadnorm = 0.2
+                if ($scope.settings.sites == 'NetworkSpread') {
+                    for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
+                        if ($scope.bubbles["one_site"][i] === undefined) continue
+                        var row = []
+
+                        var net = $scope.data[$scope.color][$scope.network][i]
+                        for (var j = 0; j < statelength  ; j++) {
+                            var max = math.max(net[j])
+                            var slope = 0
+                            for (var k = 0; k < statelength; k++) {
+                                if (k == j) continue
+                                slope += (max - net[j][k])/math.abs(j-k)
+                            }
+                            slope = slope/(statelength-1)
+                            if (slope > spreadnorm) spreadnorm = slope
+                            row.push(slope)
+                        }
+                        spreads[i] = row
+                    }
+                    
+
+                }
+
+
                  for (var i = $scope.scrollpos; i-$scope.scrollpos < numheight;i++ ) {
                     for (var j = 0; j < statelength  ; j++) {
                         if ($scope.bubbles["one_site"][i] === undefined) continue
@@ -576,17 +663,29 @@ QCAAdmin.directive("bubbles", function ($rootScope)
                             }
                             if (setting == 'Z') {
                                 var value = Math.round(255* (density[0][0].re - density[1][1].re) )
+                                if (density[0][0].re - density[1][1].re >= 1- $scope.settings.zfloor) value = "255"
                                 ctx.fillStyle = "rgb("+value+","+value+","+value+")"
                             }
-                            if (setting == 'Network') {
+                            if (setting == 'NetworkSlice') {
                                 var net = $scope.data[$scope.color][$scope.network][i][$scope.settings.network]
-                                var max = 0.2
-                                for (var k = 0; k < statelength  ; k++) if (net[k] > max) max = net[k]
 
-                                var value = 255-Math.round(255* (  net[j]/max  ))
+                                var value = 255-Math.round(255* (  net[j]/networkslicenorm  ))
+                                if ( net[j]/networkslicenorm < $scope.settings.zfloor) value = "255"
                                 ctx.fillStyle = "rgb("+value+","+value+","+value+")"
-                                //ctx.fillStyle = "#F0F"
                             }
+                            if (setting == 'NetworkDegree') {
+                                var net = $scope.data[$scope.color][$scope.network][i]
+                                var value = 255-Math.round(255* (  math.sum(net[j])/networkdegreenorm  ))
+                                if ( math.sum(net[j])/networkdegreenorm <  $scope.settings.zfloor) value = "255"
+                                ctx.fillStyle = "rgb("+value+","+value+","+value+")"
+                            }
+
+                            if (setting == 'NetworkSpread') {
+                                var value = 255-Math.round(255* spreads[i][j]/spreadnorm )
+                                if ( spreads[i][j]/spreadnorm < $scope.settings.zfloor) value = "255"
+                                ctx.fillStyle = "rgb("+value+","+value+","+value+")"
+                            }
+
                         }
 
                         if ($scope.settings.sites != 'none' ) { 
