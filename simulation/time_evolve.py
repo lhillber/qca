@@ -251,7 +251,8 @@ def run_sim(params, force_rewrite = False,
         fname = params['fname']
     else:
         if 'IC' in params and params['IC'][0] == 'r':
-            fname = io.make_file_name(params, iterate = True)
+            fname = io.make_file_name(params, iterate = False)
+            #fname = io.make_file_name(params, iterate = True)
             # don't iterate file names with a unique IC name
         else:
             fname = io.make_file_name(params, iterate = False)
