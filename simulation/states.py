@@ -19,13 +19,13 @@
 #     fock    |  f  |<i-j-k...>_t<th>-p<ph>_t<th>-p<ph>| 'f2_t90-p90'
 #             |     |                                  | 'f0-2-4-6'
 # ----------------------------------------------------------------------------
-#  rand_state |  r  |     <p>_t<th>-p<ph>_t<th>-p<ph>  | 'r75_t45_p90'
+#  rand_state |  r  | <p>-<s>_t<th>-p<ph>_t<th>-p<ph>  | 'r75-1_t45_p90'
 # ----------------------------------------------------------------------------
 #             |     |                                  | 'st90-P1'
 #  spin_wave  |  s  |    T<n> OR t<th>-P<m> OR p<ph>   | 'sT2-p30'
 #             |     |                                  | 'sT2-P1'
 # ----------------------------------------------------------------------------
-#     Bell    |  B  |              <j-k>_<b>           | 'B0-1_3'
+#     Bell    |  B  |            <j-k>_<b>             | 'B0-1_3'
 # ----------------------------------------------------------------------------
 #     GHZ     |  G  |                NA                | 'G'
 # ----------------------------------------------------------------------------
@@ -46,6 +46,7 @@
 #   + rand_state: a random fock state:
 #       + section 1, <p>: probability of excitation at each site expressed as an
 #                         int. That is, p=75 means prop of 3/4 for an excitation
+#                   -<s>: OPTIONAL - seed for random number generator
 #       + sections 2 and 3, same ase sections 2 and 3 above
 #
 #   + spin_wave: fock states with twists in theata and/or phi across the lattice
@@ -234,25 +235,30 @@ def spin_wave(L, config):
 # ----------------------------------------------
 def rand_state(L, config):
 
-    p_qex_qbg_conf = config.split('_')
-    p = float('.'+p_qex_qbg_conf[0])
+    ps_qex_qbg_conf = config.split('_')
 
-    if len(p_qex_qbg_conf)==1:
+    ps = ps_qex_qbg_conf[0].split('-')
+    p = float('.'+ps[0])
+    s = None
+    if len(ps) == 2:
+        s = ps[1]
+
+    if len(ps_qex_qbg_conf)==1:
         state_dict = {'ex':bvecs['1'], 'bg':bvecs['0']}
 
-    if len(p_qex_qbg_conf)==2:
-        ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
+    if len(ps_qex_qbg_conf)==2:
+        ex_th, ex_ph = ps_qex_qbg_conf[1].split('-')
         ex_th = float(ex_th[1:])
         ex_ph = float(ex_ph[1:])
 
         state_dict = {'ex':qubit(ex_th, ex_ph), 'bg':bvecs['0']}
 
-    if len(p_qex_qbg_conf)==3:
-        ex_th, ex_ph = p_qex_qbg_conf[1].split('-')
+    if len(ps_qex_qbg_conf)==3:
+        ex_th, ex_ph = ps_qex_qbg_conf[1].split('-')
         ex_th = float(ex_th[1:])
         ex_ph = float(ex_ph[1:])
 
-        bg_th, bg_ph = p_qex_qbg_conf[2].split('-')
+        bg_th, bg_ph = ps_qex_qbg_conf[2].split('-')
         bg_th = float(bg_th[1:])
         bg_ph = float(bg_ph[1:])
 
@@ -260,6 +266,8 @@ def rand_state(L, config):
 
     prob = [p, 1.0 - p]
 
+    if s is not None:
+        np.random.seed(int(s))
     distrib = np.random.choice(['ex','bg'], size=L, p=prob)
     return mx.listkron([state_dict[i] for i in distrib])
 

@@ -20,14 +20,14 @@ def flin(B, x):
     return B[0]*x + B[1]
 
 def fpow(B, x):
-    return B[0]*x**B[1] + B[2]
+    return B[1]*x**B[0] + B[2]
 
 def gaussian(B, x):
-    return 1.0/(B[0]*sqrt(2*pi)) * e ** ( - ( x - B[1] )**2 / B[0]**2 )
+    return 1.0/(B[0]*sqrt(2*pi)) * e ** ( - ( x - B[1] )**2 / (2 * B[0]**2) )
 
 def ftwo_gaussian(B, x):
-    return 1.0/(B[0]*sqrt(2*pi)) * e ** ( - ( x - B[1] )**2 / B[0]**2 ) +\
-           1.0/(B[2]*sqrt(2*pi)) * e ** ( - ( x - B[3] )**2 / B[2]**2 )
+    return 1.0/(2*B[0]*sqrt(2*pi)) * e ** ( - ( x - B[1] )**2 / (2 * B[0]**2) ) +\
+           1.0/(2*B[2]*sqrt(2*pi)) * e ** ( - ( x - B[3] )**2 / (2 * B[2]**2) )
 
 def fpoly(B, x):
     return sum([b*x**m for m, b in enumerate(B)])
@@ -46,7 +46,7 @@ def do_odr(f, x, xe, y, ye, estimates):
     data = odrpack.RealData(x, y, sx=xe, sy=ye)
     odr = odrpack.ODR(data, model, estimates)
     output = odr.run()
-    return odr.run()
+    return output
 
 def chi2_calc(f, betas, x, y):
     chi2 = 0
@@ -119,7 +119,6 @@ if __name__ == '__main__':
         plt.plot(row)
         jbar = sum(j*c for j,c in enumerate(row))
         m, s = stats.norm.fit(row)
-        print(m, jbar)
         plt.scatter(jbar, row[int(jbar)])
         p = stats.norm.pdf(row, m, s)
         plt.plot(row, p)

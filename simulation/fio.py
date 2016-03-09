@@ -42,7 +42,7 @@ def make_params_list_list(fixed_params_dict, var_params_dict):
                             [concat_dicts(fixed_dict, var_dict)]
         params_list_list[index] = params_dict_sublist
 
-    return params_list_list
+    return np.asarray(params_list_list)
 
 
 # prepare nested dicts for hdf5 dump

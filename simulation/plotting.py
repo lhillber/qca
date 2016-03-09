@@ -11,15 +11,16 @@ import simulation.measures as measures
 from math import pi
 from collections import OrderedDict
 
+import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import h5py
 import matplotlib.transforms as trans
+from sklearn.mixture import GMM
 
 # default plot font
 # -----------------
 font = {'family':'serif','size':10}
 mpl.rc('font',**font)
-import matplotlib.pyplot as plt
 
 
 # Labeling functions
@@ -27,6 +28,34 @@ import matplotlib.pyplot as plt
 def inner_title(ax, title, l=0.1, u=0.95): return ax.text(l, u, str(title),
         horizontalalignment='left', transform=ax.transAxes, fontsize=12)
 
+def make_V_name(V):
+    if V in ['X', 'Y', 'Z']:
+        name = '\sigma^{}'.format(V.lower())
+    else:
+        name = V
+    name = '('.join(name.split('_'))+')'
+    return name
+
+def make_mode_name(mode):
+    if mode is 'sweep':
+        name = '\mathrm{SWP}'
+    elif mode is 'alt':
+        name = '\mathrm{ALT}'
+    elif mode is 'block':
+        name = '\mathrm{BLK}'
+    else:
+        name =''
+    return name
+
+def make_U_name(mode, S, V):
+    S = str(S)
+    name = r'$U^{%s}_{%s}(%s)$' % (make_mode_name(mode), S, make_V_name(V))
+
+    return name
+
+def get_th(V):
+    Vlist = V.split('_')
+    return eval(Vlist[1]) if ( len(Vlist) == 2 ) else None
 
 # plot spacetime grid on an axis 
 # ------------------------------
