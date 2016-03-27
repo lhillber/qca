@@ -62,34 +62,34 @@ import simulation.launch as launch
 
 # lists of parameters to simulate
 # -------------------------------
-output_dir = 'allS/L15'
 
-mode_list = ['sweep', 'alt', 'block']
+output_dir = 'testing'
 
-L_list = [15]
+mode_list = ['alt']
 
-T_list = [60]
+L_list = [11]
 
-S_list = range(1,16)
+T_list = [1000]
 
-#V_list = ['HP_' + str(deg) for deg in range(0,91)]
-V_list = ['H']
+S_list = [6]
 
-IC_list = ['f0_t0-p0_t180-p0', 'c1_f0_t0-p0_t180-p0']
+V_list = ['HP_0']
 
-BC_list = ['1_11']
+IC_list = ['f0-10']
+
+BC_list = ['1_00']
 
 
 
 # list of tasks to complete
 # -------------------------
 # tasks on the full quantum states
-sim_tasks = ['one_site', 'two_site', 'IPR']
-rewrite_states = True
+sim_tasks = ['one_site', 'two_site', 'IPR', 'sbond']
+rewrite_states = False
 
 # tasks on the reduced density matricies ('sc' requires bi_bartite in sim_tasks).
-measure_tasks = ['s', 'sc', 'mom', 'g', 'm', 'nm', 'stats']
-rewrite_measures = True
+measure_tasks = ['s', 'mom', 'g', 'm', 'nm', 'stats']
+rewrite_measures = False
 
 # sub tasks for spin projections ('mom') and g2 ('g')
 coord_tasks = ['xx', 'yy', 'zz']
@@ -98,7 +98,7 @@ coord_tasks = ['xx', 'yy', 'zz']
 nm_tasks = ['ND', 'CC', 'Y']
 
 # site w.r.t. which g2 is plotted (any integer less than L or use string 'L/2')
-corrj = 0
+corrj = 'L/2'
 
 
 # nest parameter lists

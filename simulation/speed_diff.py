@@ -23,7 +23,7 @@ from math import pi, sin, cos
 
 # default plot font
 # -----------------
-font = {'size':12, 'weight' : 'normal'}
+font = {'size':10, 'weight' : 'normal'}
 mpl.rcParams['mathtext.fontset'] = 'stix'
 mpl.rcParams['font.family'] = 'STIXGeneral'
 mpl.rc('font',**font)
@@ -121,18 +121,69 @@ def pdf_intersection(pdf0, pdf1, tol=1e-15):
 
 
 # plot the gaussian fits on each row
-def plot_g_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj):
-    plt.scatter(js[[jmx_0, jmx_1]], pdf[[jmx_0, jmx_1]], c='g', marker='s')
-    plt.errorbar(js[mnj], pdf[mnj], yerr=0.05, c='k', marker='v')
-    plt.plot(row, alpha=0.8)
-    plt.plot(js, pdf0, '--k')
-    plt.plot(js, pdf1, '-k')
-    plt.plot(js, pdf)	
+def plot_g_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj, t, params, loc, g_fig):
+    #plt.scatter(js[[jmx_0, jmx_1]], pdf[[jmx_0, jmx_1]], c='g', marker='s')
+    #plt.errorbar(js[mnj], pdf[mnj], yerr=0.05, c='k', marker='v')
+
+    ylabel = r'$P_1(j,t_0)$'
+    xlabel = 'Site'
+    title = r'$t_0={:}$'.format(t)
+    ytick_labels = True
+    xtick_labels = True
+    if loc in [2, 4]:
+        ylabel = ''
+        ytick_labels = False
+    if loc in [1, 2]:
+        xlabel = ''
+        xtick_labels = False
+
+    g_ax = g_fig.add_subplot(2,2,loc)
+    pt.plot_time_series(pdf0, g_ax, 
+            times=js,
+            ny_ticks=5,
+            nx_ticks=5,
+            plot_kwargs={'color':'k', 'linewidth':1,
+                'linestyle':'-', 'marker':None}
+            )
+    pt.plot_time_series(pdf1, g_ax, 
+            times=js,
+            ny_ticks=5,
+            nx_ticks=5,
+            plot_kwargs={'color':'k','linewidth':1,
+                'linestyle':'--', 'marker':None}
+            )
+    pt.plot_time_series(pdf, g_ax, 
+            times=js,
+            ny_ticks=5,
+            nx_ticks=5,
+            plot_kwargs={'color':'G','linewidth':1,
+                'linestyle':'-', 'alpha':0.7, 'marker':None}
+            )
+    pt.plot_time_series(row, g_ax, 
+            ny_ticks=5,
+            nx_ticks=5,
+            title=title,
+            ytick_labels=ytick_labels,
+            xtick_labels=xtick_labels,
+            ylabel=ylabel, 
+            xlabel=xlabel,
+            plot_kwargs={'color':'B','alpha':0.7, 'linewidth':1,
+                'linestyle':'-', 'marker':None}
+            )
+    #g_ax.set_title(title, y=0.0)
+    g_ax.set_ylim([0.0, 0.25])
+    th = params['th']
+    mode = params['mode']
+    plt.suptitle('      '+pt.make_U_name(mode, params['S'], params['V']))
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
 
 
 # collect all fit params through time
-def fit_gmix(grid, n=2, sds_frac=0.6):
+def fit_gmix(grid, params, n=2, sds_frac=0.6, g_fignum=1000):
     M1_0, M2_0, M1_1, M2_1, intersection = [], [], [], [], []
+    loc = 1
     for t, row in enumerate(grid):
         L = len(row)
         row = row / sum(row)
@@ -162,8 +213,12 @@ def fit_gmix(grid, n=2, sds_frac=0.6):
         M2_1.append(sds[1])
         intersection.append(int(js[mnj]))
 
-        #slice_fit__plot = plot_g_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj)
-        #plt.show()
+        if params['th'] in [90]:
+            if t in [12,18,24,30]:
+                g_fig = plt.figure(g_fignum, figsize=(3,3))
+                slice_fit_plot = plot_g_fits(row, js, pdf, pdf0, pdf1, jmx_0,
+                        jmx_1, mnj, t, params, loc, g_fig)
+                loc += 1
     return map(np.array, (M1_0, M1_1, M2_0, M2_1, intersection))
 
 
@@ -171,16 +226,24 @@ def fit_gmix(grid, n=2, sds_frac=0.6):
 # we're collecting the transport properties in a dict
 def transport_calc(params, tmax_1, span=[0, 61], n=2, tmin=2, sds_frac=0.6,
     speed_f = ft.flin, speed_Bs_est = [1.0, 0.0],
-    diff_f = ft.flin, diff_Bs_est = [1.0, 0.0]):
+    diff_f = ft.flin, diff_Bs_est = [1.0, 0.0], dirr='R-L', g_fignum=1000):
 
     transport = {}
     res = h5py.File(io.default_file_name(params, 'data', '.hdf5'))
+    print(io.default_file_name(params, 'data', '.hdf5'))
+    print([key for key in res.keys()])
     exp = ms.get_diag_vecs(res['zz'][::])
     Ptj = ((1.0 - exp)/2.0)[span[0]:span[1]]
-    reflect_t = np.argmax(Ptj[:,0])
+
+    if dirr == 'L-R':
+        reflect_t = np.argmax(Ptj[:,params['L']-1])
+    if dirr == 'R-L':
+        reflect_t = np.argmax(Ptj[:,0])
+
     transport['grid'] = Ptj
 
-    M1_0, M1_1, M2_0, M2_1, intersection = fit_gmix(Ptj, n=n, sds_frac=sds_frac)
+    M1_0, M1_1, M2_0, M2_1, intersection = fit_gmix(Ptj, params, n=n, sds_frac=sds_frac,
+            g_fignum=g_fignum)
 
     keys = ['Bs', 'chi2', 'dBs']
     for moment in [1, 2]:
@@ -216,11 +279,18 @@ def transport_calc(params, tmax_1, span=[0, 61], n=2, tmin=2, sds_frac=0.6,
 
 # make plots of the fits
 def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin):
-    grid_fig = plt.figure(fignum, figsize=(6, 4))
+    grid_fig = plt.figure(fignum, figsize=(3, 2.5))
     grid_ax = grid_fig.add_subplot(1,2,1)
 
     # GRID PLOT
-    im = grid_ax.imshow(transport['grid'], origin='lower', aspect=1, interpolation='none')
+    #im = grid_ax.imshow(transport['grid'], origin='lower', aspect=1,
+    #        interpolation='none')
+    im = pt.plot_grid(transport['grid'], grid_ax, nc=1,
+        title='', ylabel='Iteration', xlabel='Site',
+        xtick_labels=True, ytick_labels=True,
+        nx_ticks=6, ny_ticks=10, wspace=-0.25,
+        cbar=False, cmap=plt.cm.jet, plot_kwargs={}, span=None)
+
     plt.colorbar(im)
 
 
@@ -230,28 +300,28 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
     #        xerr=transport['M2_0'][times[0]:times[-1]+1], c='k')
 
 
-    pt.plot_time_series(speed_f(transport['M1_0_Bs'], times), grid_ax, 
-            times=times,
+    pt.plot_time_series(speed_f(transport['M1_0_Bs'], times[2:-1]), grid_ax, 
+            times=times[2:-1],
             rotate=True,
-            ny_ticks=10,
+            ny_ticks=9,
             title=r'$P_1(j, t)$',
             ylabel='Iteration', 
             xlabel='Site',
-            plot_kwargs={'color':'k', 'linewidth':1}
+            plot_kwargs={'color':'R', 'linewidth':1,
+                'linestyle':'-','marker':None}
             )
+    #grid_ax.set_xlim(left=0.5)
 
 
     # INTERSECTION LINE
-    grid_ax.errorbar(transport['intersection'], times, c='w', linewidth=1)
+    #grid_ax.errorbar(transport['intersection'], times, c='w', linewidth=1)
 
 
     # SECONDARY PEAK FIT PLOTS
-
     '''
     times = transport['times_M1_1']
     grid_ax.errorbar(transport['M1_1'][times[0]:times[-1]+1], times, 
             xerr=transport['M2_1'][times[0]:times[-1]+1], c='r')
-    '''
 
     pt.plot_time_series(speed_f(transport['M1_1_Bs'], times), grid_ax, 
             times=times,
@@ -263,12 +333,14 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
             plot_kwargs={'color':'r', 'linewidth':1}
             )
 
-    grid_ax.set_xlim( [-0.5, params['L'] - 1 + 0.5])
-    grid_ax.set_ylim( [ - 0.5, 60 + 0.5])
+    '''
+
+    grid_ax.set_xlim( [0, params['L'] - 1 + 0.5])
+    grid_ax.set_ylim( [ 0, 60 + 0.5])
 
 
     # DIFFUSION PLOTS
-    diff_ax = grid_fig.add_subplot(1,2,2)
+    diff_ax = grid_fig.add_subplot(1,2,2, sharey=grid_ax)
 
     times = transport['times_M2_0']
     pt.plot_time_series(transport['M2_0'], diff_ax,
@@ -280,26 +352,37 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
     pt.plot_time_series(diff_f(transport['M2_0_Bs'], times), diff_ax,
             times=times,
             rotate=True,
-            title=r'$\sigma_P$', 
-            xlabel='width $\sigma_p$ [sites]', 
+            ny_ticks=12,
+            nx_ticks = 5,
+            title=r'$\Delta^{(1)}_{P_1}$', 
+            xlabel='Width [sites]', 
             ylabel='',
             ytick_labels=False,
-            plot_kwargs={'color':'G', 'linewidth':2}
+            plot_kwargs={'color':'R', 'linewidth':1, 'linestyle':'-',
+                'marker':None}
             )
-
     plt.suptitle(pt.make_U_name(params['mode'],  params['S'], params['V']))
-    plt.subplots_adjust(top=.87)
+    plt.subplots_adjust(top=.84)
 
+
+    grid_ax.spines['top'].set_smart_bounds(True)
+    grid_ax.spines['bottom'].set_smart_bounds(True)
+    grid_ax.spines['right'].set_smart_bounds(True)
+    grid_ax.spines['left'].set_smart_bounds(True)
+    grid_ax.spines['left'].set_position(('data',0))
+    grid_ax.spines['right'].set_position(('data',params['L']))
 
 def add_speed(params, transport, fignum, speeds_0, dspeeds_0, diffs_0, ddiffs_0, 
               speeds_1, dspeeds_1, diffs_1, ddiffs_1, ths, **kwargs):
 
     V = params['V']
     th = pt.get_th(V)
+    params['th'] = th
     ths.append(th)
     if th<=18:
         kwargs.update(dict(sds_frac=0.99))
-    transport = transport_calc(params, n=2, tmax_1 = transport['tmax_1'], **kwargs)
+    transport = transport_calc(params, n=2, tmax_1 = transport['tmax_1'],
+            **kwargs, g_fignum=10000+fignum)
 
     speeds_0.append(abs(transport['M1_0_Bs'][0]))
     dspeeds_0.append(abs(transport['M1_0_dBs'][0]))
@@ -382,30 +465,30 @@ def make_speeds(fixed_params_dict, var_params_dict, **kwargs):
                          speeds_1, dspeeds_1, diffs_1, ddiffs_1, ths, c)
 
     io.multipage(io.base_name(fixed_params_dict['output_dir'][0], 'plots') +
-            'L' + str(params['L'])  + '_S6_speeds_R-L_90_gaussian.pdf')
+            'L' + str(params['L'])  + '_S6_speeds_'+kwargs['dirr']+'_90_gaussian.pdf')
 
 
 
 if __name__ == '__main__':
-    degs = range(0, 95,5)
-
+    degs = range(0, 95, 5)
     kwargs = dict(span         = [0, 61],
                   sds_frac     = 0.5,
                   tmin         = 0,
                   speed_f      = ft.flin,
                   diff_f       = ft.flin,
                   speed_Bs_est = [1.0, 0.0],
-                  diff_Bs_est  = [1.0, 0.0])
+                  diff_Bs_est  = [1.0, 0.0],
+                  dirr         = 'R-L')
 
     # outer params
     fixed_params_dict = {
-                'output_dir' : ['Hphase_small'],
-                'L'   : [15],
+                'output_dir' : ['Hphase'],
+                'L'   : [21],
                 'T'   : [60],
                 'S'   : [6],
-                'IC'  : ['f14'],
+                'IC'  : ['f20'],
                 'mode': ['sweep', 'block', 'alt'],
-                'BC'  : ['1'],
+                'BC'  : ['1_00'],
                  }
 
     #inner params

@@ -32,7 +32,6 @@ def gmix(row, js, n=2):
     for j, val in enumerate(row):
         distrib += [j]*int(1000*val)
 
-
     distrib = np.array(distrib)
     model = GMM(n).fit(distrib[:, np.newaxis])
     logprob, responsibilities = model.score_samples(js[:,np.newaxis])
@@ -104,16 +103,17 @@ def pdf_intersection(pdf0, pdf1, tol=1e-15):
 
 
 def plot_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj):
-    plt.scatter(js[[jmx_0, jmx_1]], pdf[[jmx_0, jmx_1]], c='g', marker='s')
-    plt.errorbar(js[mnj], pdf[mnj], yerr=0.05, c='k', marker='v')
+    #plt.scatter(js[[jmx_0, jmx_1]], pdf[[jmx_0, jmx_1]], c='g', marker='s')
+    #plt.errorbar(js[mnj], pdf[mnj], yerr=0.05, c='k', marker='v')
     plt.plot(row, alpha=0.8)
     plt.plot(js, pdf0, '--k')
     plt.plot(js, pdf1, '-k')
     plt.plot(js, pdf)	
 
+
 # Fit a function to rows of a grid
 # --------------------------------
-def fit_gmix(grid, n=2):
+def fit_gmix(grid, n=2, sds_frac=0.6):
     M1_0, M2_0, M1_1, M2_1, intersection = [], [], [], [], []
     for t, row in enumerate(grid):
         L = len(row)
@@ -125,7 +125,7 @@ def fit_gmix(grid, n=2):
             prev_means = [None, None]
 
         pdfs, means, sds, interaction = sort_pdf_comps(pdf_individual, means, sds,
-                                                 prev_means, t, t0_est=t0)
+                                            prev_means, t, sds_frac=sds_frac)
         prev_means = means
         pdf0, pdf1 = pdfs
         mean_ind_0, mean_ind_1 = map(int, means)
@@ -142,7 +142,7 @@ def fit_gmix(grid, n=2):
         M2_1.append(sds[1])
         intersection.append(int(js[mnj]))
 
-        #slice_fit__plot = plot_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj)
+        slice_fit_plot = plot_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj)
         #plt.show()
     return map(np.array, (M1_0, M1_1, M2_0, M2_1, intersection))
 
@@ -160,12 +160,12 @@ if __name__ == '__main__':
                 'S' : [6],
                 'mode': ['alt'],
                 'IC': ['f0'],
-                'BC': ['1'],
+                'BC': ['1_00']
                  }
 
     #inner params
     var_params_dict = {
-                'V' : ['HP_85'],
+                'V' : ['HP_80'],
                  }
 
     params_list_list = io.make_params_list_list(fixed_params_dict, var_params_dict)
@@ -181,14 +181,15 @@ if __name__ == '__main__':
             th = get_th(V)
 
             n = 2
+            sds_frac = 0.6
 
             grid = ms.get_diag_vecs(res['zz'][::])
             grid = 0.5 * (1.0 - grid)
 
             impact_t = np.argmax(grid[:,L-1])
 
-            M1_0, M1_1, M2_0, M2_1, intersection = fit_gmix(grid,
-                    t0=15, n=n)
+            M1_0, M1_1, M2_0, M2_1, intersection = \
+                    fit_gmix(grid, sds_frac=sds_frac, n=n)
 
             im = plt.imshow(grid, origin='lower', aspect=1, interpolation='none')
 
@@ -201,7 +202,7 @@ if __name__ == '__main__':
 
             plt.plot(ft.flin(Bs, range(impact_t+1)), range(impact_t+1), c='deeppink', lw=1.5)
 
-            plt.plot([j for j in range(L)], [cross_t]*(L), c='w')
+            #plt.plot([j for j in range(L)], [cross_t]*(L), c='w')
 
 
             Bs, chi2, Bs_sd = ft.f_fits(ft.flin, [1.0, 0.0],
@@ -215,5 +216,4 @@ if __name__ == '__main__':
 
 
             plt.plot(intersection, range(len(intersection)), c='w')
-            #plt.show()
-
+            plt.show()

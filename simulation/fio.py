@@ -177,7 +177,8 @@ def write_hdf5(fname, data_dict, force_rewrite=False):
             if not force_rewrite:
                 f[key][::] = dat
         if key not in f:
-            f.create_dataset(key, data=dat, dtype=dt)
+            f.create_dataset(key, data=dat, dtype=dt, compression='gzip',
+                    compression_opts=7)
     f.close()
     return res_size
 
@@ -211,12 +212,15 @@ def read_hdf5(fname, keys):
 
 # save multi page pdfs of plots
 # -----------------------------
-def multipage(fname, figs=None, clf=True, dpi=300):
+def multipage(fname, figs=None, clf=True, dpi=300, clip=True):
     pp = PdfPages(fname)
     if figs is None:
         figs = [plt.figure(fignum) for fignum in plt.get_fignums()]
     for fig in figs:
-        fig.savefig(pp, format='pdf', bbox_inches='tight')
+        if clip is True:
+            fig.savefig(pp, format='pdf', bbox_inches='tight')
+        else:
+            fig.savefig(pp, format='pdf')
         if clf==True:
             fig.clf()
     pp.close()

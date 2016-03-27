@@ -365,7 +365,7 @@ if __name__ == '__main__':
     import simulation.states as ss
     import simulation.measures as ms
     L = 7
-    IC = 'l0_2'
+    IC = 'G'
 
     js = [0,3,2]
     op = listkron( [ss.ops['X']]*(len(js)-1) + [ss.ops['H']] ) 
@@ -385,4 +385,4 @@ if __name__ == '__main__':
     final_Z_exp = [round(np.trace(r.dot(ss.ops['Z'])).real) for r in final_rj]
     print('final Z exp vals:', final_Z_exp) 
 
-    rdm_plot()
+    #rdm_plot()

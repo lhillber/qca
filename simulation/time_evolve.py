@@ -297,6 +297,10 @@ def run_sim(params, force_rewrite = False,
             for cut, dim in enumerate(rdm_dims):
                 data['bi_partite']['cut'+str(cut)] = np.zeros((T+1, dim, dim), dtype=complex)
 
+        if 'sbond' in sim_tasks:
+            data['sbond'] = np.zeros((T+1,L-1))
+            data['snum'] = np.zeros((T+1,L-1))
+
         # loop through quantum states
         for t, state in enumerate(time_evolve(params)):
             # store the entire initial state
@@ -324,6 +328,12 @@ def run_sim(params, force_rewrite = False,
                     rtc = mx.rdms(state, bi_partite_inds(L, cut))
                     data['bi_partite']['cut'+str(cut)][t] = rtc
 
+            if 'sbond' in sim_tasks:
+                for b in range(L-1):
+                    rtb = mx.rdms(state, bi_partite_inds(L, b))
+                    sbond, snum = ms.vn_entropy(rtb, get_snum=True)
+                    data['sbond'][t,b] = sbond
+                    data['snum'][t,b] = snum 
 
         if 'IPR' in sim_tasks:
             freqs, amps, rn = ms.make_ft(data['IPR'])

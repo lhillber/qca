@@ -28,12 +28,24 @@ mpl.rc('font',**font)
 def inner_title(ax, title, l=0.1, u=0.95): return ax.text(l, u, str(title),
         horizontalalignment='left', transform=ax.transAxes, fontsize=12)
 
+
+# helper function for latexed scientific notation in matplotlib
+# --------------------------------------------------------------
+def as_sci(x, ndp):
+    s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
+    m, e = s.split('e')
+    return r'{m:s}\times 10^{{{e:d}}}'.format(m=m, e=int(e))
+
+
 def make_V_name(V):
     if V in ['X', 'Y', 'Z']:
         name = '\sigma^{}'.format(V.lower())
     else:
         name = V
-    name = '('.join(name.split('_'))+')'
+    if V.split('_')[0][1] == 'P':
+        name = '('.join(name.split('_'))+'^\circ)'
+    else:
+        name = '('.join(name.split('_'))+')'
     return name
 
 def make_mode_name(mode):
@@ -77,7 +89,6 @@ def plot_grid(data, ax, nc=1,
                 interpolation = 'none',
                 aspect = '1',
                 rasterized = True,
-                extent=[0, L, span[0], span[1]],
                 **plot_kwargs)
 
     ax.set_title(title)
@@ -104,6 +115,7 @@ def plot_grid(data, ax, nc=1,
         plt.setp([ax.get_yticklabels()], visible=False)
     if not xtick_labels:
         plt.setp([ax.get_xticklabels()], visible=False)
+    return im
 
 # plot space or time averages of grids
 # -----------------------------------
@@ -177,7 +189,7 @@ def plot_grid_with_avgs(data, fignum=1, span=None, suptitle=''):
 
     data = (1.0-data)/2
 
-    plot_grid(data, axC, cbar=False,
+    im = plot_grid(data, axC, cbar=False,
             nx_ticks=5, xlabel='Site', ylabel='Iteration', span=span)
 
     plot_grid_avgs(data, axR, avg='center', rotate=True,
@@ -210,7 +222,7 @@ def plot_grids(grid_data, fignum=1, span=None, wspace=-0.25,
         ytick_labels=False
         if c == 0:
             ytick_labels=True
-        plot_grid(grid, ax,
+        im = plot_grid(grid, ax,
                 nc=nc,
                 ylabel=ylabel,
                 xlabel=xlabel,
@@ -529,7 +541,7 @@ def plot(params, corrj=None):
             titles=proj_titles)
 
     # this makes three figures
-    plot_grid_center_stats(proj_grids_stats, fignum=2, titles=prob_titles)
+    #plot_grid_center_stats(proj_grids_stats, fignum=2, titles=prob_titles)
 
     # plot two-point correlator w.r.t site corrj
     g2_titles = ['$g_2(\sigma^x_{%i},\sigma^x_k;t)$' % corrj,
@@ -548,8 +560,8 @@ def plot(params, corrj=None):
 
     # plot local and bond entropies
     entropies = [stj]
-    if 'sc' in results:
-        stc = results['sc'][::]
+    if 'sbond' in results:
+        stc = results['sbond'][::]
         entropies.append(stc)
 
     if len(entropies) == 2:
@@ -567,15 +579,15 @@ def plot(params, corrj=None):
     # plot probabilities of spin down and space/time averages
     plot_grid_with_avgs(z_grid, fignum=11, suptitle='average probability of measuring 1')
 
-    # plot mi measures and their FT's
+    # plot mi measures
     plot_measures(meas_dict, fignum=12)
 
     # plot measure Fourier transforms
     plot_measure_fts(Fmeas_dict, freqs, fignum=13)
 
     # plot distribution of mutual information over time
-    plot_edge_strength_contour(mtjk,
-            bins=60, rng=(0,.1), emax=150, fignum=14)
+    #plot_edge_strength_contour(mtjk,
+    #        bins=60, rng=(0,.1), emax=150, fignum=14)
 
 
 

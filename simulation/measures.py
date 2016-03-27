@@ -24,9 +24,15 @@ from sys import getsizeof
 
 # von Neumann entropy of reduced density matrix rho
 # -------------------------------------------------
-def vn_entropy(rho, tol=1e-14):
-    evals = sp.linalg.eigvalsh(rho)
-    s = -sum(el*log(el, 2) if el >= tol else 0.0  for el in evals)
+def vn_entropy(rho, tol=1e-12, get_snum=False):
+    if get_snum:
+        evals = sp.linalg.eigvalsh(rho)
+        s = -sum(el*log(el, 2) if el >= tol else 0.0  for el in evals)
+        snum = sum(el > tol for el in evals)
+        return s, snum
+    else:
+        evals = sp.linalg.eigvalsh(rho)
+        s = -sum(el*log(el, 2) if el >= tol else 0.0  for el in evals)
     return s
 
 # Autocorrelation function of vector x with lag h

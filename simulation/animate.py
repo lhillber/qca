@@ -61,16 +61,22 @@ def make_U_name(mode, S, V):
     return name
 
 
-deg_list = range(0, 185, 5)
 
+
+output_dir = 'fock_IC'
+data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/'
+#data_repo = None
+
+deg_list = range(0, 105, 15)
+deg_list = [0]
 fixed_params_dict = {
-            'output_dir' : ['Hphase'],
-            'L' : [21],
-            'T' : [60],
-            'IC': ['f0'],
+            'output_dir' : [output_dir],
+            'L' : [17],
+            'T' : [1000],
+            'IC': ['c3_f1'],
             'BC': ['1_00'],
             'mode': ['alt'],
-            'S' : [6]
+            'S' : [14]
              }
 
 var_params_dict = {
@@ -80,7 +86,7 @@ var_params_dict = {
 params_list_list = io.make_params_list_list(fixed_params_dict, var_params_dict)
 
 
-def plot_grid(grid, ax, span=[0,61], n_xticks = 4, n_yticks = 6):
+def plot_grid(grid, ax, span=[0,100], n_xticks = 4, n_yticks = 6):
     im = ax.imshow( grid,
                     origin = 'lower',
                     vmin = 0.0,
@@ -120,7 +126,7 @@ title_list = []
 
 n_xticks = 4
 n_yticks = 5
-span = [0, 61]
+span = [100, 200]
 for params_list in params_list_list:
     for params in params_list:
         output_dir = params['output_dir']
@@ -132,7 +138,14 @@ for params_list in params_list_list:
         IC = params['IC']
 
         title = make_U_name(mode, S, V)
-        res = h5py.File(io.default_file_name(params, 'data', '.hdf5'))
+
+        if data_repo is not None:
+            sname = io.sim_name(params)
+            res_path = data_repo + sname + '_v0.hdf5'
+        else:
+            res_path = io.default_file_name(params, 'data', '.hdf5')
+        
+        res = h5py.File(res_path)
 
         exp = ms.get_diag_vecs(res['zz'][::])
         s = res['s'][::]
@@ -171,6 +184,6 @@ anim = animation.FuncAnimation(fig, animate, init_func=init,
                                        frames=len(grid_list), interval=150)
 
 bn = io.base_name(output_dir, 'plots')
-anim.save(bn + 'L21_alt_zavg.mp4', fps=8, extra_args=['-vcodec', 'libx264'])
+#anim.save(bn + 'L21_alt_zavg.mp4', fps=8, extra_args=['-vcodec', 'libx264'])
 
 plt.show()
