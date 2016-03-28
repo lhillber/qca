@@ -140,6 +140,12 @@ def disparity(matrix):
     else: 
         return sum(numerator/denominator)
 
+def disparity(matrix):
+    l=len(matrix)
+    numerator=np.sum(matrix**2,axis=1)
+    denominator=np.sum(matrix, axis=1)**2
+    return (1/l*sum(numerator/(denominator+1j*1e-17))).real
+
 def disparitylattice(matrix):
     #Local disparity across the entire lattice.
     l=float(len(matrix))

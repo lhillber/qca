@@ -79,6 +79,7 @@ def make_typical_nm(L_list, IC_list, importQ=False):
     else:
         L_list_cp = L_list.copy()
         typical_nm = dict()
+        print('IC', 'L', 'ND', 'CC', 'Y')
         for IC in IC_list:
             typical_nm[IC] = dict()
             ND_list, CC_list, Y_list = [], [], []
@@ -94,13 +95,15 @@ def make_typical_nm(L_list, IC_list, importQ=False):
                 CC_list.append(CC)
                 Y = nm.disparity(mjk)
                 Y_list.append(Y)
-                print(IC, L, ND)
+                print(IC, L, ND, CC, Y)
             typical_nm[IC]['ND'] = np.array(ND_list)
             typical_nm[IC]['CC'] = np.array(CC_list)
             typical_nm[IC]['Y']  = np.array(Y_list)
             typical_nm[IC]['L']  = np.array(L_list_cp)
-            io.write_hdf5(bnd + fnamed, typical_nm, force_rewrite=True)
-        return typical_nm
+
+        typ_copy = typical_nm.copy()
+        io.write_hdf5(bnd + fnamed, typical_nm, force_rewrite=True)
+        return typ_copy
 
 
 def colorbar_index(colorbar_label, ncolors, cmap, val_min, val_max):
@@ -183,7 +186,7 @@ def plot_scatters(L_list, IC_list, typical_nm, fignum=1, saveQ=True):
 
 if __name__ == '__main__':
 
-    L_list=[4, 6, 8, 10,12,14,16, 18, 20, 22]
+    L_list=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
     IC_list=['G', 'W', 'c2_B0-1_3', 'sarray']
     obs_list_list = [['ND', 'CC'], ['ND', 'Y'], ['CC', 'Y']]
 
@@ -196,8 +199,8 @@ if __name__ == '__main__':
                           'Y' : r'$Y$',
                           'G' : r'$|GHZ\rangle$',
                           'W' : r'$|W\rangle$',
-                 'c2_B0-1_3'  : 'localized\n  singlet',
-                     'sarray' : 'singlet\n array'
+                 'c2_B0-1_3'  : 'localized singlet',
+                     'sarray' : 'singlet array'
                         }
 
 
@@ -205,6 +208,38 @@ if __name__ == '__main__':
     #plot_scatters(L_list, IC_list, typical_nm)
 
 
+    def MI_W(L):
+       return  1/2*(2*(-(1-1/L)*np.log2(1-1/L) - 1/L*np.log2(1/L))\
+        +2/L*np.log2(2/L) + (1-2/L)*np.log2(1-2/L))
+
+    def MI_GHZ(L):
+       return -(1-1/L)*np.log2(1-1/L) - 1/L*np.log2(1/L)
+
+    def nm_exact(IC, obs, L):
+        f_map = {'G':
+                     {'ND' : 0.5 +0*L,
+                      'CC' : 0.5 +0*L,
+                       'Y' : 1/(L-1)},
+                 'W':
+                     {'ND' : MI_W(L),
+                      'CC' : MI_W(L),
+                       'Y' : 1/(L-1)},
+         'c2_B0-1_3':
+                     {'ND' : 2/(L*(L-1)),
+                      'CC' : 0+0*L,
+                       'Y' : 2/L},
+            'sarray':
+                     {'ND' : 1/(L-1),
+                      'CC' : 0+0*L,
+                       'Y' : 1.0 +0*L}
+                }
+        return f_map[IC][obs]
+
+
+    def plot_semilogy(x, y, ax):
+        ax.semilogy(x,y)
+        plt.setp([ax.get_xticklabels()], visible=True)
+        ax.xaxis.major.locator.set_params(nbins=6)
 
 
     def plot_loglog_fit(x, y, ax):
@@ -213,21 +248,24 @@ if __name__ == '__main__':
             x = np.array(x)
             return m*x + b
 
-        # chi squared of fit
-        chi2 = np.sum((10**lin_fit(np.log10(x)) - y) ** 2)
+            # chi squared of fit
+            chi2 = np.sum((10**lin_fit(np.log10(x)) - y) ** 2)
 
-        # plot
-        ax.plot(x, 10**lin_fit(np.log10(x)),'-r', label='fit')
-        ax.loglog(x, y,'xk',markersize=4, linewidth='0.01', label='data')
+            # plot
+            ax.plot(x, 10**lin_fit(np.log10(x)),'-r', label='fit')
+            ax.loglog(x, y,'sk', alpha=0.6, markersize=4, linewidth='0.01', label='data')
 
-        ax.set_title(' $m= {:.3f}$ $b= {:.3f}$ \n$\chi^2 =\
-                {:s}$'.format(m, b, pt.as_sci(chi2, 3)),fontsize=10)
-        ax.set_xlim([3, max(x)+4])
+            ax.set_title(' $m= {:.3f}$,  $b= {:.3f}$ \n$\chi^2 =\
+                    {:s}$'.format(m, b, pt.as_sci(chi2, 3)),fontsize=10)
+            ax.set_xlim([3, max(x)+4])
+
 
     def plot_nmVsL(L_list, IC_list, typical_nm, fignum=2, saveQ=False):
-        fig = plt.figure(fignum, figsize=(7,8))
-        obs_list_flat = list(set([obs for obs_list in obs_list_list 
-                                      for obs in obs_list]))
+        fig = plt.figure(fignum, figsize=(7,8.5))
+        #obs_list_flat = list(set([obs for obs_list in obs_list_list 
+        #                              for obs in obs_list]))
+        obs_list_flat = ['ND', 'CC', 'Y']
+        letters = {0:'a', 1:'b', 2:'c', 3:'d'}
         M = len(IC_list)
         N = len(obs_list_flat)
         for m, IC in enumerate(IC_list):
@@ -235,41 +273,41 @@ if __name__ == '__main__':
                 i = 1+m*(M-1) + n
                 ax = fig.add_subplot(M,N,i)
                 x = typical_nm[IC]['L']
+                xs = np.linspace(min(x), max(x),100)
                 y = typical_nm[IC][obs]
+                ys = nm_exact(IC, obs, xs)
+                error = max(np.abs(y - nm_exact(IC, obs, x[:])))
                 if m != M-1:
                     pass
                     #plt.setp([ax.get_xticklabels()], visible=False)
                 if np.std(y)<1e-10:
-                    if np.mean(y) < 1e-14:
-                        ax.plot(x,[0]*len(x))
-                        ax.set_title(pretty_names_dict[obs]+r'$ = 0$',
-                                fontsize=10)
-                        plt.setp([ax.get_xticklabels()], visible=True)
-                        ax.xaxis.major.locator.set_params(nbins=6)
-                        ax.yaxis.major.locator.set_params(nbins=5)
-                    else:
-                        ax.plot(x,[np.mean(y)]*len(x))
-                        ax.set_title(pretty_names_dict[obs]+r'$ = '+
-                                str(np.mean(y))+r'$', fontsize=10)
-                        plt.setp([ax.get_xticklabels()], visible=True)
-                        ax.xaxis.major.locator.set_params(nbins=6)
-                        ax.yaxis.major.locator.set_params(nbins=5)
-                else:
-                    plot_loglog_fit(x, y, ax)
-                    #ax.semilogx(x,y)
-                if n == 0:
+                    ax.set_ylim(np.mean(y)-0.1, np.mean(y)+0.1)
+                #plot_loglog_fit(x, y, ax)
+                #plot_semilogy(x, y, ax)
+                ax.plot(x,y, 'ok', alpha=0.6, markersize=4)
+                plt.setp([ax.get_xticklabels()], visible=True)
+                ax.xaxis.major.locator.set_params(nbins=6)
+                ax.yaxis.major.locator.set_params(nbins=6)
+                ax.plot(xs, ys, '-k', alpha=0.7)
 
-                    ax.text(0-0.5, 1.2, pretty_names_dict[IC],
-	                transform=ax.transAxes, fontsize=12)
-                    pass
-                    #ax.set_title(pretty_names_dict[IC]+':', x=-0.05, y=1.17)
+                ax.set_title('$\mathrm{error}_\mathrm{max} = 0$' , fontsize=12)
+                if error != 0:
+                    ax.set_title('$\mathrm{error}_\mathrm{max} = ' +
+                            pt.as_sci(error,1)+'$', fontsize=12)
+                if n == 0:
+                    ax.text(-0.5, 1.25, '('+letters[m]+')  '+pretty_names_dict[IC],
+	                transform=ax.transAxes, fontsize=13)
+
                 ax.set_ylabel(pretty_names_dict[obs])
                 if m == M-1:
                     ax.set_xlabel(r'$L$')
-        fig.subplots_adjust(hspace=1, wspace=0.8)
+
+                ax.margins(0.1)
+        fig.subplots_adjust(hspace=0.8, wspace=0.7, left=0.13, right=.98,
+                top=.94, bottom=.05)
         if saveQ:
             bnp = io.base_name('typical_nm', 'plots')
-            fnamep = 'nmVsL_loglog.pdf'
+            fnamep = 'nmVsL.pdf'
             io.multipage(bnp + fnamep, clip=False)
         else:
             plt.show()

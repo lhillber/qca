@@ -306,53 +306,15 @@ if __name__ == '__main__':
     import simulation.time_evolve as te
     import matplotlib.pyplot as plt
 
-    ND_list = []
-    Y_list = []
-    CC_list = []
-    IPR_list = []
-    L_list = range(2, 15)
-    for L in L_list:
-        T = 0
-        IC = 'B0-'+str(L-1)+'_3'
-        state = make_state(L, IC)
-        one_site = np.zeros((T+1, L, 2, 2), dtype = complex)
-        s = np.zeros((T+1, L), dtype = complex)
-        two_site = np.zeros((T+1, L, L, 4, 4), dtype = complex)
-        for t in range(T+1):
-            for j in range(L):
-                rtj = mx.rdms(state, [j])
-                stj = ms.vn_entropy(rtj)
-                one_site[t, j] = rtj[::]
-                s[t, j] = stj
-                for k in range(j+1, L):
-                    rtjk = mx.rdms(state, [j, k])
-                    two_site[t, j, k] = two_site[t, k, j] = rtjk[::]
-        results = {'one_site': one_site, 'two_site' : two_site, 's':s}
-
-        results['IPR'] = te.inv_participation_ratio(L, state)
-
-        ms.moments_calc(results, L, T)
-        ms.g_calc(results, L, T)
-        ms.mtjk_calc(results, L, T)
-        ms.nm_calc(results, L, T)
-
-        ND_list = ND_list + list(results['ND'])
-        CC_list = CC_list + list(results['CC'])
-        Y_list  = Y_list  + list(results['Y'])
-        IPR_list = IPR_list + list([results['IPR']])
-
-    plt.plot(L_list, ND_list)
-    plt.plot(L_list[1::], CC_list[1::])
-    plt.plot(L_list, Y_list)
-    #plt.plot(L_list, IPR_list)
-    plt.show()
+    ic = make_state(2,'B0-1_3')
+    state = mx.listkron([ic]*10)
+    rho12 = mx.rdms(state, [3,4])
+    print(ms.vn_entropy(rho12))
 
     '''
     L_list = [4]
-
     # spin down (or |1>) at sites 0 and 2 spin up (or |0>) at 1 and 3
     IC_list = ['f0-2']
-
     for L, IC in zip(L_list, IC_list):
         print ("L = ", str(L), " IC = ", str(IC) )
         print('Expect spin down (or |1>) at sites 0 and 2. Spin up (or |0>) at 1 and 3')
