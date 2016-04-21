@@ -71,12 +71,12 @@ deg_list = range(0, 105, 15)
 deg_list = [0]
 fixed_params_dict = {
             'output_dir' : [output_dir],
-            'L' : [17],
+            'L' : [13],
             'T' : [1000],
             'IC': ['c3_f1'],
             'BC': ['1_00'],
             'mode': ['alt'],
-            'S' : [14]
+            'S' : [6]
              }
 
 var_params_dict = {
@@ -89,8 +89,9 @@ params_list_list = io.make_params_list_list(fixed_params_dict, var_params_dict)
 def plot_grid(grid, ax, span=[0,100], n_xticks = 4, n_yticks = 6):
     im = ax.imshow( grid,
                     origin = 'lower',
-                    vmin = 0.0,
-                    vmax = 1.0,
+                    cmap=plt.cm.gray,
+                    vmin = np.mean(grid) - 1/2*np.std(grid),
+                    vmax = np.mean(grid) + np.std(grid),
                     interpolation = 'none',
                     aspect = '1',
                     rasterized = True)
@@ -126,7 +127,10 @@ title_list = []
 
 n_xticks = 4
 n_yticks = 5
-span = [100, 200]
+t_span=[0,500]
+slider = 100
+dt=1
+span = [0, dt]
 for params_list in params_list_list:
     for params in params_list:
         output_dir = params['output_dir']
@@ -136,29 +140,28 @@ for params_list in params_list_list:
         T = params['T']
         L = params['L']
         IC = params['IC']
-
         title = make_U_name(mode, S, V)
-
         if data_repo is not None:
             sname = io.sim_name(params)
             res_path = data_repo + sname + '_v0.hdf5'
         else:
             res_path = io.default_file_name(params, 'data', '.hdf5')
-        
         res = h5py.File(res_path)
-
-        exp = ms.get_diag_vecs(res['zz'][::])
+        exp = ms.get_diag_vecs(res['xx'][::])
         s = res['s'][::]
-        grid = exp[span[0]:span[1], 0:L]
-
-        grid_list.append(grid)
-
-        title_list.append(title)
+        M = res['m']
+        g2 = res['gxx'][::]
 
 
-
-
-
+        L = len(res['sbond'][1])
+        print(L)
+        sb = res['sbond'][::] 
+        sb /= [min(c+1, L-c) for c in range(L)]
+        for t in range(t_span[0], t_span[1], dt):
+            print(t)
+            grid = sb[0+t:slider+t,::]
+            grid_list.append(grid)
+            title_list.append(title)
 
 fig = plt.figure(figsize=(2,3))
 ax = fig.add_subplot(111)

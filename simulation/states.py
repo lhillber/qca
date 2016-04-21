@@ -272,6 +272,13 @@ def rand_state(L, config):
     return mx.listkron([state_dict[i] for i in distrib])
 
 
+def random_throw(L, config):
+    np.random.seed(int(config))
+    state = np.random.rand(2**L, 2)
+    state = state.view(dtype=np.complex128)[...,0]
+    state = state/np.sqrt(np.conj(state).dot(state))
+    return state 
+
 # kronecker the states in the distribution and return
 
 # Make the specified state
@@ -280,6 +287,7 @@ smap = { 'f' : fock,
          'c' : center,
          's' : spin_wave,
          'r' : rand_state,
+         'R' : random_throw,
          'G' : GHZ,
          'W' : W,
          'B' : Bell }
@@ -306,9 +314,8 @@ if __name__ == '__main__':
     import simulation.time_evolve as te
     import matplotlib.pyplot as plt
 
-    ic = make_state(2,'B0-1_3')
-    state = mx.listkron([ic]*10)
-    rho12 = mx.rdms(state, [3,4])
+    state = make_state(4,'B0-1_3')
+    rho12 = mx.rdms(state, [0,1])
     print(ms.vn_entropy(rho12))
 
     '''

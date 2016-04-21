@@ -19,6 +19,7 @@ import simulation.fio             as io
 import simulation.plotting             as pt
 import simulation.networkmeasures as nm
 
+from itertools import cycle
 import matplotlib        as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm     as cm
@@ -53,6 +54,7 @@ def mutual_info_calc(state):
                 mjk[k,j] = 0.5 * (sj[j] + sj[k] - sjk[j,k])
     return mjk
 
+
 def get_state(L, IC):
     if IC == 'sarray':
         if L%2 == 0:
@@ -60,19 +62,19 @@ def get_state(L, IC):
             ic = 'B0-1_0'
             singlet = ss.make_state(l, ic)
             state = mx.listkron([singlet]*int(L/2))
-            cont = False
         else:
             print('singlet array requires even L: L='+str(L))
-            cont = True
-            state = 0
+            l=2
+            ic = 'B0-1_0'
+            singlet = ss.make_state(l, ic)
+            state = mx.listkron([singlet]*int((L-1)/2) + [ss.bvecs['0']])
     else:
         state = ss.make_state(L, IC)
-        cont = False
-    return state, cont
+    return state
 
-def make_typical_nm(L_list, IC_list, importQ=False):
+def make_typical_nm(L_list, IC_list, importQ=False, nsamp=300):
     bnd = io.base_name('typical_nm', 'data')
-    fnamed = 'typical_net_meas.hdf5'
+    fnamed = 'typical_net_meas_rand.hdf5'
     if importQ:
         typical_nm = h5py.File(bnd+fnamed)
         return typical_nm
@@ -84,17 +86,26 @@ def make_typical_nm(L_list, IC_list, importQ=False):
             typical_nm[IC] = dict()
             ND_list, CC_list, Y_list = [], [], []
             for i, L in enumerate(L_list):
-                state, cont = get_state(L, IC)
-                if cont:
-                    L_list_cp.remove(L)
-                    continue
-                mjk = mutual_info_calc(state)
-                ND = nm.density(mjk)
-                ND_list.append(ND)
-                CC = nm.clustering(mjk)
-                CC_list.append(CC)
-                Y = nm.disparity(mjk)
+                if IC == 'R':
+                    ND, CC, Y = 0, 0 ,0
+                    mjk = np.zeros((L,L))
+                    for s in range(nsamp):
+                        IC_tmp = IC +str(s)
+                        state = get_state(L, IC_tmp)
+                        mjk += mutual_info_calc(state)/nsamp
+                        ND  += nm.density(mjk)/nsamp
+                        CC  += nm.clustering(mjk)/nsamp
+                        Y   += nm.disparity(mjk)/nsamp
+                else:
+                    state = get_state(L, IC)
+                    mjk = mutual_info_calc(state)
+                    ND  = nm.density(mjk)
+                    CC  = nm.clustering(mjk)
+                    Y   = nm.disparity(mjk)
+
                 Y_list.append(Y)
+                CC_list.append(CC)
+                ND_list.append(ND)
                 print(IC, L, ND, CC, Y)
             typical_nm[IC]['ND'] = np.array(ND_list)
             typical_nm[IC]['CC'] = np.array(CC_list)
@@ -115,7 +126,7 @@ def colorbar_index(colorbar_label, ncolors, cmap, val_min, val_max):
     colorbar.set_ticks(np.linspace(0, ncolors, ncolors))
     colorbar.set_ticklabels(list(map(int, np.linspace(int(val_min),
         int(val_max), ncolors))))
-    colorbar.set_labe(colorbar_label)
+    colorbar.set_label(colorbar_label)
 
 
 def cmap_discretize(cmap, N):
@@ -133,8 +144,9 @@ def cmap_discretize(cmap, N):
 
 
 def make_c_list(IC, L_list, typical_nm):
+    print(typical_nm)
     c_full = np.array(L_list)/max(L_list)
-    c = typical_nm[IC]['L']/max(L_list)
+    c = typical_nm[IC]['L'][::]/max(L_list)
     return c, c_full
 
 
@@ -144,15 +156,14 @@ def scatter_plot(fig, typical_nm, obs_list, IC, c, c_full, i, cmap=cm.jet):
     y_key = obs_list[1]
     x = typical_nm[IC][x_key]
     y = typical_nm[IC][y_key]
-
     ax.scatter(x, y, 
             marker=IC_marker_dict[IC],
-            label=pretty_names_dict[IC],
+            label=pretty_names_dict(IC),
             s=70, alpha=1, c=c, cmap=cmap, linewidth='0.00000001',
             vmin=min(c_full), vmax=max(c_full))
 
-    ax.set_xlabel(pretty_names_dict[x_key])
-    ax.set_ylabel(pretty_names_dict[y_key])
+    ax.set_xlabel(pretty_names_dict(x_key))
+    ax.set_ylabel(pretty_names_dict(y_key))
     ax.xaxis.major.locator.set_params(nbins=6)
     ax.yaxis.major.locator.set_params(nbins=6)
     ax.margins(0.1)
@@ -161,16 +172,16 @@ def scatter_plot(fig, typical_nm, obs_list, IC, c, c_full, i, cmap=cm.jet):
 
 def plot_config(fig, ax, L_list, IC_list):
     legend = ax.legend(frameon=False, scatterpoints=1,
-            loc='lower right', fontsize=11, bbox_to_anchor=(2.6, -0.08),
+            loc='lower right', fontsize=11, bbox_to_anchor=(3.3, 0.08),
             markerscale=0.8, handletextpad=0.1)
     for i in range(len(IC_list)):
         legend.legendHandles[i].set_color('k')
     colorbar_index(r'$L$', ncolors=len(L_list), cmap=cmap,
             val_min=min(L_list), val_max=max(L_list))
-    fig.subplots_adjust(wspace=0.5, right=0.8)
+    fig.subplots_adjust(wspace=0.6, right=0.8)
 
 def plot_scatters(L_list, IC_list, typical_nm, fignum=1, saveQ=True):
-    fig = plt.figure(fignum, figsize=(9,3))
+    fig = plt.figure(fignum, figsize=(7, 2))
     for IC in IC_list:
         c, c_full = make_c_list(IC, L_list, typical_nm)
         for i, obs_list in enumerate(obs_list_list):
@@ -179,32 +190,37 @@ def plot_scatters(L_list, IC_list, typical_nm, fignum=1, saveQ=True):
 
     if saveQ:
         bnp = io.base_name('typical_nm', 'plots')
-        fnamep = 'typical_net_meas.pdf'
+        fnamep = 'typical_net_meas_rand.pdf'
         io.multipage(bnp + fnamep, clip=True)
     else:
         plt.show()
 
 if __name__ == '__main__':
-
-    L_list=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
-    IC_list=['G', 'W', 'c2_B0-1_3', 'sarray']
+    
+    importQ=True
+    L_list=[11, 14, 17, 20]
+    IC_list=['G', 'W', 'c2_B0-1_3', 'sarray', 'R']
     obs_list_list = [['ND', 'CC'], ['ND', 'Y'], ['CC', 'Y']]
-
-
     cmap = cm.gist_rainbow_r
-    marker_list = ['s','o','^','v']
-    IC_marker_dict = dict(zip(IC_list, marker_list))
-    pretty_names_dict = {'ND' : r'$ND$',
-                         'CC' : r'$CC$',
-                          'Y' : r'$Y$',
+    marker_list = ['s','o','^','v','*']
+    IC_marker_dict = dict(zip(IC_list, cycle(marker_list)))
+
+    def pretty_names_dict(key):
+        pn = {           'ND' : r'$\mathcal{D}$',
+                         'CC' : r'$\mathcal{C}$',
+                          'Y' : r'$\mathcal{Y}$',
                           'G' : r'$|GHZ\rangle$',
                           'W' : r'$|W\rangle$',
                  'c2_B0-1_3'  : 'localized singlet',
-                     'sarray' : 'singlet array'
+                     'sarray' : 'singlet array',
+                          'R' : 'random state'
                         }
+        if key[0] == 'R':
+            key = 'R'
+        return pn[key]
 
-
-    typical_nm = make_typical_nm(L_list, IC_list, importQ=True)
+    typical_nm = make_typical_nm(L_list, IC_list, importQ=importQ)
+    print(typical_nm)
     #plot_scatters(L_list, IC_list, typical_nm)
 
 
@@ -231,7 +247,11 @@ if __name__ == '__main__':
             'sarray':
                      {'ND' : 1/(L-1),
                       'CC' : 0+0*L,
-                       'Y' : 1.0 +0*L}
+                       'Y' : 1.0 +0*L},
+
+                'R': {'ND' : 0,
+                      'CC' : 0,
+                       'Y' : 0}
                 }
         return f_map[IC][obs]
 
@@ -269,6 +289,9 @@ if __name__ == '__main__':
         M = len(IC_list)
         N = len(obs_list_flat)
         for m, IC in enumerate(IC_list):
+            if IC[0] == 'R':
+                print(enter)
+                IC = 'R'
             for n, obs in enumerate(obs_list_flat):
                 i = 1+m*(M-1) + n
                 ax = fig.add_subplot(M,N,i)
@@ -295,10 +318,10 @@ if __name__ == '__main__':
                     ax.set_title('$\mathrm{error}_\mathrm{max} = ' +
                             pt.as_sci(error,1)+'$', fontsize=12)
                 if n == 0:
-                    ax.text(-0.5, 1.25, '('+letters[m]+')  '+pretty_names_dict[IC],
+                    ax.text(-0.5, 1.25, '('+letters[m]+')  '+pretty_names_dict(IC),
 	                transform=ax.transAxes, fontsize=13)
 
-                ax.set_ylabel(pretty_names_dict[obs])
+                ax.set_ylabel(pretty_names_dict(obs))
                 if m == M-1:
                     ax.set_xlabel(r'$L$')
 
@@ -307,10 +330,10 @@ if __name__ == '__main__':
                 top=.94, bottom=.05)
         if saveQ:
             bnp = io.base_name('typical_nm', 'plots')
-            fnamep = 'nmVsL.pdf'
+            fnamep = 'nmVsL_rand.pdf'
             io.multipage(bnp + fnamep, clip=False)
         else:
             plt.show()
 
-
-    plot_nmVsL(L_list, IC_list, typical_nm, fignum=2, saveQ=True)
+    plot_scatters(L_list, IC_list, typical_nm, fignum=1, saveQ=True)
+    #plot_nmVsL(L_list, IC_list, typical_nm, fignum=2, saveQ=True)

@@ -14,7 +14,13 @@ import scipy.sparse as sps
 import time
 import matplotlib.pyplot as plt
 from os import environ
+import simulation.fio as io
 
+import matplotlib as mpl
+font = {'size':12, 'weight' : 'normal'}
+mpl.rcParams['mathtext.fontset'] = 'stix'
+mpl.rcParams['font.family'] = 'STIXGeneral'
+mpl.rc('font',**font)
 # concatinate two dictionaries (second arg replaces first if keys in common)
 # --------------------------------------------------------------------------
 def concat_dicts(d1, d2):
@@ -89,10 +95,10 @@ def op_on_state(meso_op, js, state, ds = None):
     rest = np.setdiff1d(np.arange(L), js)
     ordering = list(rest) + list(js)
 
-    new_state = state.reshape(ds).transpose(ordering)\
+    state = state.reshape(ds).transpose(ordering)\
             .reshape(dL/dn, dn).dot(meso_op).reshape(ds)\
             .transpose(np.argsort(ordering)).reshape(dL)
-    return new_state
+    return state
 
 # partial trace of a state vector, js are the site indicies kept
 # --------------------------------------------------------------
@@ -234,11 +240,12 @@ def big_mat(local_op_list, js, state):
 def comp_plot():
     from math import sqrt
     j=0
-    LMAX = 26
-    LMax = 21
+    LMAX = 28
+    LMax = 18
     Lmax = 13
+    n_flips_list = [3]
 
-    for color, n_flips in zip(['r', 'g', 'b', 'k', 'c','w'], [3]):
+    for color, n_flips in zip(['r', 'g', 'b', 'k', 'c','w'], n_flips_list):
         js = range(j, j+n_flips)
         Llist = range(j + n_flips, LMAX)
         lop = ss.ops['X']
@@ -255,37 +262,34 @@ def comp_plot():
 
         for L in Llist:
             print('L=',L)
-            init_state = ss.make_state(L, 'l0')
+            init_state = ss.make_state(L, 'f0')
             nbyts = init_state.nbytes
             print(nbyts/1e9)
             mem_list = np.append(mem_list, nbyts)
 
             ta_list = np.append(ta_list, time.time())
-            state2 = op_on_state(mop, js, init_state)
+            op_on_state(mop, js, init_state)
             tb_list = np.append(tb_list, time.time())
 
             if L < LMax:
                 tc_list = np.append(tc_list, time.time())
-                state1 = op_on_state2(mop, js, init_state)
+                op_on_state2(mop, js, init_state)
                 td_list = np.append(td_list, time.time())
-                del state1
                 #print('V2=V1:', np.array_equal(state2, state1))
 
             if L < Lmax: 
                 te_list = np.append(te_list, time.time())
-                state0 = big_mat(lops, js, init_state)
+                big_mat(lops, js, init_state)
                 tf_list = np.append(tf_list, time.time())
                 #print('V2=V0:', np.array_equal(state2, state0))
                 #print('V1=V0:', np.array_equal(state1, state0))
                 #print()
-                del state0
 
-            del state2
             del init_state
 
-        fig = plt.figure(1)
-        t_ax = fig.add_subplot(211)
-        m_ax = fig.add_subplot(212, sharex=t_ax)
+        fig = plt.figure(1, (7, 2.5))
+        t_ax = fig.add_subplot(111)
+        #m_ax = fig.add_subplot(212, sharex=t_ax)
         t_ax.plot(Llist, tb_list - ta_list, '-o', 
                  color = color, label='V2')
         t_ax.plot(range(j+n_flips, LMax), td_list - tc_list, '-s', 
@@ -293,24 +297,26 @@ def comp_plot():
         t_ax.plot(range(j+n_flips, Lmax), tf_list - te_list, '-^', 
                  color = color, label='V0')
 
-        m_ax.plot(Llist, mem_list)
+        #m_ax.plot(Llist, mem_list)
     t_ax.set_yscale('log')
     t_ax.set_xlabel('number of sites [L]')
     t_ax.set_ylabel('computation time [s]')
     t_ax.set_title('Application of 3-site operator')
     t_ax.grid('on')
     t_ax.legend(loc = 'upper left')
+    t_ax.set_ylim([0.5e-4, 5])
+    t_ax.set_xlim([2, 26])
 
+    '''
     m_ax.set_yscale('log')
     m_ax.set_xlabel('number of sites [L]')
     m_ax.set_ylabel('memory required [bytes]')
     m_ax.set_title('Size of state vector')
     m_ax.grid('on')
+    '''
     plt.tight_layout()
-    plt.savefig(environ['HOME'] +
-            '/documents/research/cellular_automata/qeca/qca_notebook/notebook_figs/'+'numba_timing'+'.pdf', 
-            format='pdf', dpi=300, bbox_inches='tight')
-
+    plots_fname = io.base_name('timing', 'plots')+'3-site_op_timing2.pdf'
+    io.multipage(plots_fname)
 
 
 def rdm_plot():
@@ -365,7 +371,7 @@ if __name__ == '__main__':
     import simulation.states as ss
     import simulation.measures as ms
     L = 7
-    IC = 'G'
+    IC = 'f0'
 
     js = [0,3,2]
     op = listkron( [ss.ops['X']]*(len(js)-1) + [ss.ops['H']] ) 
@@ -386,3 +392,4 @@ if __name__ == '__main__':
     print('final Z exp vals:', final_Z_exp) 
 
     #rdm_plot()
+    comp_plot()

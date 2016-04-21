@@ -8,7 +8,7 @@ import simulation.measures as ms
 import numpy as np
 import h5py
 
-font = {'size':10, 'weight' : 'normal'}
+font = {'size':12, 'weight' : 'normal'}
 mpl.rcParams['mathtext.fontset'] = 'stix'
 mpl.rcParams['font.family'] = 'STIXGeneral'
 mpl.rc('font',**font)
@@ -43,28 +43,33 @@ def make_U_name(mode, S, V):
     return name
 
 if __name__ == '__main__':
+    output_dir = 'fock_IC'
+    data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/'
+    #data_repo=None
     for modee in ['alt']:
         fixed_params_dict = {
-                    'output_dir' : ['fock_IC'],
-                    'L' : [17],
+                    'output_dir' : [output_dir],
+                    'L' : [13],
                     'T' : [1000],
-                    'IC': ['f0'],
+                    'IC': ['c3_f1'],
                     'BC': ['1_00'],
                     'mode': [modee],
-                    'S' : [12]
+                    'V' : ['HP_90']
                      }
 
         var_params_dict = {
-                    'V' : ['HP_0']
+                    'S' : range(1,16)
                      }
 
 
         params_list_list = io.make_params_list_list(fixed_params_dict, var_params_dict)
 
-        span = [0, 1000]
-        nr = len(params_list_list)
-        gs = gridspec.GridSpec(nr,3)
-        fig = plt.figure(figsize=(4.0,3.7))
+        span = [1000-40, 1001]
+        #nr = len(params_list_list)
+        nr = 3
+        nc = 5
+        fig = plt.figure(figsize=(6.5,8.5))
+        i = 0
         for r, params_list in enumerate(params_list_list):
             for c, params in enumerate(params_list):
                 mode = params['mode']
@@ -73,45 +78,55 @@ if __name__ == '__main__':
                 T = params['T']
                 L = params['L']
                 output_dir = params['output_dir']
+                ax = fig.add_subplot(nr, nc, i+1)
+                i+=1
 
-                ax = fig.add_subplot(gs[r,c])
 
-                print(io.default_file_name(params, 'data', '.hdf5'))
-                res = h5py.File(io.default_file_name(params, 'data', '.hdf5'))
+                if data_repo is not None:
+                    sname = io.sim_name(params)
+                    res_path = data_repo + sname + '_v0.hdf5'
+                else:
+                    res_path = io.default_file_name(params, 'data', '.hdf5')
+
+                res = h5py.File(res_path)
                 exp = ms.get_diag_vecs(res['zz'][::])
 
                 Ptj = exp
-                Ptj = res['s'][::]
+                #Ptj = ((1.0 - exp)/2.0)[span[0]:span[1], 0:L]
 
-                Ptj = ((1.0 - exp)/2.0)[span[0]:span[1], 0:L]
+                Ptj = res['sbond'][span[0]:span[1],::]
+                L = len(Ptj[1])
+                Ptj /= [min(c+1, L-c) for c in range(L)]
+
                 xlabel, ylabel = '', ''
                 xtick_labels = False
 
-                title = make_U_name(mode, S, V)
+                #title = make_U_name(mode, S, V)
+                title = r'$S=$'+str(S)
                 y_tick_labels = ['']*(span[1] - span[0])
                 x_tick_labels = ['']*L
-                xlabel = 'Site'
+                xlabel = ''
                 if r == 0:
                     xlabel =''
-                if r == nr - 1:
-                    title = ''
+                if i in (11, 12, 13, 14, 15):
                     x_tick_labels = range(L)
-                if c == 0:
+                    xlabel='cut [c]'
+                if i in (1, 6, 11):
                     ylabel = 'Iteration'
                     y_tick_labels = range(*span)
 
-                im = ax.imshow( Ptj,
+                im = ax.imshow(Ptj,
                             origin = 'lower',
                             vmax = 1,
                             interpolation = 'none',
-                            aspect = 'auto',
+                            aspect = '1',
                             rasterized = True)
 
-                ax.set_title(title, fontsize=9)
+                ax.set_title(title, fontsize=10)
                 ax.set_ylabel(ylabel)
                 ax.set_xlabel(xlabel)
 
-                n_xticks = 3
+                n_xticks = 4
                 delta = max(1, int(len(x_tick_labels)/n_xticks))
                 ax.set_xticks(range(0, len(x_tick_labels), delta ))
                 ax.set_xticklabels(x_tick_labels[::delta])
@@ -124,15 +139,19 @@ if __name__ == '__main__':
             im_ext = im.get_extent()
             box = ax.get_position()
            # cax = plt.axes([box.x1+0.01, box.y0, 0.02, box.height - 0.03])
-           # cb = plt.colorbar(im, cax = cax, ticks = [0.0,0.5, 1.0])
+            cax = plt.axes([box.x1-0.03, box.y0, 0.02, box.height - 0.01])
+            cb = plt.colorbar(im, cax = cax, ticks = [0.0,0.5, 1.0])
            # cb.ax.tick_params(labelsize=9)
            # cb.set_label(r'$s_j$', rotation=0, labelpad = -24, y=1.12)
+            cb.set_label(r'$s^{\mathrm{bond}}$', rotation=0, labelpad = -24,
+                    y=1.08)
            # cb.set_label(r'$P_1(j,t)$', rotation=0, labelpad = -22, y=1.10)
         #cax = plt.axes([box.x1-0.05, box.y0+0.2, 0.02, box.height + 0.02])
         #cb = plt.colorbar(im, cax = cax)
-        #cb.set_label(r'$P_1(j,t)$', rotation=0, labelpad = -18, y=1.13)
-        fig.subplots_adjust(wspace=-0.4, hspace=0.1)
+        fig.subplots_adjust(wspace=-0.4, hspace=0.2)
 
         bn = io.base_name(output_dir,'plots')
-        #plt.savefig(bn+params['mode']+'_traj_comp.pdf', bbox_inches='tight', dpi=300)
-        plt.show()
+        #plt.savefig(bn+params['mode']+'_sbond_comp.pdf',
+        #        dpi=300, clip=True)
+        io.multipage(bn+params['mode']+'_sbond_comp_late_th90.pdf')
+        #plt.show()
