@@ -48,47 +48,39 @@ def autocorr(x, h=1):
 
 # Red noise as a function of frequency for power spectrum amps
 # ------------------------------------------------------------
-def red_noise(amps, dt=1, h=1):
-    acorr = autocorr(amps, h=h)
-    # log base 10 or base e? Check 2pi?, abs?
+def red_noise(time_series, dt=1, h=1):
+    a1 = autocorr(time_series, h=1)
+    a2 = autocorr(time_series, h=2)
+    a = 0.5 * (a1 + np.sqrt(a2))
+    #acl = [autocorr(time_series, h=d) for d in range(1,int(len(time_series)/2))]
+    #plt.plot(range(len(acl)), acl)
+    #plt.show()
+
     def RN(f):
-        if acorr > 1e-14:
-            T = -dt/np.log(abs(acorr))
-            w = 2*pi*f
-            rn = 2*T / (1 + T**2 * w**2)
-            return rn
-        else:
-            return f * np.nan
+        #R = -np.log(abs(acorr))/dt
+        #w = 2*pi*f
+        #rn = 2*R / (R**2 + w**2)
+        rn = 1 - a**2
+        rn = rn / (1 - 2*a*np.cos(2*pi*f/dt) + a**2)
+        return rn
     return RN
 
 # make Fourier transform of time series data
 # ------------------------------------------
 def make_ft(time_series, dt=1, h=1):
+    # set nan's to 0
     time_series = np.nan_to_num(time_series)
-    Nsteps = len(time_series)
-
-    if Nsteps == 1 :
-        return (np.array([0]),np.array([0]))
-
-    if Nsteps%2 == 1:
-        time_sereis = np.delete(time_series,-1)
-        Nsteps = Nsteps - 1
-
     # dt = 2*pi*dt
     time_series = time_series - np.mean(time_series)
-    freqs = np.linspace(0.0, 1.0/(2.0*dt), Nsteps/2)
-
-    amps =  (2.0/Nsteps)*np.abs(spf.fft(time_series)[0:Nsteps/2])**2
-    A = sum(amps)
-    if A > 1e-14:
+    amps = np.abs(spf.rfft(time_series))**2
+    if sum(amps)>1e-14:
         amps = amps/sum(amps)
+    ws = spf.rfftfreq(len(amps))
+    rn = red_noise(time_series, dt=dt, h=h)(ws)
+    if sum(rn) >1e-14:
+        rn = rn * sum(amps)/sum(rn)
+    return ws, amps, rn
 
-    rn = red_noise(amps, dt=dt, h=h)(freqs)
-    B = sum(rn)
-    if B > 1e-14:
-        rn = rn/sum(rn)
-
-    return freqs, amps, rn
 
 # compute spacetime grid of local von Neumann entropy
 # ---------------------------------------------------

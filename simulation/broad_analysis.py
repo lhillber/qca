@@ -363,12 +363,12 @@ if __name__ == '__main__':
     #ICs = ['c3_f1', 'c3_f0-1', 'c3_f0-2', 'c3_f0-1-2']
     #ICs = ['r5-10', 'r5-20', 'r5-30']
 
-    c#olor_by_list = ['mode', 'th', 'S', 'IC', 'L']
-    #color_by_list = ['S']
+    #color_by_list = ['mode', 'th', 'S', 'IC', 'L']
+    color_by_list = ['S']
 
-    #obs_list_list = [['ND', 'CC','Y']]
-    obs_list_list = [['ND', 'Y'], ['CC', 'Y'], ['ND', 'CC'], ['ND', 's'], 
-                     ['CC','s'], ['Y', 's']]
+    obs_list_list = [['ND', 'CC','Y']]
+    #obs_list_list = [['ND', 'Y'], ['CC', 'Y'], ['ND', 'CC'], ['ND', 's'], 
+    #                 ['CC','s'], ['Y', 's']]
 
     # outer params
     fixed_params_dict = {
@@ -418,6 +418,7 @@ if __name__ == '__main__':
                             res_path = data_repo + sname + '_v0.hdf5'
                         elif data_repo is None:
                             res_path = io.default_file_name(params, 'data', '.hdf5')
+                        print(res_path)
                         res = h5py.File(res_path)
                         obs = res[obs_key][500:]
                         obs[np.isnan(obs)] = 0

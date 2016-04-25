@@ -19,13 +19,7 @@ def init_files_single(params):
     if 'fname' in params:
         fname = params['fname']
     else:
-        if 'IC' in params and params['IC'][0] == 'r':
-                fname = io.make_file_name(params, iterate = False)
-                #fname = io.make_file_name(params, iterate = True)
-            # don't iterate file names with a unique IC name
-        else:
-            fname = io.make_file_name(params, iterate = False)
-            # set the file name for each simulation
+        fname = io.make_file_name(params, iterate = False)
         params['fname'] = fname
 
 
@@ -37,7 +31,8 @@ def launch_single(  params, comm=None,
                     coord_tasks=['xx', 'yy', 'zz'], 
                     nm_tasks=['ND', 'CC', 'Y'], 
                     corrj='L/2',
-                    rewrite_measures = False ):
+                    rewrite_measures = False,
+                    make_plots = True):
     if comm is None:
         rank = 0
         init_files_single(params)
@@ -55,7 +50,10 @@ def launch_single(  params, comm=None,
             corrj=corrj,
             force_rewrite=rewrite_measures)
     t2 = time.time()
-    out_fname = plotting.plot(params)
+    if make_plots:
+        out_fname = plotting.plot(params)
+    else:
+        out_fname = 'plotting disabled'
     t3 = time.time()
 
     print_string = \
@@ -92,13 +90,7 @@ def init_files_parallel(comm, rank, params_list):
             if 'fname' in params:
                 fname = params['fname']
             else:
-                if 'IC' in params and params['IC'][0] == 'r':
-                        fname = io.make_file_name(params, iterate = False)
-                        #fname = io.make_file_name(params, iterate = True)
-                    # don't iterate file names with a unique IC name
-                else:
-                    fname = io.make_file_name(params, iterate = False)
-                    # set the file name for each simulation
+                fname = io.make_file_name(params, iterate = False)
                 params['fname'] = fname
     # boradcast updated params list to each core
     params_list = comm.bcast(params_list, root=0)
@@ -106,13 +98,14 @@ def init_files_parallel(comm, rank, params_list):
 
 # launch severl simulations in parallel
 def launch_parallel(params_list, 
-                    sim_tasks = ['one_site', 'two_site', 'IPR'],
+                    sim_tasks=['one_site', 'two_site', 'IPR'],
                     rewrite_states = False,
                     measure_tasks=['s', 'sc', 'mom', 'g', 'm', 'nm', 'stats'],
                     coord_tasks=['xx', 'yy', 'zz'], 
                     nm_tasks=['ND', 'CC', 'Y'], 
                     corrj='L/2',
-                    rewrite_measures = False ):
+                    rewrite_measures = False,
+                    make_plots = True ):
     comm, rank, nprocs = init_comm()
     init_files_parallel(comm, rank, params_list)
     for i, params in enumerate(params_list):
@@ -124,6 +117,7 @@ def launch_parallel(params_list,
                                           measure_tasks=measure_tasks,
                                           coord_tasks=coord_tasks, 
                                           nm_tasks=nm_tasks, 
-                                          corrj=corrj ,
-                                          rewrite_measures = rewrite_measures )
+                                          corrj=corrj,
+                                          rewrite_measures = rewrite_measures,
+                                          make_plots = True)
             print(print_string)

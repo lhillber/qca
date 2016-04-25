@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import h5py
 import matplotlib.transforms as trans
-from sklearn.mixture import GMM
 
 # default plot font
 # -----------------
@@ -361,7 +360,7 @@ def plot_measures(meas_dict, fignum=1):
 
 # plot Fourier transform of many measures
 # ---------------------------------------
-def plot_measure_fts(Fmeas_dict, freqs, fignum=1):
+def plot_measure_fts(Fmeas_dict, fignum=1):
     nr = len(list(Fmeas_dict.keys()))
     gs = gridspec.GridSpec(nr, 1)
     fig = plt.figure(fignum)
@@ -376,6 +375,7 @@ def plot_measure_fts(Fmeas_dict, freqs, fignum=1):
             xlabel = 'Frequency'
 
         amps = Fmeas_dict[name]['amps']
+        freqs = spf.rfftfreq(len(amps))
         RN = Fmeas_dict[name]['RN']
         plot_ft(freqs, amps, ax,
                 RN=RN,
@@ -493,7 +493,6 @@ def plot(params, corrj=None):
     print('Plotting results...')
     results = h5py.File(params['fname'], 'r+')
 
-    results['freqs'] = np.linspace(0.0, 1.0/(2.0), params['T']/2)
     # get spin projections along x, y, and z
     x_grid, y_grid, z_grid = [ measures.get_diag_vecs(results[ab][::])
                 for ab in ('xx', 'yy', 'zz') ]
@@ -511,7 +510,6 @@ def plot(params, corrj=None):
     # get mi measure results and place in ordered dict for plotting
     meas_keys = ['ND', 'CC', 'Y']
     meas_list = [results[meas_key][::] for meas_key in meas_keys]
-    freqs = results['freqs'][::]
     Fmeas_list = [ {'amps' : results['F'+meas_key][::],
                     'RN'   : results['RN'+meas_key][::]}
                     for meas_key in meas_keys ]
@@ -588,7 +586,7 @@ def plot(params, corrj=None):
     plot_measures(meas_dict, fignum=12)
 
     # plot measure Fourier transforms
-    plot_measure_fts(Fmeas_dict, freqs, fignum=13)
+    plot_measure_fts(Fmeas_dict, fignum=13)
 
     # plot distribution of mutual information over time
     #plot_edge_strength_contour(mtjk,

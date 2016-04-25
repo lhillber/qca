@@ -339,13 +339,12 @@ def run_sim(params, force_rewrite = False,
             freqs, amps, rn = ms.make_ft(data['IPR'])
             data['FIPR'] = amps
             data['RNIPR'] = rn
-            data['freqs'] = freqs
+
     else:
         print('Importing states...')
-        sim_tasks.append('FIPR')
-        sim_tasks.append('freqs')
+        #sim_tasks.append('FIPR')
+        #sim_tasks.append('freqs')
         data = io.read_hdf5(fname, sim_tasks)
-
     return data
 
 
