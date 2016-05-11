@@ -119,5 +119,5 @@ def launch_parallel(params_list,
                                           nm_tasks=nm_tasks, 
                                           corrj=corrj,
                                           rewrite_measures = rewrite_measures,
-                                          make_plots = True)
+                                          make_plots = make_plots)
             print(print_string)
