@@ -11,7 +11,7 @@ import h5py
 
 from matplotlib import animation
 
-font = {'size':12, 'weight' : 'normal'}
+font = {'size':10, 'weight' : 'normal'}
 mpl.rcParams['mathtext.fontset'] = 'stix'
 mpl.rcParams['font.family'] = 'STIXGeneral'
 mpl.rc('font',**font)
@@ -63,17 +63,16 @@ def make_U_name(mode, S, V):
 
 
 
-output_dir = 'fock_IC'
-data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/'
-#data_repo = None
+output_dir = 'Hphase'
+#data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/'
+data_repo = None
 
-deg_list = range(0, 105, 15)
-deg_list = [0]
+deg_list = range(0, 185, 5)
 fixed_params_dict = {
             'output_dir' : [output_dir],
-            'L' : [13],
-            'T' : [1000],
-            'IC': ['c3_f1'],
+            'L' : [21],
+            'T' : [60],
+            'IC': ['f0'],
             'BC': ['1_00'],
             'mode': ['alt'],
             'S' : [6]
@@ -86,10 +85,10 @@ var_params_dict = {
 params_list_list = io.make_params_list_list(fixed_params_dict, var_params_dict)
 
 
-def plot_grid(grid, ax, span=[0,100], n_xticks = 4, n_yticks = 6):
+def plot_grid(grid, ax,  span=[0,60], n_xticks = 4, n_yticks = 6):
     im = ax.imshow( grid,
                     origin = 'lower',
-                    cmap=plt.cm.gray,
+                    cmap=plt.cm.jet,
                     vmin = np.mean(grid) - 1/2*np.std(grid),
                     vmax = np.mean(grid) + np.std(grid),
                     interpolation = 'none',
@@ -103,7 +102,6 @@ def plot_grid(grid, ax, span=[0,100], n_xticks = 4, n_yticks = 6):
     xlabel = 'Site'
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-
     delta = max(1, int(len(x_tick_labels)/n_xticks))
     ax.set_xticks(range(0, len(x_tick_labels), delta ))
     ax.set_xticklabels(x_tick_labels[::delta])
@@ -112,12 +110,13 @@ def plot_grid(grid, ax, span=[0,100], n_xticks = 4, n_yticks = 6):
     ax.set_yticks(range(0, len(y_tick_labels), delta ))
     ax.set_yticklabels(y_tick_labels[::delta])
 
-    box = ax.get_position()
-    cax = plt.axes([box.x1-0.1, box.y0+0.1, 0.04, box.height - 0.19])
-    cb = plt.colorbar(im, cax = cax, ticks = [-1.0, -0.5, 0.0, 0.5, 1.0])
-    cb.ax.tick_params(labelsize=12)
-    cb.set_label(r'$\langle \sigma_j^z \rangle$', rotation=0, labelpad = -22,
-            y=1.12)
+
+    #box = ax.get_position()
+    #cax = plt.axes([box.x1-0.1, box.y0+0.1, 0.04, box.height - 0.19])
+    #cb = plt.colorbar(im, cax = cax, ticks = [-1.0, -0.5, 0.0, 0.5, 1.0])
+    #cb.ax.tick_params(labelsize=12)
+    #cb.set_label(r'$\langle \sigma_j^z \rangle$', rotation=0, labelpad = -22,
+    #        y=1.12)
 
     return im
 
@@ -127,7 +126,7 @@ title_list = []
 
 n_xticks = 4
 n_yticks = 5
-t_span=[0,500]
+t_span=[0,1000]
 slider = 100
 dt=1
 span = [0, dt]
@@ -147,21 +146,14 @@ for params_list in params_list_list:
         else:
             res_path = io.default_file_name(params, 'data', '.hdf5')
         res = h5py.File(res_path)
-        exp = ms.get_diag_vecs(res['xx'][::])
+        exp = ms.get_diag_vecs(res['zz'][::])
+        exp = 0.5*(1-exp)
         s = res['s'][::]
         M = res['m']
         g2 = res['gxx'][::]
-
-
-        L = len(res['sbond'][1])
-        print(L)
-        sb = res['sbond'][::] 
-        sb /= [min(c+1, L-c) for c in range(L)]
-        for t in range(t_span[0], t_span[1], dt):
-            print(t)
-            grid = sb[0+t:slider+t,::]
-            grid_list.append(grid)
-            title_list.append(title)
+        grid = exp
+        grid_list.append(grid)
+        title_list.append(title)
 
 fig = plt.figure(figsize=(2,3))
 ax = fig.add_subplot(111)
@@ -179,6 +171,7 @@ def animate(i):
     a=im.get_array()
     a=grid_list[i]
     im.set_array(a)
+    im.set_clim(vmin=np.min(a), vmax=np.max(a))
     title.set_text(title_list[i])
     return (im, title)
 
@@ -187,6 +180,7 @@ anim = animation.FuncAnimation(fig, animate, init_func=init,
                                        frames=len(grid_list), interval=150)
 
 bn = io.base_name(output_dir, 'plots')
-#anim.save(bn + 'L21_alt_zavg.mp4', fps=8, extra_args=['-vcodec', 'libx264'])
+anim.save(bn + 'L21_S6_alt_phase.avi', fps=8,
+        dpi=500)
 
-plt.show()
+#plt.show()

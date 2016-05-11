@@ -346,7 +346,7 @@ def plot_PCA(obs_means, fignum):
 
 
 if __name__ == '__main__':
-    output_dir = 'entangled_IC'
+    output_dir = 'fock_IC'
     data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/' 
     #data_repo = None
 
@@ -354,13 +354,13 @@ if __name__ == '__main__':
     modes = ['alt', 'sweep', 'block']
     #uID = '_somethin_'
     uID = ''
-    IC_label = 'entangled'
+    IC_label = 'fock'
     Ls = [11, 14, 17, 20]
     degs = range(0, 105, 15)
     Ss = range(1,15)
 
-    ICs = ['G', 'W', 'c2_B0-1_0', 'c2_B0-1_1', 'c2_B0-1_2', 'c2_B0-1_3' ]
-    #ICs = ['c3_f1', 'c3_f0-1', 'c3_f0-2', 'c3_f0-1-2']
+    #ICs = ['G', 'W', 'c2_B0-1_0', 'c2_B0-1_1', 'c2_B0-1_2', 'c2_B0-1_3' ]
+    ICs = ['c3_f1', 'c3_f0-1', 'c3_f0-2', 'c3_f0-1-2']
     #ICs = ['r5-10', 'r5-20', 'r5-30']
 
     #color_by_list = ['mode', 'th', 'S', 'IC', 'L']
@@ -418,7 +418,6 @@ if __name__ == '__main__':
                             res_path = data_repo + sname + '_v0.hdf5'
                         elif data_repo is None:
                             res_path = io.default_file_name(params, 'data', '.hdf5')
-                        print(res_path)
                         res = h5py.File(res_path)
                         obs = res[obs_key][500:]
                         obs[np.isnan(obs)] = 0

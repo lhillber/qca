@@ -65,26 +65,29 @@ import simulation.launch as launch
 
 output_dir = 'testing'
 
-mode_list = ['alt']
+mode_list = ['alt', 'sweep', 'block']
 
-L_list = [11]
+L_list = [10]
 
-T_list = [1000]
+T_list = [30]
 
-S_list = [6]
+S_list = [1, 2, 10, 6, 9, 14]
 
 V_list = ['HP_0']
 
-IC_list = ['f0-10']
+IC_list = ['f0-9']
 
 BC_list = ['1_00']
 
 
+# flag to make a few default plots 
+# (requires 's', 'mom', 'g', 'm', 'nm' and 'stats' to be in measure_tasks)
+make_plots = True
 
 # list of tasks to complete
 # -------------------------
 # tasks on the full quantum states
-sim_tasks = ['one_site', 'two_site', 'IPR', 'sbond']
+sim_tasks = ['one_site', 'two_site','sbond']
 rewrite_states = False
 
 # tasks on the reduced density matricies ('sc' requires bi_bartite in sim_tasks).
@@ -99,7 +102,6 @@ nm_tasks = ['ND', 'CC', 'Y']
 
 # site w.r.t. which g2 is plotted (any integer less than L or use string 'L/2')
 corrj = 'L/2'
-
 
 # nest parameter lists
 params_list = [
@@ -132,5 +134,6 @@ if __name__ == '__main__':
                             coord_tasks=coord_tasks,
                             nm_tasks=nm_tasks,
                             corrj=corrj,
-                            rewrite_measures = rewrite_measures
+                            rewrite_measures = rewrite_measures,
+                            make_plots = make_plots
                             )

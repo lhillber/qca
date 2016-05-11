@@ -42,15 +42,15 @@ def main():
 
     # params looped through at inner layer
     var_params_dict = {
-                'L'   : [13],
+                'L'   : [19],
                 'V'   : ['HP_'+str(deg) for deg in [0, 45, 90]],
                 'IC'  : ['c3_f1'],
                  }
 
     colors = ['c','m','limegreen']
     # histogram parameters
-    partition_size = 10
-    n_partitions = 99
+    partition_size = 19
+    n_partitions = 49
     include_remaining = True
     n_bins = 40
 
@@ -89,7 +89,6 @@ def main():
 
 
         L = len(data_set['sbond'][1])
-        print(L)
         sb = data_set['sbond'][::] 
         sb /= [min(c+1, L-c) for c in range(L)]
         return delta(sb)
@@ -104,7 +103,7 @@ def main():
         all_stds = []
         names = []
         labels = []
-        print(fignum)
+        #print(fignum)
         fig = plt.figure(fignum,figsize=(3,3))
         ax = fig.add_subplot(1,1,1)
         for n, params in enumerate(params_list):
@@ -231,25 +230,37 @@ def main():
                 stds = all_stds[i]
                 label = labels[i]
                 # color=colormap(fraction)
-                ax.plot(agg_range, means, color=c, label=label, lw=1.3)
+                ax.plot(agg_range, means, color=c, markeredgecolor=c,
+                        label=label, lw=0.8, markeredgewidth=1.2,
+                marker='o', markerfacecolor='None')
                 #ax.fill_between(agg_range, means+stds, means-stds, alpha=0.5,color=c)
                 #ax.errorbar(agg_range, means, stds)
                 #plt.plot(agg_range, [1.0/20]*len(means))
                 mins.append(min(means))
                 maxs.append(max(means))
-            ax.set_title(r'$S='+str(params['S'])+'$,'+r'  $\tau=' +
-                    str(partition_size) + '$')
+            ax.set_title(r'$S='+str(params['S'])+'$')
             ax.set_ylabel(measure_name)
             ax.set_xlabel(r"Iteration [$t/\tau$]")
             ax.grid(True)
-            ax.legend(loc='best', fontsize=11)
+            ax.legend(loc='best', fontsize=11,  numpoints=1, handlelength=1)
             ax.set_xscale("log", nonposx='clip')
             ax.set_yscale("log", nonposy='clip')
             ax.set_ylim([min(mins), max(maxs)])
             ax.margins(0.001)
 
+
+            letters = ['(a)', '(b)', '(c)', '(d)']
+            labeled_rules = [6, 7, 9, 14]
+            letter_dict = dict(zip(labeled_rules, letters))
+            S = params['S']
+            if S in labeled_rules:
+                panel_label = letter_dict[S]
+                ax.text(0.5, -0.28, panel_label,
+                verticalalignment='bottom', horizontalalignment='center',
+                transform=ax.transAxes)
+            ax.set_ylim([1e-5, 1e-1])
         fignum += 1
-    io.multipage('./../output/fock_IC/plots/L13_delta_sbond_means.pdf')
+    io.multipage('./../output/fock_IC/plots/L19_delta_sbond_means.pdf')
         #plt.show()
 
 def full_hist(ax, params, data_set):
@@ -272,6 +283,15 @@ def full_hist(ax, params, data_set):
     ax.xaxis.set_ticks(np.arange(start, end, (end - start)/5))
     ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
     ax.set_ylim(bottom=0.1)
+    letters = ['(a)', '(b)', '(c)', '(d)']
+    labeled_rules = [6, 7, 9, 14]
+    letter_dict = dict(zip(labeled_rules, letters))
+    S = params['S']
+    if S in labeled_rules:
+        panel_label = letter_dict[S]
+        ax.text(0.5, -0.28, panel_label,
+        verticalalignment='bottom', horizontalalignment='center',
+        transform=ax.transAxes)
 
 #
 

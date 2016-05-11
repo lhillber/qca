@@ -15,6 +15,7 @@ import h5py
 
 import matplotlib          as mpl
 import matplotlib.cm as cm
+from matplotlib import ticker
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import MultipleLocator
 
@@ -40,7 +41,7 @@ def init_params_1d():
     Ss = [1,2,3,4,5,6,7,9,10,11,12,13,14]
     degs = [0]
     Vs = ['HP_'+str(deg) for deg in degs]
-    Ls = [20]
+    Ls = [17]
     Ts = [1000]
     ICs = ['c3_f1']
     #ICs = ['G', 'W', 'c2_B0-1_0', 'c2_B0-1_1', 'c2_B0-1_2', 'c2_B0-1_3' ]
@@ -82,7 +83,7 @@ def init_params_2d():
     Ss = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
     degs = [90]
     Vs = ['HP_'+str(deg) for deg in degs]
-    Ls = [20]
+    Ls = [17]
     Ts = [1000]
     ICs = ['c3_f1']
     #ICs = ['G', 'W', 'c2_B0-1_0', 'c2_B0-1_1', 'c2_B0-1_2', 'c2_B0-1_3' ]
@@ -107,7 +108,7 @@ def init_params_2d():
     bn = io.base_name(fixed_params_dict['output_dir'][0], 'plots/fourier')
     def plots_out_pathf(L):
         return bn + IC_label + '_'+'-'.join(modes) + '_L'+str(L)+ uID +\
-    'ft2d.pdf'
+               'ft2d.pdf'
     return params_list_list, obs_list, data_repo, plots_out_pathf
 
 def obs_label(obs_key, _2d=False):
@@ -175,14 +176,25 @@ def make_ft_2d(board, dt=1, dx=1):
     end = int((T-1)/2)
     if T%2 == 0:
         end = int(T/2)
+
+
+    L = len(board[0])
+    endk = int((L-1)/2)
+    if T%2 == 0:
+        endk = int(L/2)
     board = np.nan_to_num(board)
     ny, nx = board.shape
     # NOTE: The slice at the end of amps is required to cut negative freqs from
     # axis=0 of #the rfft. This appears to be a but. Report it.
-    amps = (np.abs(np.fft.rfft2(board))**2)[0:end,::]
-    ws = np.fft.rfftfreq(ny, d=dt)
-    ks = np.fft.rfftfreq(nx, d=dx)
-    return ws, ks, amps
+    fraw = np.fft.fft2(board)
+    amps = (np.abs(fraw)**2).real
+    iboard = np.fft.ifft2(fraw).real
+
+    amps = amps[0:end+1,0:endk+1]
+    amps = amps/np.sum(amps)
+    ws = np.fft.rfftfreq(ny, d=dt)[0:end+1]
+    ks = np.fft.rfftfreq(nx, d=dx)[0:endk+1]
+    return ws, ks, amps, iboard, board
 
 def make_tick_d(mx, mn, n_ticks):
     i=0
@@ -215,15 +227,15 @@ def get_ft_2d(res, obs_key, tmn, tmx):
         dat = res[obs_key][tmn:tmx,::]
     if obs_key in ['z', 'x', 'y']:
         dat = ms.get_diag_vecs(res[(obs_key+obs_key)][::])[tmn:tmx,::]
-    ws, ks, amps= make_ft_2d(dat)
-    return ws, ks, amps
+    ws, ks, amps, iboard, board = make_ft_2d(dat)
+    return ws, ks, amps, iboard, board
 
 def plot_ft_1d(freqs, amps, rn, params, row, nrows, obs_key,
         interval_factor=5.991, fignum=1):
     fpks = params['fpks'][obs_key]
     pks = params['pks'][obs_key]
     freqs_trunc = freqs[0:len(amps)]
-    fig = plt.figure(fignum, figsize=(5.5,4))
+    fig = plt.figure(fignum, figsize=(6,6.5))
     ax = fig.add_subplot(nrows, 1,row+1)
     ax.semilogy(freqs_trunc, amps, '-k', lw=0.9, zorder=1)
     ax.semilogy(freqs, rn, 'b', lw=0.9, zorder=2)
@@ -298,6 +310,7 @@ def plot_agg_peaks(params_res_list, obs_list, id_by ='S'):
     colors = [ 'r', 'g', 'b', 'orange']
     id_dict = {}
     id_pos = 0
+    labeled = False
     for jj, params in enumerate(params_res_list):
         L = params['L']
         for ii, (c, obs_key) in enumerate(zip(colors, obs_list)):
@@ -314,8 +327,10 @@ def plot_agg_peaks(params_res_list, obs_list, id_by ='S'):
 
             # label scatter plot only once, may have to change j0 in jj == j0
             label=None
-            if jj == 2:
+            if params['S'] == 9 and not labeled:
                 label = label='$'+obs_label(obs_key)+'$'
+                if ii == len(obs_list)-1:
+                    labeled = True
 
             # plot the peak frequencies vs id
             ax2.scatter(xs, plot_freqs, c=c, linewidth=0.1, alpha=0.7,
@@ -370,10 +385,15 @@ def run_1d_ft():
         print(plots_out_path)
         io.multipage(plots_out_path, clip=True)
 
-def run_2d_ft():
+def run_2d_ft(fs=15):
     params_list_list, obs_list, data_repo, plots_out_pathf = init_params_2d()
     M, N = params_list_list.shape
     interval_factor=5.991
+    letters = ['(c)', '(a)', '(b)', '(c)']
+    labeled_rules = [1, 4 ,6, 14]
+    letter_dict = dict(zip(labeled_rules, letters))
+
+
     for m, params_list in enumerate(params_list_list):
         params_res_list = []
         for n, params in enumerate(params_list):
@@ -382,47 +402,76 @@ def run_2d_ft():
             params['pks'] = {}
             L = params['L']
             T = params['T']
+            S = params['S']
             i = N*m + n
             for j, obs_key in enumerate(obs_list):
                 res = h5py.File(data_in_path)
                 tmn = 300
                 tmx = 1000
-                ws, ks, amps = get_ft_2d(res, obs_key, tmn, tmx)
-                fig = plt.figure(i, figsize=(3,6))
+                ws, ks, amps, iboard, board = get_ft_2d(res, obs_key, tmn, tmx)
+                fig = plt.figure(i, figsize=(2,6))
+                tfig = plt.figure(i+100, figsize=(2,6))
                 fax = fig.add_subplot(111)
+                tax = tfig.add_subplot(111)
                 amps[0,0]=np.nan
                 try:
                     cax = fax.imshow(amps, interpolation="none", origin='lower',
                             aspect='auto', norm=LogNorm() )
                     cbar=fig.colorbar(cax)
+                    tcax = tax.imshow(iboard, interpolation="none", origin='lower',
+                            aspect='auto')
+                    tcbar=tfig.colorbar(tcax)
                 except:
                     cax = fax.imshow(amps, interpolation="none", origin='lower',
                             aspect='auto')
-                cbar.set_label(r'$\mathcal{F}\left('+obs_label(obs_key, _2d=True)+r'\right)$')
+                    tcax = tax.imshow(iboard, interpolation="none", origin='lower',
+                            aspect='auto')
+                    tcbar=tfig.colorbar(tcax)
+
+
+                cbar.ax.tick_params(labelsize=fs)
+                cbar.ax.locator_params(nbins=5)
+                cbar.set_label(r'$\mathcal{F}\left('+obs_label(obs_key,
+                    _2d=True)+r'\right)$', fontsize=fs+1)
+
+                tcbar.set_label(r'$' + obs_label(obs_key, _2d=True) + r'$',
+                        fontsize=fs)
+
                 wtick_lbls = ws[::int(len(ws)/5)]
                 iw = np.in1d(ws, wtick_lbls)
                 wticks = np.arange(0,len(amps)+1)[iw]
-                ktick_lbls = ks[::int(len(ks)/4)]
+                ktick_lbls = ks[::int(len(ks)/2)+1]
                 ik = np.in1d(ks, ktick_lbls)
+
                 kticks = np.arange(0,len(amps[0]))[ik]
 
                 fax.set_yticks(wticks)
-                fax.set_yticklabels(np.around(wtick_lbls, decimals=2))
-                fax.set_xticks(kticks)
-                fax.set_xticklabels(np.around(ktick_lbls, decimals=2))
+                fax.set_yticklabels(np.around(wtick_lbls, decimals=2),
+                        fontsize=fs)
+                fax.set_xticks([0,L/4,L/2])
+                fax.set_xticklabels([0, 0.25, 0.5], fontsize=fs)
 
-                fax.set_ylabel(r'$f$')
-                fax.set_xlabel(r'$k$')
+                fax.set_ylabel(r'$f$', fontsize=fs)
+                fax.set_xlabel(r'$k$', fontsize=fs)
+                tax.set_ylabel(r'$Iteration$', fontsize=fs)
+                tax.set_xlabel(r'$Site$', fontsize=fs)
+
                 title = pt.make_U_name(params['mode'], params['S'], params['V'])
-                fax.set_title(title)
-                fig.suptitle(title)
+                if S in labeled_rules:
+                    panel_label = letter_dict[S]
+                    fax.text(0.5, -0.17, panel_label,
+                    verticalalignment='bottom', horizontalalignment='center',
+                    transform=fax.transAxes, fontsize=fs)
+                fax.set_title(' ' + title, fontsize=fs+1)
+                tax.set_title(title, fontsize=fs+1)
                 plt.subplots_adjust(top=0.85, bottom=0.15, wspace=0.6)
-
         plots_out_path = plots_out_pathf(L)
         print(plots_out_path)
         io.multipage(plots_out_path, clip=True)
 
+
 def main():
+    #run_1d_ft()
     run_2d_ft()
 
 if __name__ == '__main__':
