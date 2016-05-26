@@ -156,11 +156,11 @@ def get_diag_vecs(mats):
 
 # fill the diagonal of list of matrices
 # -------------------------------------
-def get_offdiag_mats(mats, diag_fill=0.0):
+def get_offdiag_mats(mats, diag_fill=1.0):
     L = len(mats[0])
     mats_out = copy.deepcopy(mats)
     for mat in mats_out:
-        np.fill_diagonal(mat, diag_fill)
+        np.fill_diagonal(mat, 1.0)
     return mats_out
 
 # pull row of constant j from a list of matrices
@@ -170,7 +170,7 @@ def get_row_vecs(mats, j=0):
 
 # extract one and two point correlators
 # -------------------------------------
-# NOTE: diag_fill=1.0 for the g2 correlator sypically.
+# NOTE: diag_fill=1.0 for the g2 correlator typically.
 # Set to 0.0 for beter use of colorbar in plot
 def make_moments(moment, alphas=None, betas=None):
     # case A == B
@@ -178,8 +178,9 @@ def make_moments(moment, alphas=None, betas=None):
         one_moment = get_diag_vecs(moment)
         one_moment_alpha = copy.deepcopy(one_moment)
         one_moment_beta = copy.deepcopy(one_moment)
-        two_moment = get_offdiag_mats(moment, diag_fill=1.0)
-
+        two_moment = get_offdiag_mats(moment)
+        for t, (mom, one) in enumerate(zip(two_moment, one_moment)):
+            two_moment[t] = mom - np.diag(one**2)
     # case A != B
     else:
         one_moment_alpha = get_diag_vecs(alphas)
@@ -252,7 +253,7 @@ def moments_calc(results, L, T, tasks=['xx', 'yy', 'zz'] ):
             for k in range(j, L):
 
                 # store one-point moments on diagonals for non-cross correlators
-                # knowing the diagonal ought to be one for the 2pt matrix
+                # knowing the diagonal ought to be 1 - var for the 2pt matrix
                 if j == k:
                     if 'xx' in tasks:
                         moment_dict['xx'][t, j, j] =\
@@ -427,24 +428,27 @@ if __name__ == "__main__":
 
     params =  {
                     'output_dir' : 'testing/state_saving',
-
                     'L'    : 11,
                     'T'    : 100,
-                    'mode' : 'block',
-                    'R'    : 150,
-                    'V'    : ['H','T'],
-                    'IC'   : 'l0'
+                    'mode' : 'alt',
+                    'S'    : 6,
+                    'V'    : 'HT',
+                    'IC'   : 'c1_f0',
+                    'BC'   : '1_00'
                                     }
 
-    fname = time_evolve.run_sim(params, force_rewrite=False)
+    state_res = time_evolve.run_sim(params, force_rewrite=True)
+    res_size = measure(params, state_res, force_rewrite=True, coord_tasks=['zz'])
 
-    measure(params, fname, force_rewrite=True, g_tasks=['xx', 'yy', 'zz',
-        'xy'], moment_tasks=['xx','yy','zz', 'xy'])
+    res = h5py.File(params['fname'], 'r+')
+    print([k for k in res.keys()])
 
     fig = plt.figure(1)
     ax = fig.add_subplot(111)
-    gzz = io.read_hdf5(fname, 'gzz')
-    pt.plot_grid(get_row_vecs(gzz, j=0), ax, title=r'$g_2(X_0 Y_k; t)$', span=[0, 60], xlabel='site')
+    gzz = res['gzz']
+    pt.plot_grid(get_row_vecs(gzz, j=int(params['L']/2)), ax,
+            title=r'$g_2(Z_{L/2} Z_k; t)$', span=[0, 60], xlabel='Site',
+            ylabel='Time step')
     plt.show()
 
 

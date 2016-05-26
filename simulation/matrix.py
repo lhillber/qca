@@ -96,7 +96,7 @@ def op_on_state(meso_op, js, state, ds = None):
     ordering = list(rest) + list(js)
 
     state = state.reshape(ds).transpose(ordering)\
-            .reshape(dL/dn, dn).dot(meso_op).reshape(ds)\
+            .reshape(int(dL/dn), dn).dot(meso_op).reshape(ds)\
             .transpose(np.argsort(ordering)).reshape(dL)
     return state
 
@@ -119,11 +119,11 @@ def rdms(state, js, ds=None):
     block = state.reshape(ds).transpose(ordering).reshape(djs, drest)
 
     RDM = np.zeros((djs, djs), dtype=complex)
-    tot = complex(0,0)
     for i in range(djs):
-        for j in range(djs):
+        for j in range(i, djs):
             Rij = np.inner(block[i,:], np.conj(block[j,:]))
             RDM[i, j] = Rij
+            RDM[j, i] = np.conj(Rij)
     return RDM
 
 # partial trace of a  density matrix
@@ -371,7 +371,7 @@ if __name__ == '__main__':
     import simulation.states as ss
     import simulation.measures as ms
     L = 7
-    IC = 'f0'
+    IC = 'f0-3-4_t90-p90'
 
     js = [0,3,2]
     op = listkron( [ss.ops['X']]*(len(js)-1) + [ss.ops['H']] ) 
@@ -382,14 +382,18 @@ if __name__ == '__main__':
 
     init_state3 = ss.make_state(L, IC)
     init_rj = [rdms(init_state3, [j]) for j in range(L)]
-    init_Z_exp = [round(np.trace(r.dot(ss.ops['Z'])).real) for r in init_rj]
-    print('initl Z exp vals:', init_Z_exp) 
+    init_Z_exp = [np.trace(r.dot(ss.ops['Z']).real) for r in init_rj]
+    init_Y_exp = [np.trace(r.dot(ss.ops['Y']).real) for r in init_rj]
+    print('initial Z exp vals:', init_Z_exp)
+    print('initial Y exp vals:', init_Y_exp)
 
     final_state = op_on_state(op, js, init_state3)
 
     final_rj = [rdms(final_state, [j]) for j in range(L)]
-    final_Z_exp = [round(np.trace(r.dot(ss.ops['Z'])).real) for r in final_rj]
+    final_Z_exp = [np.trace(r.dot(ss.ops['Z'])).real for r in final_rj]
+    final_Y_exp = [np.trace(r.dot(ss.ops['Y'])).real for r in final_rj]
     print('final Z exp vals:', final_Z_exp) 
+    print('final Y exp vals:', final_Y_exp)
 
     #rdm_plot()
-    comp_plot()
+    #comp_plot()

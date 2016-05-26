@@ -212,15 +212,16 @@ def read_hdf5(fname, keys):
 
 # save multi page pdfs of plots
 # -----------------------------
-def multipage(fname, figs=None, clf=True, dpi=300, clip=True):
+def multipage(fname, figs=None, clf=True, dpi=300, clip=True, extra_artist=False):
     pp = PdfPages(fname)
     if figs is None:
         figs = [plt.figure(fignum) for fignum in plt.get_fignums()]
     for fig in figs:
         if clip is True:
-            fig.savefig(pp, format='pdf', bbox_inches='tight')
+            fig.savefig(pp, format='pdf', bbox_inches='tight',
+                        bbox_extra_artist=extra_artist)
         else:
-            fig.savefig(pp, format='pdf')
+            fig.savefig(pp, format='pdf', bbox_extra_artist=extra_artist)
         if clf==True:
             fig.clf()
     pp.close()

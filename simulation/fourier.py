@@ -25,9 +25,11 @@ from math import pi, sin, cos
 # default plot font
 # -----------------
 font = {'size':12, 'weight' : 'normal'}
-mpl.rcParams['mathtext.fontset'] = 'stix'
-mpl.rcParams['font.family'] = 'STIXGeneral'
+#mpl.rcParams['mathtext.fontset'] = 'stix'
+#mpl.rcParams['font.family'] = 'STIXGeneral'
 mpl.rc('font',**font)
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
 
 def init_params_1d():
     output_dir = 'fock_IC'
@@ -39,7 +41,7 @@ def init_params_1d():
 
     modes = ['alt']
     Ss = [1,2,3,4,5,6,7,9,10,11,12,13,14]
-    degs = [0]
+    degs = [90]
     Vs = ['HP_'+str(deg) for deg in degs]
     Ls = [17]
     Ts = [1000]
@@ -76,12 +78,12 @@ def init_params_2d():
     data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/' 
     #data_repo = None
     #uID = '_somethin_'
-    uID = '_ICc3_f1_VHP_90_'
+    uID = '_ICc3_f1_VHP_0_'
     IC_label = 'fock'
 
     modes = ['alt']
     Ss = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-    degs = [90]
+    degs = [0]
     Vs = ['HP_'+str(deg) for deg in degs]
     Ls = [17]
     Ts = [1000]
@@ -116,18 +118,18 @@ def obs_label(obs_key, _2d=False):
             'ND': r'\mathcal{D}',
             'CC': r'\mathcal{C}',
              'Y': r'\mathcal{Y}',
-             'z': r'\langle \sigma^z(t) \rangle',
-             'x': r'\langle \sigma^x(t) \rangle',
-             'y': r'\langle \sigma^y(t) \rangle'
+             'z': r'\langle \overline{\sigma_j^z} \rangle',
+             'x': r'\langle \overline{\sigma^x} \rangle',
+             'y': r'\langle \overline{\sigma^y} \rangle'
             }
     if _2d:
         pn = {'s': r's^{\mathrm{vN}}',
                 'ND': r'\mathcal{D}',
                 'CC': r'\mathcal{C}',
                  'Y': r'\mathcal{Y}',
-                 'z': r'\langle \sigma_j^z(t) \rangle',
-                 'x': r'\langle \sigma_j^x(t) \rangle',
-                 'y': r'\langle \sigma_j^y(t) \rangle'
+                 'z': r'\langle \sigma_j^z \rangle',
+                 'x': r'\langle \sigma_j^x \rangle',
+                 'y': r'\langle \sigma_j^y \rangle'
                 }
     return pn[obs_key]
 
@@ -235,20 +237,24 @@ def plot_ft_1d(freqs, amps, rn, params, row, nrows, obs_key,
     fpks = params['fpks'][obs_key]
     pks = params['pks'][obs_key]
     freqs_trunc = freqs[0:len(amps)]
-    fig = plt.figure(fignum, figsize=(6,6.5))
+    fig = plt.figure(fignum, figsize=(3,3.25))
     ax = fig.add_subplot(nrows, 1,row+1)
     ax.semilogy(freqs_trunc, amps, '-k', lw=0.9, zorder=1)
     ax.semilogy(freqs, rn, 'b', lw=0.9, zorder=2)
     ax.semilogy(freqs, rn*interval_factor, '--b', lw=0.9, zorder=2)
     ax.scatter(fpks, pks, c='r', marker='*', linewidth=0,
-            s=25, zorder=2)
+            s=35, zorder=2)
 
     #ax.scatter(minfrq, minamp, c='g', marker='v', linewidth=0,
     #        s=25, zorder=2)
 
 
 
-    ax.yaxis.set_major_locator(mpl.ticker.LogLocator(numticks=4))
+    ax.yaxis.set_major_locator(mpl.ticker.LogLocator(numticks=3))
+    if params['S'] == 14 and obs_key == 'CC':
+        print('enter')
+        ax.yaxis.set_major_locator(mpl.ticker.LogLocator(numticks=2))
+
     ax.set_ylim([np.min(amps[10::])/5, np.max(amps)*5])
     ax.set_xlim([0,0.5])
     ax.minorticks_off()
@@ -263,9 +269,11 @@ def plot_ft_1d(freqs, amps, rn, params, row, nrows, obs_key,
         fticks = True
         ax.set_xlabel('Frequency')
     plt.setp([ax.get_xticklabels()], visible=fticks)
-    ax.set_ylabel('$\mathcal{F}\left ('+obs_label(obs_key)+r'\right )$')
-    title = pt.make_U_name(params['mode'], params['S'], params['V'])
-    fig.suptitle(title)
+    ax.set_ylabel(r'$\mathcal{F}\big ('+obs_label(obs_key)+r'\big )$')
+    letters = {14:'(a)', 6:'(b)'}
+    if params['S'] in letters.keys():
+        title = letters[params['S']]
+        fig.suptitle(title)
     plt.subplots_adjust(hspace=0.3, top=0.93)
 
 def get_ft_peaks(freqs, FT, rn, win = 5, interval_factor=5.991):
@@ -349,8 +357,8 @@ def plot_agg_peaks(params_res_list, obs_list, id_by ='S'):
     ax2.set_xticks(range(1, len(id_dict.keys())+1))
     ax2.set_xticklabels(list(id_dict.keys()))
     ax2.legend(bbox_to_anchor=[1.31, 1.03], loc='upper right', scatterpoints=1)
-    ax2.set_xlabel('Rule Number [$S$]')
-    ax2.set_ylabel('Peak Frequency')
+    ax2.set_xlabel('Rule number [$S$]')
+    ax2.set_ylabel('Peak frequency')
     ax2.set_ylim([-0.05,0.55])
 
 def run_1d_ft():
@@ -385,7 +393,7 @@ def run_1d_ft():
         print(plots_out_path)
         io.multipage(plots_out_path, clip=True)
 
-def run_2d_ft(fs=15):
+def run_2d_ft(fs=12):
     params_list_list, obs_list, data_repo, plots_out_pathf = init_params_2d()
     M, N = params_list_list.shape
     interval_factor=5.991
@@ -403,13 +411,15 @@ def run_2d_ft(fs=15):
             L = params['L']
             T = params['T']
             S = params['S']
+            V = params['V']
+            th = pt.get_th(V)
             i = N*m + n
             for j, obs_key in enumerate(obs_list):
                 res = h5py.File(data_in_path)
                 tmn = 300
                 tmx = 1000
                 ws, ks, amps, iboard, board = get_ft_2d(res, obs_key, tmn, tmx)
-                fig = plt.figure(i, figsize=(2,6))
+                fig = plt.figure(i, figsize=(1.5,4))
                 tfig = plt.figure(i+100, figsize=(2,6))
                 fax = fig.add_subplot(111)
                 tax = tfig.add_subplot(111)
@@ -430,10 +440,12 @@ def run_2d_ft(fs=15):
 
 
                 cbar.ax.tick_params(labelsize=fs)
-                cbar.ax.locator_params(nbins=5)
-                cbar.set_label(r'$\mathcal{F}\left('+obs_label(obs_key,
-                    _2d=True)+r'\right)$', fontsize=fs+1)
-
+                cbar.set_label(r'$\mathcal{F}\big('+obs_label(obs_key,
+                    _2d=True)+r'\big)$', fontsize=fs, rotation=0, y=.75,
+                    labelpad=-0.1)
+                cbar.ax.yaxis.set_major_locator(mpl.ticker.AutoLocator())
+                cbar.ax.locator_params(nbins=4)
+                #cbar.update_ticks()
                 tcbar.set_label(r'$' + obs_label(obs_key, _2d=True) + r'$',
                         fontsize=fs)
 
@@ -456,12 +468,20 @@ def run_2d_ft(fs=15):
                 tax.set_ylabel(r'$Iteration$', fontsize=fs)
                 tax.set_xlabel(r'$Site$', fontsize=fs)
 
-                title = pt.make_U_name(params['mode'], params['S'], params['V'])
+                if S == 1:
+                    title = r'$'+str(th)+r'^{\circ}$'
+                    if th == 0:
+                        title = r'$\theta='+str(th)+r'^{\circ}$'
+                if S != 1:
+                    title = r'${}$'.format(S)
+                    if S == 6:
+                        title = r'$S={}$'.format(S)
+
                 if S in labeled_rules:
                     panel_label = letter_dict[S]
-                    fax.text(0.5, -0.17, panel_label,
-                    verticalalignment='bottom', horizontalalignment='center',
-                    transform=fax.transAxes, fontsize=fs)
+                    #fax.text(0.5, -0.17, panel_label,
+                    #verticalalignment='bottom', horizontalalignment='center',
+                    #transform=fax.transAxes, fontsize=fs)
                 fax.set_title(' ' + title, fontsize=fs+1)
                 tax.set_title(title, fontsize=fs+1)
                 plt.subplots_adjust(top=0.85, bottom=0.15, wspace=0.6)

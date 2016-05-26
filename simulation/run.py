@@ -63,19 +63,19 @@ import simulation.launch as launch
 # lists of parameters to simulate
 # -------------------------------
 
-output_dir = 'testing'
+output_dir = 'testing/scenter'
 
-mode_list = ['alt', 'sweep', 'block']
+mode_list = ['alt']
 
-L_list = [10]
+L_list = [21]
 
-T_list = [30]
+T_list = [3]
 
-S_list = [1, 2, 10, 6, 9, 14]
+S_list = [1]
 
 V_list = ['HP_0']
 
-IC_list = ['f0-9']
+IC_list = ['c3_f1']
 
 BC_list = ['1_00']
 
@@ -87,12 +87,12 @@ make_plots = True
 # list of tasks to complete
 # -------------------------
 # tasks on the full quantum states
-sim_tasks = ['one_site', 'two_site','sbond']
-rewrite_states = False
+sim_tasks = ['one_site', 'two_site','sbond', 'scenter']
+rewrite_states = True
 
 # tasks on the reduced density matricies ('sc' requires bi_bartite in sim_tasks).
 measure_tasks = ['s', 'mom', 'g', 'm', 'nm', 'stats']
-rewrite_measures = False
+rewrite_measures = True
 
 # sub tasks for spin projections ('mom') and g2 ('g')
 coord_tasks = ['xx', 'yy', 'zz']

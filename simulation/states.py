@@ -274,7 +274,7 @@ def rand_state(L, config):
 
 def random_throw(L, config):
     np.random.seed(int(config))
-    state = np.random.rand(2**L, 2)
+    state = np.random.rand(2**L, 2) - 0.5
     state = state.view(dtype=np.complex128)[...,0]
     state = state/np.sqrt(np.conj(state).dot(state))
     return state 
