@@ -147,20 +147,20 @@ def plot_g_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj, t, params, loc, g_f
             )
     pt.plot_time_series(pdf1, g_ax, 
             times=js,
-            ny_ticks=5,
+            ny_ticks=4,
             nx_ticks=5,
             plot_kwargs={'color':'k','linewidth':1,
                 'linestyle':'--', 'marker':None}
             )
     pt.plot_time_series(pdf, g_ax, 
             times=js,
-            ny_ticks=5,
+            ny_ticks=4,
             nx_ticks=5,
             plot_kwargs={'color':'G','linewidth':1,
                 'linestyle':'-', 'alpha':0.7, 'marker':None}
             )
     pt.plot_time_series(row, g_ax, 
-            ny_ticks=5,
+            ny_ticks=4,
             nx_ticks=5,
             title=title,
             ytick_labels=ytick_labels,
@@ -174,7 +174,7 @@ def plot_g_fits(row, js, pdf, pdf0, pdf1, jmx_0, jmx_1, mnj, t, params, loc, g_f
     g_ax.set_ylim([0.0, 0.25])
     th = params['th']
     mode = params['mode']
-    plt.suptitle('      '+pt.make_U_name(mode, params['S'], params['V']))
+    #plt.suptitle('      '+pt.make_U_name(mode, params['S'], params['V']))
 
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
@@ -286,7 +286,7 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
     #im = grid_ax.imshow(transport['grid'], origin='lower', aspect=1,
     #        interpolation='none')
     im = pt.plot_grid(transport['grid'], grid_ax, nc=1,
-        title='', ylabel='Iteration', xlabel='Site',
+        title='', ylabel='Time step', xlabel='Site',
         xtick_labels=True, ytick_labels=True,
         nx_ticks=6, ny_ticks=10, wspace=-0.25,
         cbar=False, cmap=plt.cm.jet, plot_kwargs={}, span=None)
@@ -305,7 +305,7 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
             rotate=True,
             ny_ticks=9,
             title=r'$P_1(j, t)$',
-            ylabel='Iteration', 
+            ylabel='Time step', 
             xlabel='Site',
             plot_kwargs={'color':'R', 'linewidth':1,
                 'linestyle':'-','marker':None}
@@ -328,7 +328,7 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
             rotate=True,
             ny_ticks=10,
             title=r'$P_1(j, t)$',
-            ylabel='Iteration', 
+            ylabel='Time step', 
             xlabel='Site',
             plot_kwargs={'color':'r', 'linewidth':1}
             )
@@ -355,7 +355,7 @@ def plot_speed_diff(params, transport, fignum=1, speed_f=ft.flin, diff_f=ft.flin
             ny_ticks=12,
             nx_ticks = 5,
             title=r'$\Delta^{(1)}_{P_1}$', 
-            xlabel='Width [sites]', 
+            xlabel='Width', 
             ylabel='',
             ytick_labels=False,
             plot_kwargs={'color':'R', 'linewidth':1, 'linestyle':'-',
@@ -418,20 +418,20 @@ def plot_speed_diffs(params, transport, fignum, speeds_0, dspeeds_0, diffs_0, dd
             label=mode_name, fmt='o', ms=ms)
     #speed_ax.set_ylim(bottom=0)
     #speed_ax.set_xlim([-10,99])
-    speed_ax.legend(loc='upper right', fontsize=lsize)
-    speed_ax.set_xlabel('Phase Gate Angle [deg.]')
-    speed_ax.set_ylabel('speed [Sites / Iteration]')
+    speed_ax.legend(loc='upper right', fontsize=lsize, numpoints=1)
+    speed_ax.set_xlabel('Phase gate angle [deg.]')
+    speed_ax.set_ylabel('Speed')
     speed_ax.locator_params(nbins=8, axis='x')
     #speed_ax.errorbar(ths, speeds_1, yerr=dspeeds_1, color='c')
     #speed_ax.errorbar(ths, 0.5*(np.array(speeds_0) + np.array(speeds_1)), yerr=dspeeds_1)
 
     diff_ax.errorbar(ths, diffs_0, yerr=ddiffs_0, color=c, 
                      label=mode_name, fmt='o', ms = ms)
-    diff_ax.legend(loc = 'upper right', fontsize=lsize)
+    diff_ax.legend(loc = 'upper right', fontsize=lsize, numpoints=1)
     #diff_ax.set_ylim(bottom=0)
     #diff_ax.set_xlim([-10,99])
-    diff_ax.set_xlabel('Phase Gate Angle [deg.]')
-    diff_ax.set_ylabel('Diffusion Rate [Sites / Iteration]')
+    diff_ax.set_xlabel('Phase gate angle [deg.]')
+    diff_ax.set_ylabel('Diffusion Rate')
     diff_ax.locator_params(nbins=8, axis='x')
     diff_ax.locator_params(nbins=8, axis='y')
     #diff_ax.errorbar(ths, diffs_1, yerr=ddiffs_1)
@@ -439,11 +439,11 @@ def plot_speed_diffs(params, transport, fignum, speeds_0, dspeeds_0, diffs_0, dd
 
     speed_diff_ax.errorbar(speeds_0, diffs_0, xerr=dspeeds_0,
             yerr=ddiffs_0, color = c, label=mode_name, fmt='o', ms=ms)
-    speed_diff_ax.legend(loc='upper left', fontsize=lsize)
+    speed_diff_ax.legend(loc='upper left', fontsize=lsize, numpoints=1)
     #speed_diff_ax.set_ylim(bottom=0)
     #speed_diff_ax.set_xlim(left=0)
-    speed_diff_ax.set_xlabel('Speed [Sites / Iteration]')
-    speed_diff_ax.set_ylabel('Diffusion Rate [Sites / Iteration]')
+    speed_diff_ax.set_xlabel('Speed')
+    speed_diff_ax.set_ylabel('Diffusion rate')
     speed_diff_ax.locator_params(axis='x', nbins=8)
     speed_diff_ax.locator_params(axis='y', nbins=8)
 
@@ -478,7 +478,7 @@ if __name__ == '__main__':
                   diff_f       = ft.flin,
                   speed_Bs_est = [1.0, 0.0],
                   diff_Bs_est  = [1.0, 0.0],
-                  dirr         = 'R-L')
+                  dirr         = 'L-R')
 
     # outer params
     fixed_params_dict = {
@@ -486,7 +486,7 @@ if __name__ == '__main__':
                 'L'   : [21],
                 'T'   : [60],
                 'S'   : [6],
-                'IC'  : ['f20'],
+                'IC'  : ['f0'],
                 'mode': ['sweep', 'block', 'alt'],
                 'BC'  : ['1_00'],
                  }

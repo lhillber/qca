@@ -41,7 +41,7 @@ def init_params_1d():
 
     modes = ['alt']
     Ss = [1,2,3,4,5,6,7,9,10,11,12,13,14]
-    degs = [90]
+    degs = [0]
     Vs = ['HP_'+str(deg) for deg in degs]
     Ls = [17]
     Ts = [1000]
@@ -60,7 +60,7 @@ def init_params_1d():
                  }
     #inner params
     var_params_dict = {
-                'V' : Vs,
+                'V'   : Vs,
                 'IC'  : ICs,
                 'S'   : Ss,
                 'mode': modes
@@ -332,7 +332,6 @@ def plot_agg_peaks(params_res_list, obs_list, id_by ='S'):
                                                  id_dict=id_dict)
             xs = np.array([x]*len(plot_freqs)) + ii/7 - len(obs_list)/14
 
-
             # label scatter plot only once, may have to change j0 in jj == j0
             label=None
             if params['S'] == 9 and not labeled:
@@ -491,8 +490,8 @@ def run_2d_ft(fs=12):
 
 
 def main():
-    #run_1d_ft()
-    run_2d_ft()
+    run_1d_ft()
+    #run_2d_ft()
 
 if __name__ == '__main__':
     main()

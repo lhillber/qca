@@ -43,18 +43,18 @@ def make_U_name(mode, S, V):
     return name
 
 if __name__ == '__main__':
-    output_dir = 'fock_IC'
-    data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/'
-    #data_repo=None
+    output_dir = 'allS'
+    #data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/'
+    data_repo=None
     for modee in ['alt']:
         fixed_params_dict = {
                     'output_dir' : [output_dir],
-                    'L' : [19],
-                    'T' : [1000],
-                    'IC': ['c3_f1'],
+                    'L' : [21],
+                    'T' : [300],
+                    'IC': ['c1_f0'],
                     'BC': ['1_00'],
                     'mode': [modee],
-                    'V' : ['HP_0']
+                    'V' : ['H']
                      }
 
         var_params_dict = {
@@ -91,18 +91,20 @@ if __name__ == '__main__':
                 res = h5py.File(res_path)
                 exp = ms.get_diag_vecs(res['zz'][::])
 
-                Ptj = exp
+                Ptj = exp[span[0]:span[1], ::]
                 #Ptj = ((1.0 - exp)/2.0)[span[0]:span[1], 0:L]
-
-                Ptj = res['sbond'][span[0]:span[1]-1,::]
-                L = len(Ptj[1])
-                Ptj /= [min(c+1, L-c) for c in range(L)]
+                #Ptj = res['sbond'][span[0]:span[1]-1,::]
+                #L = len(Ptj[1])
+                #Ptj /= [min(c+1, L -c) for c in range(L)]
 
                 xlabel, ylabel = '', ''
                 xtick_labels = False
 
                 #title = make_U_name(mode, S, V)
-                title = r'$S=$'+str(S)
+                if S ==1 :
+                    title = r'$S=$'+str(S)
+                else:
+                    title = str(S)
                 y_tick_labels = ['']*(span[1] - span[0])
                 x_tick_labels = ['']*L
                 xlabel = ''
@@ -110,52 +112,64 @@ if __name__ == '__main__':
                     xlabel =''
                 if i in (11, 12, 13, 14, 15):
                     x_tick_labels = range(L)
-                    xlabel='Cut'
+                    if i == 13:
+                        xlabel='Site'
                 if i in (1, 6, 11):
-                    ylabel = 'Iteration'
                     y_tick_labels = range(span[0], span[1])
+                    if i == 6:
+                        ylabel = 'Time step'
+
 
                 im = ax.imshow(Ptj,
+                            cmap='jet',
                             origin = 'lower',
+                            vmin = -1,
                             vmax = 1,
                             interpolation = 'none',
                             aspect = '1',
                             rasterized = True,
-                            extent=[0,L+1,0,60]
+                            extent=[0.0,L, 0, 60]
                             )
 
                 ax.set_title(title, fontsize=10)
                 ax.set_ylabel(ylabel)
                 ax.set_xlabel(xlabel)
 
-                n_xticks = 3
+                n_xticks = 2
                 delta = max(1, int(len(x_tick_labels)/n_xticks))
                 ax.set_xticks(range(0, len(x_tick_labels), delta ))
                 ax.set_xticklabels(x_tick_labels[::delta])
 
                 n_yticks = 3
                 delta = max(1, int(len(y_tick_labels)/n_yticks))
-                ax.set_yticks(range(0, len(y_tick_labels), delta ))
+                ax.set_yticks(np.arange(0, len(y_tick_labels), delta))
                 ax.set_yticklabels(y_tick_labels[::delta])
-                ax.spines['bottom'].set_position(('data',0.1))
-                ax.spines['left'].set_bounds(0.1, 60)
-                ax.spines['right'].set_bounds(0.1, 60)
+                ax.autoscale(False)
+                ax.spines['bottom'].set_position(('data',0.13))
+                ax.spines['left'].set_bounds(0.13, 60)
+                ax.spines['right'].set_bounds(0.13, 60)
             im_ext = im.get_extent()
             box = ax.get_position()
            # cax = plt.axes([box.x1+0.01, box.y0, 0.02, box.height - 0.03])
-            cax = plt.axes([box.x1-0.03, box.y0, 0.02, box.height - 0.01])
-            cb = plt.colorbar(im, cax = cax, ticks = [0.0,0.5, 1.0])
-           # cb.ax.tick_params(labelsize=9)
-           # cb.set_label(r'$s_j$', rotation=0, labelpad = -24, y=1.12)
-            cb.set_label(r'$s^{\mathrm{bond}}$', rotation=0, labelpad = -24,
-                    y=1.1, fontsize=14)
-           # cb.set_label(r'$P_1(j,t)$', rotation=0, labelpad = -22, y=1.10)
+            cax = plt.axes([box.x1-0.045, box.y0+0.01, 0.02, box.height - 0.01])
+            #cax = plt.gcf().add_axes([0.85, 0.5, 0.013, 0.2])
+            cb = plt.colorbar(im, cax = cax, ticks = [-1.0, 0.0, 1.0])
+            #cb.set_label(r'$s_j$', rotation=0, labelpad = -24, y=1.12)
+            #cb.set_label(r'$s^{\mathrm{bond}}$', rotation=0, labelpad = -24,
+            #        y=1.1, fontsize=14)
+
+            cb.set_label(r'$\langle \sigma_j^z \rangle$', rotation=0, 
+                    labelpad = 0,  y=0.78)
+
+            #cb.set_label(r'$s^{\mathrm{bond}}$', rotation=0, 
+            #        labelpad = 0, y=0.78)
+            #cb = plt.colorbar(im, cax = cax, ticks = [0.0, 0.5, 1.0])
         #cax = plt.axes([box.x1-0.05, box.y0+0.2, 0.02, box.height + 0.02])
         #cb = plt.colorbar(im, cax = cax)
-        fig.subplots_adjust(wspace=-0.5, hspace=0.2)
+        fig.subplots_adjust(wspace=-0.4, hspace=0.15)
 
         bn = io.base_name(output_dir,'plots')
         #plt.savefig(bn+params['mode']+'_sbond_comp.pdf',
         #        dpi=300, clip=True)
-        io.multipage(bn+params['mode']+'_sbond_comp.pdf')
+        io.multipage(bn+params['mode']+'_zexp_comp.pdf', clip=True)
         #plt.show()

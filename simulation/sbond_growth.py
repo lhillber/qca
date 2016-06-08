@@ -48,7 +48,7 @@ var_params_dict = {
              }
 
 
-def rule_plot(params_list_list, show_S=[1,6,9,14], show_L=[15]):
+def rule_plot(params_list_list, show_S=[6], show_L=[15]):
     fignum = 0
     c_list = ['c', 'orange', 'crimson', 'limegreen']
     c_list = cycle(c_list)
@@ -71,14 +71,18 @@ def rule_plot(params_list_list, show_S=[1,6,9,14], show_L=[15]):
             T = params['T']
             sb = data_set['sbond'][::] 
 
-            print(sb[0:3,int(L/2)])
-            sb[::, int(L/2)] = np.zeros(params['T']+1)
-            sb /= [min(c+1, L-c-1) for c in range(L-1)]
+            if L == 21:
+                center_sb = data_set['scenter']
+                print(center_sb[0])
+            else:
+                sb[::, int(L/2)] = np.zeros(params['T']+1)
+                sb /= [min(c+1, L-c-1) for c in range(L-1)]
 
-            center_sb = sb[::, int(L/2)]
+                center_sb = sb[::, int(L/2)]
 
-            avg_sb = np.mean(sb, axis=1)
-            avg_avg_sb = np.mean(avg_sb[500::])
+                avg_sb = np.mean(sb, axis=1)
+                avg_avg_sb = np.mean(avg_sb[500::])
+
             avg_center_sb = np.mean(center_sb[500::])
             avg_list.append([L, S, avg_avg_sb])
 
@@ -88,7 +92,7 @@ def rule_plot(params_list_list, show_S=[1,6,9,14], show_L=[15]):
 
     bn = io.base_name(output_dir, 'plots/sbond/')
     #fn = 'S1_sbond_center_growth'+'.pdf'
-    fn = 'S1-6-9-14_th0_sbond_center_tavg_Lscale'+'.pdf'
+    fn = 'S6_sbond_center_growth'+'.pdf'
     io.multipage(bn+fn)
     #plt.show()
 
@@ -111,7 +115,7 @@ def L_avg_plot(ax, c_list, m_list, avg_list, label):
             label=label, lw=1.3, markeredgewidth=2,
     marker=m, markerfacecolor='None')
 
-    ax.set_ylabel(r'$s^{\mathrm{bond}}_{\mathrm{avg}}$')
+    ax.set_ylabel(r'$s^{\mathrm{bond}}_{\mathrm{center}}$')
     ax.set_xlabel(r"L")
     ax.legend(loc='upper left', fontsize=12,  numpoints=1, handlelength=1,
             ncol=2, handletextpad=0.35, labelspacing=0.0, columnspacing=0.7)

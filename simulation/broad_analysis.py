@@ -350,7 +350,7 @@ if __name__ == '__main__':
     data_repo = '/mnt/ext0/qca_output/'+output_dir+'/data/' 
     #data_repo = None
 
-    typ = 'PCA'
+    typ = 'scatter'
     modes = ['alt', 'sweep', 'block']
     #uID = '_somethin_'
     uID = ''
@@ -360,15 +360,15 @@ if __name__ == '__main__':
     Ss = range(1,15)
 
     #ICs = ['G', 'W', 'c2_B0-1_0', 'c2_B0-1_1', 'c2_B0-1_2', 'c2_B0-1_3' ]
-    ICs = ['c3_f1', 'c3_f0-1', 'c3_f0-2', 'c3_f0-1-2']
+    ICs = ['c3_f1', 'c3_f0-1', 'c3_f0-2']
     #ICs = ['r5-10', 'r5-20', 'r5-30']
 
-    #color_by_list = ['mode', 'th', 'S', 'IC', 'L']
-    color_by_list = ['S']
+    color_by_list = ['mode', 'th', 'S', 'IC', 'L']
+    #color_by_list = ['S']
 
-    obs_list_list = [['ND', 'CC','Y']]
-    #obs_list_list = [['ND', 'Y'], ['CC', 'Y'], ['ND', 'CC'], ['ND', 's'], 
-    #                 ['CC','s'], ['Y', 's']]
+    #obs_list_list = [['ND', 'CC','Y']]
+    obs_list_list = [['ND', 'Y'], ['CC', 'Y'], ['ND', 'CC'], ['ND', 's'], 
+                     ['CC','s'], ['Y', 's']]
 
     # outer params
     fixed_params_dict = {
@@ -394,7 +394,7 @@ if __name__ == '__main__':
     params_list_list = io.make_params_list_list(fixed_params_dict, var_params_dict)
     fignum=0
     for color_by in color_by_list:
-        for letter, obs_list in zip(['(a)', '(b)','(c)','(d)','(e)','(f)'], obs_list_list):
+        for letter, obs_list in zip(['(b)','(c)','(a)','(d)','(e)','(f)'], obs_list_list):
             M, N = params_list_list.shape
             J = len(obs_list)
             obs_means = np.zeros((M, J, N))

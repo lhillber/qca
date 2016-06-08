@@ -107,6 +107,7 @@ def main():
         fig = plt.figure(fignum,figsize=(3,3))
         ax = fig.add_subplot(1,1,1)
         for n, params in enumerate(params_list):
+            S = params['S']
             if data_repo is not None:
                 sname = io.sim_name(params)
                 data_path = data_repo + sname + '_v0.hdf5'
@@ -238,9 +239,11 @@ def main():
                 #plt.plot(agg_range, [1.0/20]*len(means))
                 mins.append(min(means))
                 maxs.append(max(means))
-            ax.set_title(r'$S='+str(params['S'])+'$')
+            ax.set_title(r'${}$'.format(S))
+            if S == 1:
+                ax.set_title(r'$S = {}$'.format(S))
             ax.set_ylabel(measure_name)
-            ax.set_xlabel(r"Iteration [$t/\tau$]")
+            ax.set_xlabel(r"Time step [$t/\tau$]")
             ax.grid(True)
             ax.legend(loc='best', fontsize=11,  numpoints=1, handlelength=1)
             ax.set_xscale("log", nonposx='clip')
