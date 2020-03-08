@@ -1,5 +1,2 @@
-**/*.pyc
-static/**
-db.sqlite3
-nohup.out
-simulation/outputdir.py
+bak/**
+data/**
