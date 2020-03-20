@@ -107,6 +107,18 @@ from matrix import ops
 import measures as ms
 from core import evolve, record, hash_state, save_dict_hdf5, params_list_map
 
+import matplotlib as mpl
+from matplotlib import rc
+rc("text", usetex=True)
+font = {"size": 11, "weight": "normal"}
+mpl.rc(*("font",), **font)
+mpl.rcParams["pdf.fonttype"] = 42
+mpl.rcParams["text.latex.preamble"] = [
+    r"\usepackage{amsmath}",
+    r"\usepackage{sansmath}",  # sanserif math
+    r"\sansmath",
+]
+
 
 defaults = {
     "L": 15,     # system size, int/list
@@ -164,14 +176,16 @@ parser.add_argument(
     default=defaults["R"],
     nargs="*",
     type=int,
-    help="QCA rule number")
+    help="QCA rule number"
+)
 
 parser.add_argument(
     "-r",
     default=defaults["r"],
     nargs="*",
     type=int,
-    help="Number of qubits in a neighborhood")
+    help="Number of qubits in a neighborhood"
+)
 
 parser.add_argument(
     "-V",
@@ -282,7 +296,7 @@ parser.add_argument(
 class QCA:
     """Object-Oriented API"""
 
-    def __init__(self, params, der=None):
+    def __init__(self, params=defaults, der=None):
         if der is None:
             der = os.path.join(os.getcwd(), "data")
         os.makedirs(der, exist_ok=True)
@@ -624,7 +638,7 @@ def main(thread_as=None,
     # initialize parmeters template
     params = dict(
         totalistic=totalistic,
-        hamiltonian=hamiltonian ,
+        hamiltonian=hamiltonian,
         trotter=trotter,
         symmetric=symmetric,
         )
@@ -674,48 +688,6 @@ def main(thread_as=None,
             estimate = numremain.dot(list(elapsed.values()))
             mysimnum += 1
         simnum += 1
-
-
-def convergance(L, T, R, r, V, IC, BC, totalistic):
-    """Run and plot convergence study"""
-    dts = np.array([1 / 2**n for n in (0, 1, 2, 3, 4, 5, 6, 7)])
-    e1s = []
-    e2s = []
-    for dt in dts:
-        gen0 = evolve(L, T, dt, R, r, V, IC, BC, E=0,
-                      totalistic=totalistic, hamiltonian=True,
-                      symmetric=False, trotter=False)
-        gen1 = evolve(L, T, dt, R, r, V, IC, BC, E=0,
-                      totalistic=totalistic, hamiltonian=True,
-                      symmetric=False, trotter=True)
-        gen2 = evolve(L, T, dt, R, r, V, IC, BC, E=0,
-                      totalistic=totalistic, hamiltonian=True,
-                      symmetric=True, trotter=True)
-        for ti, (s0, s1, s2) in enumerate(zip(gen0, gen1, gen2)):
-            d1 = s1 - s0
-            e1 = np.sum(np.conj(d1) * d1).real
-            d2 = s2 - s0
-            e2 = np.sum(np.conj(d2) * d2).real
-        e1s.append(e1)
-        e2s.append(e2)
-        print(f"dt:{dt}, asymmetric err:{e1}, symmetric err:{e2}")
-
-    e1s = np.array(e1s)
-    e2s = np.array(e2s)
-    fit1 = np.polyfit(np.log10(dts), np.log10(e1s), deg=1)
-    fit2 = np.polyfit(np.log10(dts), np.log10(e2s), deg=1)
-
-    def efunc(x, m, b):
-        return 10 ** b * x**m
-
-    plt.loglog(dts, e1s, marker="s", mec="r", mfc="none", ls="none")
-    plt.loglog(dts, e2s, marker="o", mec="r", mfc="none", ls="none")
-
-    plt.loglog(dts, efunc(dts, *fit1), c="k", ls="--")
-    plt.loglog(dts, efunc(dts, *fit2), c="k", ls="--")
-    print(f"slopes:{fit1[0]}, {fit2[0]}")
-    plt.show()
-
 
 if __name__ == "__main__":
     main()

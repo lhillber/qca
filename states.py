@@ -225,16 +225,21 @@ def fock(L, config):
 
 def doublon(L, config):
     try:
-        D = int(config.split('_')[0])
-        config = config[1:]
+        D = config.split('_')[0]
+        config = config[len(D):]
+        D = int(D)
     except IndexError:
         D = 2
-
     if D == 'd':
         D = 2
     else:
         D = int(D)
-    fock_config = '-'.join([str(i) for i in range(L) if i % D == 0])
+    rel = L//2
+    ex_list = [rel + i for i in range(0, L, D) if (rel+i)<L]
+    ex_list += [rel - i for i in range(0, L, D) if (rel-i) >=0]
+    ex_list = list(set(ex_list))
+    print(ex_list)
+    fock_config = '-'.join([str(i) for i in ex_list])
     fock_config = ''.join([fock_config, config])
     return fock(L, fock_config)
 
@@ -455,3 +460,18 @@ def make_state(L, IC):
     state = edit_small_vals(state.real) + 1j * edit_small_vals(state.imag)
     state = state.astype(np.complex128)
     return state
+
+if __name__ == "__main__":
+    import measures as ms
+    from matrix import ops
+    import matplotlib.pyplot as plt
+    L = 20
+    ICs = [f"d{i}" for i in range(1, L//2+4)]
+    Zs = []
+    for IC in ICs:
+        state = make_state(L, IC)
+        rhoj = ms.get_rhoj(state)
+        Z = ms.get_expectation(rhoj, ops["Z"])
+        Zs.append(Z)
+    plt.imshow(Zs)
+    plt.show()

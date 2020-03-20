@@ -21,9 +21,6 @@ ops = {
     "D": 1.0 / sqrt(2) * np.array([[1.0, -1j], [-1j, 1.0]], dtype=complex),
 }
 
-# works but doesn't help mem leak
-
-
 def op_on_state_inplace(op, js, state, ds=None):
     if ds is None:
         L = int(np.log2(len(state)))

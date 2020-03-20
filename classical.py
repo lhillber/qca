@@ -13,39 +13,27 @@ from numpy.linalg import matrix_power
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import Patch
+from matplotlib import rc
+import matplotlib as mpl
 
-# plotting defaults
-mpl.rcParams["text.latex.preamble"] = ["\\usepackage{amsmath}"]
-font = {"size": 9, "weight": "normal"}
-mpl.rcParams["mathtext.fontset"] = "stix"
-mpl.rcParams["font.family"] = "STIXGeneral"
-mpl.rcParams["pdf.fonttype"] = 42
+rc("text", usetex=True)
+font = {"size": 11, "weight": "normal"}
 mpl.rc(*("font",), **font)
+mpl.rcParams["pdf.fonttype"] = 42
+mpl.rcParams["text.latex.preamble"] = [
+    r"\usepackage{amsmath}",
+    r"\usepackage{sansmath}",  # sanserif math
+    r"\sansmath",
+]
 
-# lookup table for classical to quantum rule number
-# lut[quantum] = classical
-lut = {
-    0: 204,
-    1: 201,
-    2: 198,
-    3: 195,
-    4: 156,
-    5: 153,
-    6: 150,
-    7: 147,
-    8: 108,
-    9: 105,
-    10: 102,
-    11: 99,
-    12: 60,
-    13: 57,
-    14: 54,
-    15: 51,
-}
+
+# Convert ECA rule number to QECA rule number
+def Crule(Qrule):
+    a = [5, 5, 20, 20]
+    return 204^sum(a[i]*(Qrule&(1<<i)) for i in range(4))
 
 # ECA transition funcion
-
-
 def ecaf(R, Ni):
     """ R: classical ECA rule number
         Ni: 3-site neighborhood of site i
@@ -151,7 +139,7 @@ def network_disparity(mat, eps=1e-17j):
 def compare(L=100, T=500):
     for R in range(16):
         fig, axs = plt.subplots(1, 2)
-        Rc = lut[R]
+        Rc = Crule(R)
         IC = np.zeros(L)
         IC[L // 2] = 1
         C = iterate(L, T, Rc, IC, BC="1-00")
@@ -194,17 +182,16 @@ def compare(L=100, T=500):
     multipage("figures/classical_MI.pdf", clip=True)
 
 
-# default behavior of this script
-if __name__ == "__main__":
+def main():
     fig, axs = plt.subplots(64, 4, figsize=(4, 64))
     L = 39
     T = L
-    for R in range(256):
-        #fig, ax = plt.subplots(1, 1, figsize=(1, 1))
+    for R in range(256, T=2*35):
+        # fig, ax = plt.subplots(1, 1, figsize=(1, 1))
         print(R)
         r, c = int(R//4), R % 4
         ax = axs[r, c]
-        IC = np.zeros(L)
+        IC = np.zeros((T, L))
         IC[L // 2] = 1
         C = iterate(L, T, R, IC, BC="0")
         ax.imshow(C, interpolation="none", rasterized=False, cmap="Greys")
@@ -213,4 +200,46 @@ if __name__ == "__main__":
         ax.set_xticks([])
         ax.set_yticks([])
     plt.tight_layout()
-    multipage("figures/classical_ECA.pdf", clip=False, dpi=512)
+    multipage("figures/classical/classical_ECA.pdf", clip=False, dpi=512)
+
+
+# default behavior of this script
+if __name__ == "__main__":
+
+    def plot(Rs=[30, 90, 110], L=65, T=65//2):
+        fig, axs = plt.subplots(1, len(Rs), figsize=(2.25, 1))
+        IC = np.zeros(L)
+        IC[L // 2] = 1
+        letts = [r"$\bf A$", r"$\bf B$", r"$\bf C$"]
+        for i, (R, lett, ax) in enumerate(zip(Rs, letts, axs)):
+            C = iterate(L, T, R, IC, BC="1-00")
+            ax.imshow(C, cmap="Greys", origin="lower", interpolation="None")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_title("$C_{%s}$" % R)
+            ax.text(0.01,0.05,lett, transform=ax.transAxes, weight="bold")
+            if i == 0:
+                yticks = [0, 32]
+                xticks = [0, L//2, L-1]
+                ax.set_xticks(xticks)
+                ax.set_yticks(yticks)
+                ax.set_xticklabels(xticks)
+                ax.set_yticklabels(yticks)
+                ax.set_xlabel("Site, $j$")
+                ax.set_ylabel("Time, $t$")
+
+        legend_elements = [
+                   Patch(facecolor='w', edgecolor='k', label='0,'),
+                   Patch(facecolor='k', edgecolor='k', label='1'),
+                        ]
+
+        ax.legend(handles=legend_elements, loc='upper right',
+                  handlelength=0.8, handletextpad=0.5, frameon=False,
+                  bbox_to_anchor=[1.2,0.1],
+                  ncol=2,
+                  columnspacing=0.5)
+
+        fig.subplots_adjust(wspace=0.1, top=1, bottom=0.18,
+                            left=0.2, right=0.98)
+        plt.savefig("figures/classical/C30_90_110.pdf")
+    plot()

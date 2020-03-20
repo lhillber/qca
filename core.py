@@ -13,7 +13,6 @@ from itertools import product, cycle, zip_longest
 from hashlib import sha1
 from copy import deepcopy
 from json import dumps
-from matplotlib.backends.backend_pdf import PdfPages
 
 
 def rule_element(V, Rel, hood, hamiltonian=False, lslice=None, rslice=None):
@@ -438,24 +437,4 @@ params_list_map = {"product": product_params_list,
                    "repeat": repeat_params_list}
 
 
-def multipage(fname, figs=None, clf=True, dpi=300, clip=True, extra_artist=False):
-    """
-    Save multi-page pdfs. One page per matplotlib figure object.
-    """
-    pp = PdfPages(fname)
-    if figs is None:
-        figs = [plt.figure(fignum) for fignum in plt.get_fignums()]
-    for fig in figs:
-        if clip is True:
-            bbox_inches = "tight"
-        else:
-            bbox_inches = None
-        fig.savefig(
-            pp, format="pdf",
-            bbox_inches=bbox_inches,
-            bbox_extra_artist=extra_artist,
-            dpi=dpi
-        )
-        if clf == True:
-            fig.clf()
-    pp.close()
+
