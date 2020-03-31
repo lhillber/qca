@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# coding: utf-8
+#
 # qca.py
 #
 # by Logan Hillberry
@@ -12,7 +15,7 @@
 #
 #  Command line interface and parallelism for quantum cellular automata
 #  simulations. The method main() will parse command line arguments, in
-#  which single values or lists of values may be given. Handeling of lists
+#  which single values or lists of values may be given. Handleing of lists
 #  of parameters is set by the thread_as variable which may take the values
 #  "product", "cycle", "repeat", for generating the a list of complete
 #  parameter sets by making the list products, list cycles, or repeating
@@ -48,13 +51,14 @@
 # their "rank" from 0 to N-1) running M simulations (numbered 0 to M-1), then
 # rank r will run simulations r, N+r, 2N+r, ... M - r. Before distributing
 # work to the processors, the simulation parameter sets are randomly shuffled
-# to improve the ballance of the work load.
+# to improve the balance of the work load.
 #
 # While running, the program estimates the time remaining to completion
-# by maintining an average time taken to complete a simulation of a given
+# by maintaining an average time taken to complete a simulation of a given
 # system size L and computing the average number of simulations of each
 # L remaining. In parallel, the time estimate is reduced by a factor of N
-# and each rank maintains a different estimate. This estimate is very crude.
+# and each rank maintains a different estimate. This estimate is very crude,
+# and some times nonsensical
 #
 #
 # Usage:
@@ -65,8 +69,8 @@
 #   python3 launch.py -argname [val [val...]]
 #
 # where -argname is the parameter name you wish to supply and [val [val ...]]
-# denotes either a single value or a space sparated list of values for that
-# parameter. Flag parameters (trotter, symmetric, totalistic, hamiltonian,
+# denotes either a single value or a space separated list of values for that
+# parameter. Flag parameters (trotter, symmetric, totalistic, Hamiltonian,
 # and recalc) don't accept lists. If a flag is passed, then logical not
 # of the default is used. If a parameter is not supplied in the command line,
 # a default value is used which is set in the dictionary `defaults`
@@ -86,10 +90,11 @@
 #
 # import this modules main function
 #
-#   from launch import main
+#   from qca import main
 #
 # then provide key word arguments to main() corresponding to the
-# desired values of parameters.
+# desired values of parameters. Missing arguments are filled with the
+# defaults.
 
 
 import os
@@ -105,10 +110,11 @@ from h5py import File
 
 from matrix import ops
 import measures as ms
-from core import evolve, record, hash_state, save_dict_hdf5, params_list_map
+from core import record, hash_state, save_dict_hdf5, params_list_map
 
 import matplotlib as mpl
 from matplotlib import rc
+
 rc("text", usetex=True)
 font = {"size": 11, "weight": "normal"}
 mpl.rc(*("font",), **font)
@@ -121,24 +127,24 @@ mpl.rcParams["text.latex.preamble"] = [
 
 
 defaults = {
-    "L": 15,     # system size, int/list
+    "L": 15,  # system size, int/list
     "T": 100.0,  # simulation time, float/list
-    "dt": 1.0,   # time step, float/list
-    "R": 6,      # rule numbering, int/list
-    "r": 1,      # neighborhood radius, int/list
-    "V": "H",    # Local update unitary, str/list
+    "dt": 1.0,  # time step, float/list
+    "R": 6,  # rule numbering, int/list
+    "r": 1,  # neighborhood radius, int/list
+    "V": "H",  # Local update unitary, str/list
     "IC": "c3_f1",  # initial condition, str/list
-    "BC": "1-00",   # boundary condition, str/list
-    "E": 0.0,       # depolarization error rate, float/list
-    "N": 1,         # number of trials to average, int/list
+    "BC": "1-00",  # boundary condition, str/list
+    "E": 0.0,  # depolarization error rate, float/list
+    "N": 1,  # number of trials to average, int/list
     "thread_as": "product",  # Combining lists of above parameters, str
     "trotter": True,  # trotter time ordering?, bool
     "symmetric": False,  # symmetrized trotter?, bool
     "totalistic": False,  # totalistic rule numbering?, bool
     "hamiltonian": False,  # continuous time evolution?, bool
     "recalc": False,  # recalculate tasks?, bool
-    "tasks": ["rhoj", "rhojk"]  # save density matricies, list of str
-            }
+    "tasks": ["rhoj", "rhojk"],  # save density matricies, list of str
+}
 
 parser = argparse.ArgumentParser()
 
@@ -152,31 +158,19 @@ parser.add_argument(
     default=defaults["L"],
     nargs="*",
     type=int,
-    help="Number of qubits used in simulation"
+    help="Number of qubits used in simulation",
 )
 
 parser.add_argument(
-    "-T",
-    default=defaults["T"],
-    nargs="*",
-    type=float,
-    help="Total simulation time"
+    "-T", default=defaults["T"], nargs="*", type=float, help="Total simulation time"
 )
 
 parser.add_argument(
-    "-dt",
-    default=defaults["dt"],
-    nargs="*",
-    type=float,
-    help="Simulation time step"
+    "-dt", default=defaults["dt"], nargs="*", type=float, help="Simulation time step"
 )
 
 parser.add_argument(
-    "-R",
-    default=defaults["R"],
-    nargs="*",
-    type=int,
-    help="QCA rule number"
+    "-R", default=defaults["R"], nargs="*", type=int, help="QCA rule number"
 )
 
 parser.add_argument(
@@ -184,15 +178,11 @@ parser.add_argument(
     default=defaults["r"],
     nargs="*",
     type=int,
-    help="Number of qubits in a neighborhood"
+    help="Number of qubits in a neighborhood",
 )
 
 parser.add_argument(
-    "-V",
-    default=defaults["V"],
-    nargs="*",
-    type=str,
-    help="Activation operator"
+    "-V", default=defaults["V"], nargs="*", type=str, help="Activation operator"
 )
 
 parser.add_argument(
@@ -200,7 +190,7 @@ parser.add_argument(
     default=defaults["IC"],
     nargs="*",
     type=str,
-    help="Initial condition state specification (see states.py)"
+    help="Initial condition state specification (see states.py)",
 )
 
 parser.add_argument(
@@ -208,9 +198,9 @@ parser.add_argument(
     default=defaults["BC"],
     nargs="*",
     type=str,
-    help="Boundary treatment: '0' for periodic, 1-<config> for fixed where" +
-         " <config> is a string of 1's and 0's of length 2*r specifying the" +
-         " fixed boundary state."
+    help="Boundary treatment: '0' for periodic, 1-<config> for fixed where"
+    + " <config> is a string of 1's and 0's of length 2*r specifying the"
+    + " fixed boundary state.",
 )
 
 parser.add_argument(
@@ -218,8 +208,8 @@ parser.add_argument(
     type=float,
     default=defaults["E"],
     nargs="*",
-    help="Probibility of an error per qubit upon update of a neighborhood." +
-         " enter as a probability/r (between 0 and 1/r)",
+    help="Probibility of an error per qubit upon update of a neighborhood."
+    + " enter as a probability/r (between 0 and 1/r)",
 )
 
 parser.add_argument(
@@ -227,8 +217,8 @@ parser.add_argument(
     default=defaults["N"],
     nargs="*",
     type=int,
-    help="Number of versions to simulate" +
-    " For averaging over random qunatities, if applicable",
+    help="Number of versions to simulate"
+    + " For averaging over random qunatities, if applicable",
 )
 
 parser.add_argument(
@@ -237,45 +227,45 @@ parser.add_argument(
     default=defaults["thread_as"],
     type=str,
     choices=["product", "cycle", "repeat"],
-    help="Handeling of lists of parameters." +
-         "'product' for list products \n" +
-         "'cycle' for zipping with cycling shorter lists \n" +
-         "'repeat' for zipping with repeating final value in shorter lists"
+    help="Handeling of lists of parameters."
+    + "'product' for list products \n"
+    + "'cycle' for zipping with cycling shorter lists \n"
+    + "'repeat' for zipping with repeating final value in shorter lists",
 )
 
 parser.add_argument(
     "-trotter",
     "--trotter",
     action=f"store_{str(not defaults['trotter']).lower()}",
-    help="Trotter time ordering? (True if no flag given)"
+    help="Trotter time ordering? (True if no flag given)",
 )
 
 parser.add_argument(
     "-symmetric",
     "--symmetric",
     action=f"store_{str(not defaults['symmetric']).lower()}",
-    help="Symmetric Trotter applicationl? (False if no flag given)"
+    help="Symmetric Trotter applicationl? (False if no flag given)",
 )
 
 parser.add_argument(
     "-totalistic",
     "--totalistic",
     action=f"store_{str(not defaults['totalistic']).lower()}",
-    help="Totalistic rule numbering? (False if no flag given)"
+    help="Totalistic rule numbering? (False if no flag given)",
 )
 
 parser.add_argument(
     "-hamiltonian",
     "--hamiltonian",
     action=f"store_{str(not defaults['hamiltonian']).lower()}",
-    help="Hamiltonian (continuous) rule numbering? (False if no flag given)"
+    help="Hamiltonian (continuous) rule numbering? (False if no flag given)",
 )
 
 parser.add_argument(
     "-recalc",
     "--recalc",
     action=f"store_{str(not defaults['recalc']).lower()}",
-    help="Recalculate tasks even if available? (False if no flag given)"
+    help="Recalculate tasks even if available? (False if no flag given)",
 )
 
 parser.add_argument(
@@ -284,13 +274,12 @@ parser.add_argument(
     default=defaults["tasks"],
     nargs="*",
     type=str,
-    help="Density matrix calculations to be performed." +
-         " rhoj -- single site," +
-         " rhojk -- two site," +
-         " bipart -- all bipartitions," +
-         " bisect -- central bipartition"
+    help="Density matrix calculations to be performed."
+    + " rhoj -- single site,"
+    + " rhojk -- two site,"
+    + " bipart -- all bipartitions,"
+    + " bisect -- central bipartition",
 )
-
 
 
 class QCA:
@@ -298,7 +287,7 @@ class QCA:
 
     def __init__(self, params=defaults, der=None):
         if der is None:
-            der = os.path.join(os.getcwd(), "data")
+            der = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
         os.makedirs(der, exist_ok=True)
         params["T"] = float(params["T"])
         params["dt"] = float(params["dt"])
@@ -350,17 +339,18 @@ class QCA:
         L, T, V, r, R, IC, BC = [self.params[k] for k in keys]
         name = f"L{L}_T{int(T)}_V{V}_r{r}_S{R}_M{2}_IC{IC}_BC{BC}"
         fname = os.path.join(der, name) + ".hdf5"
-        key_map = [("one_site", "rhoj"),
-                   ("two_site", "rhojk"),
-                   ("cut_twos", "bipart"),
-                   ("cut_half", "bisect"),
-                   ("sbond", "sbipart"),
-                   ("scenter", "sbisect"),
-                   ("sbond-2", "sbipart_2"),
-                   ("scenter-2", "sbisect_2"),
-                   ("sbond-1", "sbipart_1"),
-                   ("scenter-1", "sbisect_1"),
-                   ]
+        key_map = [
+            ("one_site", "rhoj"),
+            ("two_site", "rhojk"),
+            ("cut_twos", "bipart"),
+            ("cut_half", "bisect"),
+            ("sbond", "sbipart"),
+            ("scenter", "sbisect"),
+            ("sbond-2", "sbipart_2"),
+            ("scenter-2", "sbisect_2"),
+            ("sbond-1", "sbipart_1"),
+            ("scenter-1", "sbisect_1"),
+        ]
         old_h5file = File(fname, "r")
         available_keys = [k for k in old_h5file.keys()]
         for kold, knew in key_map:
@@ -375,9 +365,13 @@ class QCA:
                     for l in range(self.L):
                         if not test:
                             try:
-                                self.h5file[knew][f"l{l}"] = old_h5file[kold][f"c{l}"][:]
+                                self.h5file[knew][f"l{l}"] = old_h5file[kold][f"c{l}"][
+                                    :
+                                ]
                             except RuntimeError:
-                                self.h5file[knew][f"l{l}"][:] = old_h5file[kold][f"c{l}"][:]
+                                self.h5file[knew][f"l{l}"][:] = old_h5file[kold][
+                                    f"c{l}"
+                                ][:]
         old_h5file.close()
 
     def run(self, tasks, recalc=False, verbose=True):
@@ -443,8 +437,7 @@ class QCA:
         try:
             s2 = getattr(self, key)
         except KeyError:
-            s2 = np.array([ms.get_entropy2(rjk, order=order)
-                          for rjk in self.rhojk])
+            s2 = np.array([ms.get_entropy2(rjk, order=order) for rjk in self.rhojk])
             setattr(self, key, s2)
         if save:
             try:
@@ -461,7 +454,8 @@ class QCA:
         except KeyError:
             bipart = self.bipart
             sbipart = np.transpose(
-                np.array([ms.get_entropy(rl, order=order) for rl in bipart]))
+                np.array([ms.get_entropy(rl, order=order) for rl in bipart])
+            )
             setattr(self, key, sbipart)
         if save:
             try:
@@ -579,24 +573,25 @@ def to_list(val):
     return [val]
 
 
-def main(thread_as=None,
-         tasks=None,
-         recalc=None,
-         Ls=None,
-         Ts=None,
-         dts=None,
-         Rs=None,
-         rs=None,
-         Vs=None,
-         ICs=None,
-         BCs=None,
-         Es=None,
-         Ns=None,
-         totalistic=None,
-         hamiltonian=None,
-         trotter=None,
-         symmetric=None
-         ):
+def main(
+    thread_as=None,
+    tasks=None,
+    recalc=None,
+    Ls=None,
+    Ts=None,
+    dts=None,
+    Rs=None,
+    rs=None,
+    Vs=None,
+    ICs=None,
+    BCs=None,
+    Es=None,
+    Ns=None,
+    totalistic=None,
+    hamiltonian=None,
+    trotter=None,
+    symmetric=None,
+):
 
     # parse command line arguments or load defaults
     args = parser.parse_args()
@@ -641,11 +636,12 @@ def main(thread_as=None,
         hamiltonian=hamiltonian,
         trotter=trotter,
         symmetric=symmetric,
-        )
+    )
 
     # make list of params based on list of values
     params_list = params_list_map[thread_as](
-        params, Ls, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns)
+        params, Ls, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
+    )
 
     # randomize params list for improved load balancing
     Random(123).shuffle(params_list)
@@ -683,11 +679,12 @@ def main(thread_as=None,
             e = tb - ta
             visits[Q.L] += 1
             if e > 0.1:  # only include new sims in average
-                elapsed[Q.L] = ((visits[Q.L]-1) * elapsed[Q.L] + e) / visits[Q.L]
-            numremain = np.array([numperL[L]/nprocs - visits[L] for L in Ls])
+                elapsed[Q.L] = ((visits[Q.L] - 1) * elapsed[Q.L] + e) / visits[Q.L]
+            numremain = np.array([numperL[L] / nprocs - visits[L] for L in Ls])
             estimate = numremain.dot(list(elapsed.values()))
             mysimnum += 1
         simnum += 1
+
 
 if __name__ == "__main__":
     main()

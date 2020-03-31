@@ -1,2 +1,4 @@
 bak/**
 data/**
+__pycache__/**
+

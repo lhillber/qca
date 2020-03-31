@@ -214,9 +214,14 @@ def depolarize(state, Nj, E):
     """
     Depolarization noise of error rate E applied to state
     """
+    if E == 0.0:
+        return state
+
     rnd = np.random.rand()
     if rnd < E:
+        # random site in neighborhood
         q = np.random.choice(Nj)
+        # random Pauli op
         op = mx.ops[np.random.choice(["X", "Y", "Z"])]
         state = mx.op_on_state(op, [q], state)
     return state
@@ -385,11 +390,13 @@ def recurs_save_dict_hdf5(h5file, path, dic_):
 
 
 def record(params, tasks):
-    """Record tasks from qca time evolution defined by params into a dictionary"""
+    """Record tasks from qca time evolution defined by params into a
+       dictionary"""
     ts = np.arange(0, params["T"] + params["dt"], params["dt"])
     rec = {task: ms.measures[task]["init"](
         params["L"], len(ts)) for task in tasks}
     rec.update({"ts": ts})
+    # average of reduced density matricies
     for n in range(params["N"]):
         for ti, state in enumerate(evolve(**params)):
             for task in tasks:
@@ -404,18 +411,22 @@ def record(params, tasks):
 
 
 def make_params_dict(params, L, T, dt, R, r, V, IC, BC, E, N):
-    params = copy(params)
-    params.update(
+    """ Explicit conversion of parameters to dictionary. Updates
+        a base dictonary 'params' """
+    p = copy(params)
+    p.update(
             {"L": L, "T": T, "dt": dt, "R": R, "r": r,
              "V": V, "IC": IC, "BC": BC, "E": E, "N": N})
-    return params
+    return p
 
 
 def product_params_list(params, *args):
+    """ Product set of lists of params """
     return [make_params_dict(params, *p) for p in product(*args)]
 
 
 def cycle_params_list(params, *args):
+    """ Cycle shorter lists  of params """
     lens = [l for l in map(len, args)]
     ind = np.argmax(lens)
     to_zip = [el for el in map(cycle, args)]
@@ -424,6 +435,7 @@ def cycle_params_list(params, *args):
 
 
 def repeat_params_list(params, *args):
+    """ Repeat las element of shorter lists of params """
     lens = np.array([l for l in map(len, args)])
     ind = np.argmax(lens)
     longest = lens[ind]
@@ -432,6 +444,8 @@ def repeat_params_list(params, *args):
     return [make_params_dict(params, *p) for p in zip_longest(*to_zip)]
 
 
+# collect parameter list constructors into
+# a dictonary of functions
 params_list_map = {"product": product_params_list,
                    "cycle": cycle_params_list,
                    "repeat": repeat_params_list}
