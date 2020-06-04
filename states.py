@@ -36,7 +36,7 @@
 # ------------+-----+-----------------------------------+------------------------
 #  rand_throw |  R  |               <s>                 | 'R234'
 # ------------+-----+-----------------------------------+------------------------
-#porter_Thomas|  P  |               <s>                 | 'P345'
+# porter_Thomas|  P  |               <s>                 | 'P345'
 # ------------+-----+-----------------------------------+------------------------
 #     Bell    |  B  |            <j-k>_<b>              | 'B0-1_3'
 # ------------+-----+-----------------------------------+------------------------
@@ -132,7 +132,7 @@ from scipy.stats import rv_continuous
 bvecs = {
     '0': np.array([1.0, 0.0], dtype=complex),
     '1': np.array([0.0, 1.0], dtype=complex),
-    'es':np.array([1.0 / sqrt(2), 1.0 / sqrt(2)], dtype=complex)
+    'es': np.array([1.0 / sqrt(2), 1.0 / sqrt(2)], dtype=complex)
     }
 
 
@@ -152,31 +152,32 @@ def qubit(t, p):
 def make_config_dict(config):
     config_list = config.split('_')
     n = len(config_list)
+    ex_list = [int(ex) for ex in config_list[0].split('-') if ex != '']
     if n == 1:
         config_dict = {
-            'ex_list':[int(ex) for ex in config.split('-')],
-            'ex_config':{'t':180, 'p':0},
-            'bg_config':{'t':0, 'p':0}
+            'ex_list': ex_list,
+            'ex_config': {'t': 180, 'p': 0},
+            'bg_config': {'t': 0, 'p': 0}
             }
-    else:
-        if n == 2:
-            ex_list = [int(ex) for ex in config_list[0].split('-')]
-            ex_config = {ang[0]:eval(ang[1:]) for ang in config_list[1].split('-')}
-            config_dict = {'ex_list':ex_list,  'ex_config':ex_config,
-             'bg_config':{'t':0, 'p':0}}
-        else:
-            if n == 3:
-                ex_list = [int(ex) for ex in config_list[0].split('-')]
-                ex_config = {ang[0]:eval(ang[1:]) for ang in config_list[1].split('-')}
-                bg_config = {ang[0]:eval(ang[1:]) for ang in config_list[2].split('-')}
-                config_dict = {'ex_list':ex_list,  'ex_config':ex_config, 'bg_config':bg_config}
-            else:
-                print(config_list)
+    elif n == 2:
+        ex_config = {ang[0]: eval(ang[1:]) for
+                     ang in config_list[1].split('-')}
+        config_dict = {'ex_list': ex_list,
+                       'ex_config': ex_config,
+                        'bg_config': {'t': 0, 'p': 0}}
+    elif n == 3:
+        ex_config = {ang[0]: eval(ang[1:]) for
+                     ang in config_list[1].split('-')}
+        bg_config = {ang[0]: eval(ang[1:]) for
+                     ang in config_list[2].split('-')}
+        config_dict = {'ex_list': ex_list,
+                       'ex_config': ex_config,
+                       'bg_config': bg_config}
     return config_dict
 
 def gridedge(m, n):
-    E = np.zeros((2 * n*m  - m - n, 2), dtype=np.int32)
-    for i in range(n*m):
+    E = np.zeros((2 * n * m  - m - n, 2), dtype=np.int32)
+    for i in range(n * m):
         if i % n != n - 1:
             E[i - i // n, 0], E[i - i // n, 1] = i, i + 1
         if i < (m - 1) * n:
@@ -194,23 +195,25 @@ def cluster(L, config):
     assert L == m * n
     E = gridedge(m, n)
     Cphase = np.eye(4, dtype=np.complex128)
-    Cphase[3,3] = np.exp(1j*ph)
+    Cphase[3, 3] = np.exp(1j * ph)
     # equal superposition for all qubits
-    state = listkron([bvecs["es"] for _ in range(m*n)])
+    state = listkron([bvecs["es"] for _ in range(m * n)])
     # apply phase gate according to edges of graph
     for e in E:
         state = op_on_state(Cphase, e, state)
     return state
+
 
 def cluster_all(L, config):
     state = np.zeros(2**L, dtype=np.complex128)
     for k in range(2**L):
         b = dec_to_bin(k, L)
         c = 1.0
-        for j in range(L-1):
-            c *= (-1) ** (b[j]*b[j+1])
+        for j in range(L - 1):
+            c *= (-1) ** (b[j] * b[j + 1])
         state += c * listkron([bvecs[str(bj)] for bj in b])
-    return state / 2**(L/2)
+    return state / 2**(L / 2)
+
 
 def fock(L, config):
     config_dict = make_config_dict(config)
@@ -234,9 +237,9 @@ def doublon(L, config):
         D = 2
     else:
         D = int(D)
-    rel = L//2
-    ex_list = [rel + i for i in range(0, L, D) if (rel+i)<L]
-    ex_list += [rel - i for i in range(0, L, D) if (rel-i) >=0]
+    rel = L // 2
+    ex_list= [rel + i for i in range(0, L, D) if (rel + i) < L]
+    ex_list += [rel - i for i in range(0, L, D) if (rel - i) >= 0]
     ex_list = list(set(ex_list))
     print(ex_list)
     fock_config = '-'.join([str(i) for i in ex_list])
@@ -295,9 +298,9 @@ def Bell_array(L, config):
     ic = 'B0-1_{}'.format(bell_type)
     singlet = make_state(2, ic)
     if L % 2 == 0:
-        state = listkron([singlet]*int(L/2))
+        state = listkron([singlet] * int(L / 2))
     else:
-        state = listkron([singlet]*int((L-1)/2) + [bvecs['0']])
+        state = listkron([singlet] * int((L - 1) / 2) + [bvecs['0']])
     return state
 
 
@@ -331,7 +334,7 @@ def rand_state(L, config):
         ex_th, ex_ph = ps_qex_qbg_conf[1].split('-')
         ex_th = float(ex_th[1:])
         ex_ph = float(ex_ph[1:])
-        state_dict = {'ex': qubit(ex_th, ex_ph),  'bg': bvecs['0']}
+        state_dict= {'ex': qubit(ex_th, ex_ph), 'bg': bvecs['0']}
     if len(ps_qex_qbg_conf) == 3:
         ex_th, ex_ph = ps_qex_qbg_conf[1].split('-')
         ex_th = float(ex_th[1:])
@@ -339,7 +342,7 @@ def rand_state(L, config):
         bg_th, bg_ph = ps_qex_qbg_conf[2].split('-')
         bg_th = float(bg_th[1:])
         bg_ph = float(bg_ph[1:])
-        state_dict = {'ex': qubit(ex_th, ex_ph),  'bg': qubit(bg_th, bg_ph)}
+        state_dict= {'ex': qubit(ex_th, ex_ph), 'bg': qubit(bg_th, bg_ph)}
     prob = [p, 1.0 - p]
     if s is not None:
         np.random.seed(int(s))
@@ -365,7 +368,7 @@ def rand_plus(L, config):
         ex_th, ex_ph = exs_ps_qex_qbg_conf[2].split('-')
         ex_th = float(ex_th[1:])
         ex_ph = float(ex_ph[1:])
-        state_dict = {'ex': qubit(ex_th, ex_ph),  'bg': bvecs['0']}
+        state_dict= {'ex': qubit(ex_th, ex_ph), 'bg': bvecs['0']}
     if len(exs_ps_qex_qbg_conf) == 4:
         ex_th, ex_ph = exs_ps_qex_qbg_conf[2].split('-')
         ex_th = float(ex_th[1:])
@@ -373,7 +376,7 @@ def rand_plus(L, config):
         bg_th, bg_ph = exs_ps_qex_qbg_conf[3].split('-')
         bg_th = float(bg_th[1:])
         bg_ph = float(bg_ph[1:])
-        state_dict = {'ex': qubit(ex_th, ex_ph),  'bg': qubit(bg_th, bg_ph)}
+        state_dict= {'ex': qubit(ex_th, ex_ph), 'bg': qubit(bg_th, bg_ph)}
     distrib = np.random.choice(['ex', 'bg'], size=L, p=prob)
     distrib[exs] = 'ex'
     state = listkron([state_dict[q] for q in distrib])
@@ -391,16 +394,28 @@ def random_throw(L, config):
 
 class Porter_Thomas(rv_continuous):
     def _pdf(self, x, D):
-        return 2*x*D*np.exp(-D*x*x)
+        return 2 * x * D * np.exp(-D * x * x)
+
+
+def porter_thomas1(L, config):
+    np.random.seed(None)
+    if len(config) > 0:
+        np.random.seed(int(config))
+    PT = Porter_Thomas(a=0, b=np.inf, name='Porter_Thomas')
+    state = PT.rvs(size=2**L, D=2**L) * np.exp((np.random.random(2**L)) * 2 * np.pi * 1j)
+    return state / np.sqrt(np.conj(state).dot(state)).real
 
 
 def porter_thomas(L, config):
     np.random.seed(None)
     if len(config) > 0:
         np.random.seed(int(config))
-    PT = Porter_Thomas(a=0, b=np.inf, name='Porter_Thomas')
-    state = PT.rvs(size=2**L, D=2**L) * np.exp((np.random.random(2**L))*2*np.pi*1j)
-    return state / np.sqrt(np.conj(state).dot(state)).real
+    stateR = np.random.normal(0, 1, 2 ** L)
+    stateI = np.random.normal(0, 1, 2 ** L)
+    state = stateR + 1j * stateI
+    state = state / np.sqrt(np.conj(state).dot(state)).real
+    return state
+
 
 def center(L, config):
     Lcent = config.split('_')[0]
@@ -466,7 +481,7 @@ if __name__ == "__main__":
     from matrix import ops
     import matplotlib.pyplot as plt
     L = 20
-    ICs = [f"d{i}" for i in range(1, L//2+4)]
+    ICs = [f"d{i}" for i in range(1, L // 2 + 4)]
     Zs = []
     for IC in ICs:
         state = make_state(L, IC)

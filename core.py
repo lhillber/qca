@@ -45,7 +45,7 @@ def rule_op(V, R, r, totalistic=False, hamiltonian=False):
     """
     Operator for rule R, activation V, and neighborhood radius r.
     totalistic flag for rule numbering schemes and hamiltonian flag
-    for simultaion type (hamiltonian=continuous, unitary=digital)
+    for simultaion type (hamiltonian=analog, unitary=digital)
     """
     N = 2 * r
     OP = np.zeros((2 ** (N + 1), 2 ** (N + 1)), dtype=complex)
@@ -76,7 +76,7 @@ def boundary_rule_ops(V, R, r, BC_conf, totalistic=False, hamiltonian=False):
     Special operators for boundaries (of which there are 2r).
     BC_conf is a string "b0b1...br...b2r" where each bj is
     either 0 or 1. Visiually, BC_conf represents the fixed boundaries
-    from left to right: |b0>|b1>...|br> |psi>|b2r-r>|b2r-r-r>...|b2r>.
+    from left to right: |b0>|b1>...|br> |psi>|b2r-r>|b2r-r+1>...|b2r>.
     """
     # split BC configuration into left and reverse-right boundaries
     BC_conf = [BC_conf[:r], BC_conf[r::][::-1]]
@@ -164,7 +164,7 @@ def rule_unitaries(V, R, r, BC, L, dt,
             # boundaries
             for j, (lU, rU) in enumerate(zip(lUs, rUs[::-1])):
                 end = np.eye(2**(L - r - 1 - j))
-                H += mx.listkron([end, rU])  # reverse rU?
+                H += mx.listkron([end, rU])
                 H += mx.listkron([lU, end])
             U = expm(-1j * H * dt)
             assert mx.isU(U)
@@ -216,9 +216,9 @@ def depolarize(state, Nj, E):
     """
     if E == 0.0:
         return state
-
+    np.random.seed(None)
     rnd = np.random.rand()
-    if rnd < E:
+    if rnd < E: # E is single qubit error rate per neighborhood-sized gate
         # random site in neighborhood
         q = np.random.choice(Nj)
         # random Pauli op
@@ -449,6 +449,3 @@ def repeat_params_list(params, *args):
 params_list_map = {"product": product_params_list,
                    "cycle": cycle_params_list,
                    "repeat": repeat_params_list}
-
-
-

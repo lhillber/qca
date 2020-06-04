@@ -15,10 +15,14 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.patches import Patch
 from matplotlib import rc
+from figures import letters
 import matplotlib as mpl
+from PIL import Image
+import matplotlib.gridspec as gridspec
+
 
 rc("text", usetex=True)
-font = {"size": 11, "weight": "normal"}
+font = {"size": 12, "weight": "normal"}
 mpl.rc(*("font",), **font)
 mpl.rcParams["pdf.fonttype"] = 42
 mpl.rcParams["text.latex.preamble"] = [
@@ -28,10 +32,17 @@ mpl.rcParams["text.latex.preamble"] = [
 ]
 
 
-# Convert ECA rule number to QECA rule number
+# Convert QECA rule number to ECA rule number
+# All those magic numbers! ;)
+# 204 is the identity rule; The ^ is bitwise exclusive or,
+# so 204^R changes from the interpretation of bit from
+# "final state" to "needs a bit flip operation".
+# The sum and values in the array use local invertability
+# symmetries to recount rules.
 def Crule(Qrule):
     a = [5, 5, 20, 20]
-    return 204^sum(a[i]*(Qrule&(1<<i)) for i in range(4))
+    return 204 ^ sum(a[i] * (Qrule & (1 << i)) for i in range(4))
+
 
 # ECA transition funcion
 def ecaf(R, Ni):
@@ -76,14 +87,14 @@ def iterate(L, T, R, IC, BC):
         C[:, -1] = int(BC_conf[1])
 
         def oldN(C, j, t, L):
-            return C[t-1, j-1:j+2]
+            return C[t - 1, j - 1 : j + 2]
 
     elif BC_type == "0":
         C = np.zeros((T, L), dtype=np.int32)
         C[0, :] = IC
 
         def oldN(C, j, t, L):
-            return [C[t-1, (j-1) % L], C[t-1, j], C[t-1, (j+1) % L]]
+            return [C[t - 1, (j - 1) % L], C[t - 1, j], C[t - 1, (j + 1) % L]]
 
     for t in range(1, T):
         for j in range(0, L):
@@ -186,10 +197,10 @@ def main():
     fig, axs = plt.subplots(64, 4, figsize=(4, 64))
     L = 39
     T = L
-    for R in range(256, T=2*35):
+    for R in range(256, T=2 * 35):
         # fig, ax = plt.subplots(1, 1, figsize=(1, 1))
         print(R)
-        r, c = int(R//4), R % 4
+        r, c = int(R // 4), R % 4
         ax = axs[r, c]
         IC = np.zeros((T, L))
         IC[L // 2] = 1
@@ -206,22 +217,35 @@ def main():
 # default behavior of this script
 if __name__ == "__main__":
 
-    def plot(Rs=[30, 90, 110], L=65, T=65//2):
-        fig, axs = plt.subplots(1, len(Rs), figsize=(2.25, 1))
+    def plot(Rs=[30, 90, 110], L=65, T=65 // 2):
+
+        fig = plt.figure(figsize=(3.375, 2.5))
+        gs0 = gridspec.GridSpec(2, 3)
+        gs1 = gridspec.GridSpec(2, 3)
+        gs0.update(wspace=0.1, top=1, bottom=0.18, left=0.2, right=0.98)
+        gs1.update(left=0.07, right=1.1, bottom=0.1, top=1.01)
+
+        ax0 = fig.add_subplot(gs0[0, 0])
+        ax1 = fig.add_subplot(gs0[0, 1])
+        ax2 = fig.add_subplot(gs0[0, 2])
+        ax3 = fig.add_subplot(gs1[1, :])
+        axs = [ax0, ax1, ax2]
+
         IC = np.zeros(L)
         IC[L // 2] = 1
-        letts = [r"$\bf A$", r"$\bf B$", r"$\bf C$"]
+        letts = letters[:3]
         for i, (R, lett, ax) in enumerate(zip(Rs, letts, axs)):
             C = iterate(L, T, R, IC, BC="1-00")
             ax.imshow(C, cmap="Greys", origin="lower", interpolation="None")
             ax.set_xticks([])
             ax.set_yticks([])
             ax.set_title("$C_{%s}$" % R)
-            ax.text(0.01,0.05,lett, transform=ax.transAxes, weight="bold")
+            ax.text(0.01, 0.15, lett, transform=ax.transAxes, weight="bold")
+            xticks = [0, L // 2, L - 1]
+            ax.set_xticks(xticks)
+            ax.set_xticklabels([])
             if i == 0:
-                yticks = [0, 32]
-                xticks = [0, L//2, L-1]
-                ax.set_xticks(xticks)
+                yticks = [0, 16, 32]
                 ax.set_yticks(yticks)
                 ax.set_xticklabels(xticks)
                 ax.set_yticklabels(yticks)
@@ -229,17 +253,26 @@ if __name__ == "__main__":
                 ax.set_ylabel("Time, $t$")
 
         legend_elements = [
-                   Patch(facecolor='w', edgecolor='k', label='0,'),
-                   Patch(facecolor='k', edgecolor='k', label='1'),
-                        ]
+            Patch(facecolor="w", edgecolor="k", label="0,"),
+            Patch(facecolor="k", edgecolor="k", label="1"),
+        ]
 
-        ax.legend(handles=legend_elements, loc='upper right',
-                  handlelength=0.8, handletextpad=0.5, frameon=False,
-                  bbox_to_anchor=[1.2,0.1],
-                  ncol=2,
-                  columnspacing=0.5)
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            handlelength=0.8,
+            handletextpad=0.5,
+            frameon=False,
+            bbox_to_anchor=[1.2, 0.1],
+            ncol=2,
+            columnspacing=0.5,
+        )
 
-        fig.subplots_adjust(wspace=0.1, top=1, bottom=0.18,
-                            left=0.2, right=0.98)
-        plt.savefig("figures/classical/C30_90_110.pdf")
+        im = Image.open("figures/classical/classical_rule_expansion.png")
+
+        ax3.imshow(np.asarray(im))
+        ax3.axis("off")
+
+        plt.savefig("figures/classical/C30_90_110.pdf", dpi=700, bbox_inches="tight")
+
     plot()

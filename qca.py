@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 # coding: utf-8
 #
 # qca.py
@@ -102,6 +102,7 @@ import argparse
 from random import Random
 from sys import stdout
 from time import time
+from copy import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -285,9 +286,16 @@ parser.add_argument(
 class QCA:
     """Object-Oriented API"""
 
-    def __init__(self, params=defaults, der=None):
+    def __init__(self, params=None, der=None):
+        if params is None:
+            params = defaults
+        else:
+            temp = copy(defaults)
+            temp.update(params)
+            params = temp
         if der is None:
-            der = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+            der = os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "data")
         os.makedirs(der, exist_ok=True)
         params["T"] = float(params["T"])
         params["dt"] = float(params["dt"])
@@ -305,7 +313,7 @@ class QCA:
         # the h5file is corrupt (occurs if a simulation is killed).
         # We must delete the file and start over.
         except OSError:
-            os.remove(self.fname)
+            self.close()
             self.h5file = File(self.fname, "a")
 
     def __getattr__(self, attr):
@@ -318,9 +326,7 @@ class QCA:
                 return self.h5file[attr][:]
 
     def close(self):
-        avail = self.available_tasks
-        self.h5file.close()
-        if len(avail) == 0:
+        if os.path.getsize(self.fname) <= 800:
             print(f"Deleting empty {self.uid}")
             os.remove(self.fname)
 
@@ -411,10 +417,26 @@ class QCA:
     def get_measure(self, meas, save=False):
         func, *args = meas.split("_")
         if func in ("C", "D", "Y", "MI"):
-            args = [1]
+            args = [2]
         if func[0] in ("s", "C", "D", "Y", "M"):
             args = list(map(int, args))
         return getattr(self, func)(*args, save=save)
+
+    def H(self, save=False):
+        """Bitstring (square-amplitude of state) entropy"""
+        key = "Hdata"
+        try:
+            H = getattr(self, key)
+        except KeyError:
+            H = np.array([ms.get_bitstring_entropy(ps)
+                         for ps in self.bitstring])
+            setattr(self, key, H)
+        if save:
+            try:
+                self.h5file[key] = H
+            except RuntimeError:
+                self.h5file[key][:] = H
+        return H
 
     def s(self, order=1, save=False):
         """Local Renyi entropy"""
@@ -437,7 +459,8 @@ class QCA:
         try:
             s2 = getattr(self, key)
         except KeyError:
-            s2 = np.array([ms.get_entropy2(rjk, order=order) for rjk in self.rhojk])
+            s2 = np.array([ms.get_entropy2(rjk, order=order)
+                          for rjk in self.rhojk])
             setattr(self, key, s2)
         if save:
             try:
@@ -548,6 +571,29 @@ class QCA:
                 self.h5file[key][:] = Y
         return Y
 
+    def diff(self, x, dt=1, acc=8, save=False):
+        assert acc in [2, 4, 6, 8]
+        coeffs = [
+            [1.0 / 2],
+            [2.0 / 3, -1.0 / 12],
+            [3.0 / 4, -3.0 / 20, 1.0 / 60],
+            [4.0 / 5, -1.0 / 5, 4.0 / 105, -1.0 / 280],
+        ]
+        dx = np.sum(
+            np.array(
+                [
+                    (
+                        coeffs[acc // 2 - 1][k - 1] * x[k * 2 :]
+                        - coeffs[acc // 2 - 1][k - 1] * x[: -k * 2]
+                    )[acc // 2 - k : len(x) - (acc // 2 + k)]
+                    / dt
+                    for k in range(1, acc // 2 + 1)
+                ]
+            ),
+            axis=0,
+        )
+        return dx
+
     def exp(self, op, name=None, save=False):
         """Expectation value"""
         if type(op) == str:
@@ -643,9 +689,10 @@ def main(
         params, Ls, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
     )
 
-    # randomize params list for improved load balancing
-    Random(123).shuffle(params_list)
-
+    # sort by large L first
+    allL = [p["L"] for p in params_list]
+    params_list = [p for _, p in sorted(zip(allL, params_list),
+                   key=lambda pair: pair[0])][::-1]
     # initialize job meta data
     numsims = len(params_list)  # number of sims in job
     simnum = 1  # current job number
@@ -674,12 +721,13 @@ def main(
             ta = time()
             Q = QCA(params)
             Q.run(tasks, recalc=recalc)
-            Q.close
+            Q.close()
             tb = time()
             e = tb - ta
             visits[Q.L] += 1
             if e > 0.1:  # only include new sims in average
-                elapsed[Q.L] = ((visits[Q.L] - 1) * elapsed[Q.L] + e) / visits[Q.L]
+                elapsed[Q.L] = ((visits[Q.L] - 1)
+                                * elapsed[Q.L] + e) / visits[Q.L]
             numremain = np.array([numperL[L] / nprocs - visits[L] for L in Ls])
             estimate = numremain.dot(list(elapsed.values()))
             mysimnum += 1

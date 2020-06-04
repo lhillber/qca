@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import log2, sqrt
-from numpy.linalg import matrix_power
+from numpy.linalg import matrix_power, multi_dot
+from scipy.linalg import fractional_matrix_power, logm
 import scipy as sp
 import scipy.linalg
 import matrix as mx
@@ -27,7 +28,6 @@ def renyi_entropy(rho, order=2, tol=1e-14):
         # s = np.real(log2(np.sum(spec**order)) / denom)
         s = np.real(log2(np.trace(matrix_power(rho, order))) / denom)
     return s
-
 
 def expectation(state, A):
     if len(state.shape) == 2:
@@ -107,6 +107,14 @@ def get_bipart(state):
     return left_rdms + right_rdms
 
 
+def get_state(state):
+    return state
+
+
+def get_bitstring(state):
+    return (np.conjugate(state) * state).real
+
+
 def init_rhoj(L, M):
     return np.zeros((M, L, 2, 2), dtype=complex)
 
@@ -131,10 +139,20 @@ def init_bisect(L, M):
     return np.zeros((M, 2 ** int(L / 2), 2 ** int(L / 2)), dtype=complex)
 
 
+def init_state(L, M):
+    return np.zeros((M, 2**L), dtype=complex)
+
+
+def init_bitstring(L, M):
+    return np.zeros((M, 2**L), dtype=float)
+
+
 measures = {"rhoj": {"init": init_rhoj, "get": get_rhoj},
             "rhojk": {"init": init_rhojk, "get": get_rhojk},
             "bipart": {"init": init_bipart, "get": get_bipart},
             "bisect": {"init": init_bisect, "get": get_bisect},
+            "state": {"init": init_state, "get": get_state},
+            "bitstring": {"init": init_bitstring, "get": get_bitstring}
             }
 
 
@@ -180,6 +198,14 @@ def get_entropy2(rhos, order):
     return symm_mat_from_vec(s2_vals)
 
 
+def get_bitstring_entropy(bitstring):
+    return sum(-p * np.log(p) for p in bitstring if p > 0)
+
+
+def get_bitstring_crossentropy(bitstringp, bitstringq):
+    return sum(-p * np.log(q) for p , q in zip(bitstringp, bitstringq) if p > 0)
+
+
 def get_MI(s, s2):
     L = len(s)
     MI = np.zeros((L, L))
@@ -199,6 +225,23 @@ def get_g2(expAB, expA, expB):
             g2[(k, j)] = g2[(j, k)]
 
     return g2
+
+
+def msqrt(mat):
+    return fractional_matrix_power(mat, 0.5)
+
+
+def fidelity(rho, sigma):
+    if np.allclose(rho, sigma):
+        return 1
+    sqrt_rho = msqrt(rho)
+    return (np.trace(msqrt(multi_dot([sqrt_rho, sigma, sqrt_rho]))).real)**2
+
+
+def relative_entropy(rho, sigma):
+    if np.allclose(rho, sigma):
+        return 0
+    return np.trace(rho.dot(logm(rho) - logm(sigma))).real
 
 
 def autocorr(x, h=1):

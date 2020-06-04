@@ -1,6 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from qca import evolve
+from core import evolve
+import matplotlib as mpl
+from matplotlib import rc
+rc("text", usetex=True)
+font = {"size": 12, "weight": "normal"}
+mpl.rc(*("font",), **font)
+mpl.rcParams["pdf.fonttype"] = 42
+mpl.rcParams["text.latex.preamble"] = [
+    r"\usepackage{amsmath}",
+    r"\usepackage{sansmath}",  # sanserif math
+    r"\sansmath",
+]
 
 def convergance(L, T, R, r, V, IC, BC, totalistic):
     """Run and plot convergence study"""
@@ -29,26 +40,27 @@ def convergance(L, T, R, r, V, IC, BC, totalistic):
     fit1 = np.polyfit(np.log10(dts), np.log10(e1s), deg=1)
     fit2 = np.polyfit(np.log10(dts), np.log10(e2s), deg=1)
 
-    fig, ax = plt.subplots(1, 1, figsize=(2.25,2))
+    fig, ax = plt.subplots(1, 1, figsize=(3.375, 3))
     def efunc(x, m, b):
         return 10 ** b * x**m
 
-    ax.loglog(dts, efunc(dts, *fit1), c="k", ls="--")
-    ax.loglog(dts, efunc(dts, *fit2), c="k", ls="--")
+    ax.loglog(dts, efunc(dts, *fit1), c="k", ls="--", lw=2)
+    ax.loglog(dts, efunc(dts, *fit2), c="k", ls="--", lw=2)
     ax.loglog(dts, e1s,
-        marker="s", ms=4, mec="r", mfc="none", ls="none")
+        marker="s", ms=6, mec="r", mfc="none", ls="none")
     ax.loglog(dts, e2s,
-        marker="o", ms=4, mec="r", mfc="none", ls="none")
+        marker="o", ms=6, mec="r", mfc="none", ls="none")
 
     ax.set_xlabel("Time step, dt")
     ax.set_ylabel(r"Error")
-    ax.text(0.1, 0.86,f"slope: {round(fit1[0], 2)}",
+    ax.text(0.1, 0.8,f"slope: {round(fit1[0], 2)}",
             transform=ax.transAxes)
     ax.text(0.4, 0.25,f"slope: {round(fit2[0], 2)}",
             transform=ax.transAxes)
     ax.set_xticks([1e-2, 1e-1, 1])
+    ax.minorticks_off()
     print(f"slopes:{fit1[0]}, {fit2[0]}")
-    fig.subplots_adjust(left=0.3, bottom=0.3, right=0.95, top=0.95)
+    fig.subplots_adjust(left=0.2, bottom=0.2, right=0.95, top=0.95)
     plt.savefig("figures/convergence_R6.pdf")
 
 
@@ -85,12 +97,12 @@ def convergance2(L, T, R, r, V, IC, BC, totalistic):
     #ax.text(0.1, 0.86,f"slope: {round(fit1[0], 2)}",
     #        transform=ax.transAxes)
     #print(f"slopes:{fit1[0]}, {fit2[0]}")
-    fig.subplots_adjust(left=0.3, bottom=0.3, right=0.95, top=0.95)
+    fig.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
     plt.savefig("figures/convergence_R6.pdf")
 
 
 if __name__ == "__main__":
-    convergance2(L=11, T=100, R=6, r=1,
+    convergance(L=11, T=1, R=6, r=1,
                 V="X", IC="R123", BC="1-00",
                 totalistic=False)
 
