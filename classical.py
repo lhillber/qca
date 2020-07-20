@@ -214,65 +214,67 @@ def main():
     multipage("figures/classical/classical_ECA.pdf", clip=False, dpi=512)
 
 
+def plot(Rs=[30, 90, 110], L=65, T=65 // 2):
+
+    fig = plt.figure(figsize=(3.375, 2.5))
+    gs0 = gridspec.GridSpec(2, 3)
+    gs1 = gridspec.GridSpec(2, 3)
+    gs0.update(wspace=0.1, top=1, bottom=0.18, left=0.2, right=0.98)
+    gs1.update(left=0.07, right=1.1, bottom=0.1, top=1.01)
+
+    ax0 = fig.add_subplot(gs0[0, 0])
+    ax1 = fig.add_subplot(gs0[0, 1])
+    ax2 = fig.add_subplot(gs0[0, 2])
+    ax3 = fig.add_subplot(gs1[1, :])
+    axs = [ax0, ax1, ax2]
+
+    IC = np.zeros(L)
+    IC[L // 2] = 1
+    letts = letters[:3]
+    for i, (R, lett, ax) in enumerate(zip(Rs, letts, axs)):
+        C = iterate(L, T, R, IC, BC="1-00")
+        ax.imshow(C, cmap="Greys", origin="lower", interpolation="None")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title("$C_{%s}$" % R)
+        ax.text(0.01, 0.15, lett, transform=ax.transAxes, weight="bold")
+        xticks = [0, L // 2, L - 1]
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([])
+        if i == 0:
+            yticks = [0, 16, 32]
+            ax.set_yticks(yticks)
+            ax.set_xticklabels(xticks)
+            ax.set_yticklabels(yticks)
+            ax.set_xlabel("Site, $j$")
+            ax.set_ylabel("Time, $t$")
+
+    legend_elements = [
+        Patch(facecolor="w", edgecolor="k", label="0,"),
+        Patch(facecolor="k", edgecolor="k", label="1"),
+    ]
+
+    ax.legend(
+        handles=legend_elements,
+        loc="upper right",
+        handlelength=0.8,
+        handletextpad=0.5,
+        frameon=False,
+        bbox_to_anchor=[1.2, 0.1],
+        ncol=2,
+        columnspacing=0.5,
+    )
+
+    im = Image.open("figures/classical/classical_rule_expansion.png")
+
+    ax3.imshow(np.asarray(im))
+    ax3.axis("off")
+
+    plt.savefig("figures/classical/C30_90_110.pdf",
+                dpi=700, bbox_inches="tight")
+
+
 # default behavior of this script
 if __name__ == "__main__":
-
-    def plot(Rs=[30, 90, 110], L=65, T=65 // 2):
-
-        fig = plt.figure(figsize=(3.375, 2.5))
-        gs0 = gridspec.GridSpec(2, 3)
-        gs1 = gridspec.GridSpec(2, 3)
-        gs0.update(wspace=0.1, top=1, bottom=0.18, left=0.2, right=0.98)
-        gs1.update(left=0.07, right=1.1, bottom=0.1, top=1.01)
-
-        ax0 = fig.add_subplot(gs0[0, 0])
-        ax1 = fig.add_subplot(gs0[0, 1])
-        ax2 = fig.add_subplot(gs0[0, 2])
-        ax3 = fig.add_subplot(gs1[1, :])
-        axs = [ax0, ax1, ax2]
-
-        IC = np.zeros(L)
-        IC[L // 2] = 1
-        letts = letters[:3]
-        for i, (R, lett, ax) in enumerate(zip(Rs, letts, axs)):
-            C = iterate(L, T, R, IC, BC="1-00")
-            ax.imshow(C, cmap="Greys", origin="lower", interpolation="None")
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_title("$C_{%s}$" % R)
-            ax.text(0.01, 0.15, lett, transform=ax.transAxes, weight="bold")
-            xticks = [0, L // 2, L - 1]
-            ax.set_xticks(xticks)
-            ax.set_xticklabels([])
-            if i == 0:
-                yticks = [0, 16, 32]
-                ax.set_yticks(yticks)
-                ax.set_xticklabels(xticks)
-                ax.set_yticklabels(yticks)
-                ax.set_xlabel("Site, $j$")
-                ax.set_ylabel("Time, $t$")
-
-        legend_elements = [
-            Patch(facecolor="w", edgecolor="k", label="0,"),
-            Patch(facecolor="k", edgecolor="k", label="1"),
-        ]
-
-        ax.legend(
-            handles=legend_elements,
-            loc="upper right",
-            handlelength=0.8,
-            handletextpad=0.5,
-            frameon=False,
-            bbox_to_anchor=[1.2, 0.1],
-            ncol=2,
-            columnspacing=0.5,
-        )
-
-        im = Image.open("figures/classical/classical_rule_expansion.png")
-
-        ax3.imshow(np.asarray(im))
-        ax3.axis("off")
-
-        plt.savefig("figures/classical/C30_90_110.pdf", dpi=700, bbox_inches="tight")
 
     plot()

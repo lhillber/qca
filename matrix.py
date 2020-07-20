@@ -6,6 +6,9 @@ import numpy as np
 # from scipy.sparse import sparse as sps
 from scipy.linalg import eigvals
 from numba import njit, jit
+from warnings import simplefilter
+from numba.core.errors import NumbaPerformanceWarning
+simplefilter('ignore', category=NumbaPerformanceWarning)
 
 ops = {
     "H": 1.0 / sqrt(2.0) * (np.array([[1.0, 1.0], [1.0, -1.0]], dtype=complex)),
@@ -20,6 +23,7 @@ ops = {
     "1": np.array([[0.0, 0.0], [0.0, 1.0]], dtype=complex),
     "D": 1.0 / sqrt(2) * np.array([[1.0, -1j], [-1j, 1.0]], dtype=complex),
 }
+
 
 def op_on_state_inplace(op, js, state, ds=None):
     if ds is None:
@@ -103,7 +107,7 @@ def rdms2(state, js):
     return rho
 
 
-# @njit
+@njit
 def rdms_njit(block, ds, ordering, djs, drest, out=None):
     if out is None:
         RDM = np.zeros((djs, djs), dtype=np.complex128)
@@ -113,8 +117,8 @@ def rdms_njit(block, ds, ordering, djs, drest, out=None):
         for j in range(i, djs):
             Rij = np.dot(block[i, :], np.conj(block[j, :]))
             RDM[(i, j)] = Rij
-            RDM[(j, i)] = np.conjugate(Rij)
-
+            if i != j:
+                RDM[(j, i)] = np.conjugate(Rij)
     return RDM
 
 
@@ -138,17 +142,18 @@ def rdmr(rho, js):
     return RDM / np.trace(RDM)
 
 
-# @jit
+@njit
 def traceout_outer_njit(rho, dim, mask):
     rho_out = np.zeros((dim, dim), dtype=rho.dtype)
     for kk in range(dim):
         for jj in range(dim):
-            rho_out[(kk, jj)] = rho[(kk, jj, mask)].sum()
-
+            Rij = 0
+            for ll in mask:
+                Rij += rho[kk, jj, ll]
+            rho_out[kk, jj] = Rij
     return rho_out
 
 
-# @jit
 def traceout_first(rho, ld=2):
     L = int(np.log2(len(rho)))
     dim = ld ** (L - 1)
@@ -160,7 +165,6 @@ def traceout_first(rho, ld=2):
     return traceout_outer_njit(rho, dim, mask)
 
 
-# @jit
 def traceout_last(rho, ld=2):
     L = int(np.log2(len(rho)))
     dim = ld ** (L - 1)
@@ -340,8 +344,8 @@ if __name__ == "__main__":
     import states as ss
 
     L = 7
-    IC = "f0-3-4_t90-p90"
-    js = [0, 2, 3]
+    IC = "f0-3"
+    js = [2, 0, 3]
     op = listkron([ops["X"]] * (len(js) - 1) + [ops["H"]])
     print()
     print("op = XXH,", "js = ", str(js) + ", ", "IC = ", IC)

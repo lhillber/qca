@@ -26,8 +26,8 @@ def renyi_entropy(rho, order=2, tol=1e-14):
         denom = 1.0 - order
         # spec = spectrum(rho)
         # s = np.real(log2(np.sum(spec**order)) / denom)
-        s = np.real(log2(np.trace(matrix_power(rho, order))) / denom)
-    return s
+        return np.real(log2(np.trace(matrix_power(rho, order))) / denom)
+
 
 def expectation(state, A):
     if len(state.shape) == 2:
@@ -41,13 +41,12 @@ def expectation(state, A):
 
 
 def network_density(mat):
-    l = len(mat)
-    lsq = l * (l - 1)
+    ll = len(mat)
+    lsq = ll * (ll - 1)
     return sum(sum(mat)) / lsq
 
 
 def network_clustering(mat):
-    l = len(mat)
     matsq = matrix_power(mat, 2)
     matcube = matrix_power(mat, 3)
     for i in range(len(matsq)):
@@ -75,7 +74,7 @@ def get_rhoj(state):
 def get_rhojk(state):
     L = int(log2(len(state)))
     rhojk = np.asarray(
-        [mx.rdms(state, [j, k]) for j in range(L) for k in iter(range(j))]
+        [mx.rdms(state, [j, k]) for j in range(L) for k in range(j)]
     )
     return rhojk
 
@@ -156,7 +155,7 @@ measures = {"rhoj": {"init": init_rhoj, "get": get_rhoj},
             }
 
 
-def select_rhojk(rhojk, j, k):
+def select_jk(rhojk, j, k):
     if j == k:
         raise ValueError(
             "[{}, {}] not valid two site indicies (cannot be the same)".format(
@@ -175,7 +174,7 @@ def symm_mat_from_vec(vec):
     for j in range(L):
         for k in range(L):
             if j != k:
-                mat[(j, k)] = select_rhojk(vec, j, k)
+                mat[(j, k)] = select_jk(vec, j, k)
     return mat
 
 
@@ -199,11 +198,20 @@ def get_entropy2(rhos, order):
 
 
 def get_bitstring_entropy(bitstring):
-    return sum(-p * np.log(p) for p in bitstring if p > 0)
+    return sum(-p * np.log2(p) for p in bitstring if p > 0)
 
 
-def get_bitstring_crossentropy(bitstringp, bitstringq):
-    return sum(-p * np.log(q) for p , q in zip(bitstringp, bitstringq) if p > 0)
+def get_bitstring_crossentropy(bitstringp, bitstringq, tol=1e-14):
+    return sum(-p * np.log2(np.max([q, tol])) for p, q in zip(bitstringp, bitstringq))
+
+
+def get_bitstring_fidelity(pmeasured, pexpected):
+    pincoherent = np.ones_like(pmeasured)
+    pincoherent /= pincoherent.sum()
+    S_inc_exp = get_bitstring_crossentropy(pincoherent, pexpected)
+    S_meas_exp = get_bitstring_crossentropy(pmeasured, pexpected)
+    S_exp = get_bitstring_entropy(pexpected)
+    return (S_inc_exp - S_meas_exp) / (S_inc_exp - S_exp)
 
 
 def get_MI(s, s2):
@@ -214,6 +222,14 @@ def get_MI(s, s2):
             if j != k:
                 MI[(j, k)] = np.abs(s[j] + s[k] - s2[(j, k)]) / 2.0
     return MI
+
+
+def get_MI_from_state(state, order):
+    rhoj = get_rhoj(state)
+    rhojk = get_rhojk(state)
+    s1 = get_entropy(rhoj, order)
+    s2 = get_entropy2(rhojk, order)
+    return get_MI(s1, s2)
 
 
 def get_g2(expAB, expA, expB):

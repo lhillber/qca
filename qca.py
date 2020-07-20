@@ -129,6 +129,7 @@ mpl.rcParams["text.latex.preamble"] = [
 
 defaults = {
     "L": 15,  # system size, int/list
+    "Lx": 1,  # number of columns in system (2d if >1), int/list
     "T": 100.0,  # simulation time, float/list
     "dt": 1.0,  # time step, float/list
     "R": 6,  # rule numbering, int/list
@@ -160,6 +161,14 @@ parser.add_argument(
     nargs="*",
     type=int,
     help="Number of qubits used in simulation",
+)
+
+parser.add_argument(
+    "-Lx",
+    default=defaults["Lx"],
+    nargs="*",
+    type=int,
+    help="Number of columns (width), 2D if Lx > 1",
 )
 
 parser.add_argument(
@@ -284,7 +293,7 @@ parser.add_argument(
 
 
 class QCA:
-    """Object-Oriented API"""
+    """Object-Oriented interface"""
 
     def __init__(self, params=None, der=None):
         if params is None:
@@ -300,12 +309,18 @@ class QCA:
         params["T"] = float(params["T"])
         params["dt"] = float(params["dt"])
         params["E"] = float(params["E"])
+        params["Ly"] = int(params["L"] /params["Lx"])
+        reject_keys = ["rank", "nprocs"]
+        if params["Lx"] == 1:
+            reject_keys.append("Lx")
+            reject_keys.append("Ly")
+
         if "rank" not in params:
             params["rank"] = 0
             params["nprocs"] = 1
         self.params = params
         self.der = der
-        self.uid = hash_state(self.params, reject_keys=("rank", "nprocs"))
+        self.uid = hash_state(self.params, reject_keys=reject_keys)
         self.fname = os.path.join(self.der, self.uid) + ".hdf5"
         try:
             self.h5file = File(self.fname, "a")
@@ -326,9 +341,17 @@ class QCA:
                 return self.h5file[attr][:]
 
     def close(self):
+        if "h5file" in self.__dict__:
+            self.h5file.close()
         if os.path.getsize(self.fname) <= 800:
             print(f"Deleting empty {self.uid}")
             os.remove(self.fname)
+
+    def to2d(self, flat_data, subshape=None):
+        shape = [len(self.ts), self.Ly, self.Lx]
+        if subshape is not None:
+             shape += [d for d in subshape]
+        return flat_data.reshape(shape)
 
     @property
     def ts(self):
@@ -438,7 +461,7 @@ class QCA:
                 self.h5file[key][:] = H
         return H
 
-    def s(self, order=1, save=False):
+    def s(self, order=2, save=False):
         """Local Renyi entropy"""
         key = f"s_{order}"
         try:
@@ -453,7 +476,7 @@ class QCA:
                 self.h5file[key][:] = s
         return s
 
-    def s2(self, order=1, save=False):
+    def s2(self, order=2, save=False):
         """Two-site Renyi entropy"""
         key = f"s2_{order}"
         try:
@@ -469,7 +492,7 @@ class QCA:
                 self.h5file[key][:] = s2
         return s2
 
-    def sbipart(self, order=1, save=False):
+    def sbipart(self, order=2, save=False):
         """Bipartition Renyi entropy"""
         key = f"sbipart_{order}"
         try:
@@ -487,7 +510,7 @@ class QCA:
                 self.h5file[key][:] = sbipart
         return sbipart
 
-    def sbisect(self, order=1, save=False):
+    def sbisect(self, order=2, save=False):
         """Bisection Renyi entropy"""
         key = f"sbisect_{order}"
         try:
@@ -506,7 +529,7 @@ class QCA:
                 self.h5file[key][:] = sbisect
         return sbisect
 
-    def MI(self, order=1, save=False):
+    def MI(self, order=2, save=False):
         """Mutual information adjacency matrix"""
         key = f"MI_{order}"
         try:
@@ -523,7 +546,7 @@ class QCA:
                 self.h5file[key][:] = MI
         return MI
 
-    def C(self, order=1, save=False):
+    def C(self, order=2, save=False):
         """Mutual information clustering coefficient"""
         key = f"C_{order}"
         try:
@@ -539,7 +562,7 @@ class QCA:
                 self.h5file[key][:] = C
         return C
 
-    def D(self, order=1, save=False):
+    def D(self, order=2, save=False):
         """Mutual information density"""
         key = f"D_{order}"
         try:
@@ -555,7 +578,7 @@ class QCA:
                 self.h5file[key][:] = D
         return D
 
-    def Y(self, order=1, save=False):
+    def Y(self, order=2, save=False):
         """Mutual information disparity"""
         key = f"Y_{order}"
         try:
@@ -583,9 +606,9 @@ class QCA:
             np.array(
                 [
                     (
-                        coeffs[acc // 2 - 1][k - 1] * x[k * 2 :]
+                        coeffs[acc // 2 - 1][k - 1] * x[k * 2:]
                         - coeffs[acc // 2 - 1][k - 1] * x[: -k * 2]
-                    )[acc // 2 - k : len(x) - (acc // 2 + k)]
+                    )[acc // 2 - k: len(x) - (acc // 2 + k)]
                     / dt
                     for k in range(1, acc // 2 + 1)
                 ]
@@ -624,6 +647,7 @@ def main(
     tasks=None,
     recalc=None,
     Ls=None,
+    Lxs=None,
     Ts=None,
     dts=None,
     Rs=None,
@@ -649,6 +673,8 @@ def main(
         recalc = args.recalc
     if Ls is None:
         Ls = to_list(args.L)
+    if Lxs is None:
+        Lxs = to_list(args.Lx)
     if Ts is None:
         Ts = to_list(args.T)
     if dts is None:
@@ -686,7 +712,7 @@ def main(
 
     # make list of params based on list of values
     params_list = params_list_map[thread_as](
-        params, Ls, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
+        params, Ls, Lxs, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
     )
 
     # sort by large L first
