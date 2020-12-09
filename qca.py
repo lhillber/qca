@@ -66,7 +66,7 @@
 #
 # From the command line run:
 #
-#   python3 launch.py -argname [val [val...]]
+#   python3 qca.py -argname [val [val...]]
 #
 # where -argname is the parameter name you wish to supply and [val [val ...]]
 # denotes either a single value or a space separated list of values for that
@@ -76,13 +76,13 @@
 # a default value is used which is set in the dictionary `defaults`
 # defined below. Further, see
 #
-#   python3 launch.py --help
+#   python3 qca.py --help
 #
 # for more information on parameters.
 #
 # To run in parallel use:
 #
-#   mpiexec --oversubscribe -np `N` python3 launch.py -argname [val [val...]]
+#   mpiexec --oversubscribe -np `N` python3 qca.py -argname [val [val...]]
 #
 # where N is the number of processors.
 #
@@ -109,22 +109,10 @@ import matplotlib.pyplot as plt
 from mpi4py import MPI
 from h5py import File
 
-from matrix import ops
+from matrix import ops as OPS
+from matrix import listkron
 import measures as ms
-from core import record, hash_state, save_dict_hdf5, params_list_map
-
-import matplotlib as mpl
-from matplotlib import rc
-
-rc("text", usetex=True)
-font = {"size": 11, "weight": "normal"}
-mpl.rc(*("font",), **font)
-mpl.rcParams["pdf.fonttype"] = 42
-mpl.rcParams["text.latex.preamble"] = [
-    r"\usepackage{amsmath}",
-    r"\usepackage{sansmath}",  # sanserif math
-    r"\sansmath",
-]
+from core1d import record, hash_state, save_dict_hdf5, params_list_map
 
 
 defaults = {
@@ -141,6 +129,9 @@ defaults = {
     "N": 1,  # number of trials to average, int/list
     "thread_as": "product",  # Combining lists of above parameters, str
     "trotter": True,  # trotter time ordering?, bool
+    "tris": "0",  # triangle evolution sequence
+    "blocks": "0",  # block partition update sequence
+    "rods": "0",  # rod partition update sequence
     "symmetric": False,  # symmetrized trotter?, bool
     "totalistic": False,  # totalistic rule numbering?, bool
     "hamiltonian": False,  # continuous time evolution?, bool
@@ -171,6 +162,33 @@ parser.add_argument(
     help="Number of columns (width), 2D if Lx > 1",
 )
 
+parser.add_argument(
+    "tris",
+    default=defaults["tris"],
+    nargs="*",
+    type=str,
+    help="Triangle orientation sequence evolution (for 2d)"
+         + "0:+ (default 2d is crosses), or 1: ⌜, 2: ⌞, 3: ⌟, 4: ⌝",
+)
+
+
+parser.add_argument(
+    "blocks",
+    default=defaults["blocks"],
+    nargs="*",
+    type=str,
+    help="Block partition update squence (2x2 Margolus neighborhood)"
+         + "0: No block partition, or 1: upper left, 2: upper right, 3: lower left, 4: lower right",
+)
+
+parser.add_argument(
+    "rods",
+    default=defaults["rods"],
+    nargs="*",
+    type=str,
+    help="Rod orientation sequence evolution (for 2d)"
+         + "0:+ (default 2d is crosses), or 1: up, 2: down, 3: left, 4: right",
+)
 parser.add_argument(
     "-T", default=defaults["T"], nargs="*", type=float, help="Total simulation time"
 )
@@ -291,6 +309,11 @@ parser.add_argument(
     + " bisect -- central bipartition",
 )
 
+def QCA_from_file(fname):
+    with File(fname, "r") as h5file:
+        params = eval(h5file["params"][0].decode("UTF-8"))
+    return QCA(params)
+
 
 class QCA:
     """Object-Oriented interface"""
@@ -309,11 +332,36 @@ class QCA:
         params["T"] = float(params["T"])
         params["dt"] = float(params["dt"])
         params["E"] = float(params["E"])
-        params["Ly"] = int(params["L"] /params["Lx"])
-        reject_keys = ["rank", "nprocs"]
+        params["Ly"] = int(params["L"] / params["Lx"])
+        if type(params["tris"]) == str:
+            tris = [[tri for tri in map(int, tris)] for tris in params["tris"].split("_")]
+            if len(tris) != params["r"] + 1:
+                tris = [tris[0]] * (params["r"] + 1)
+            params["tris"] = tris
+
+        if type(params["rods"]) == str:
+            rods = [[rod for rod in map(int, rods)] for rods in params["rods"].split("_")]
+            if len(rods) != params["r"] + 1:
+                rods = [rods[0]] * (params["r"] + 1)
+            params["rods"] = rods
+
+        if type(params["blocks"]) == str:
+            blocks = [b for b in map(int, params["blocks"])]
+            params["blocks"] = blocks
+
+        reject_keys = ["rank", "nprocs", "recalc", "tasks", "thread_as"]
         if params["Lx"] == 1:
             reject_keys.append("Lx")
             reject_keys.append("Ly")
+
+        if params["tris"] == [[0], [0]]:
+            reject_keys.append("tris")
+
+        if params["rods"] == [[0], [0]]:
+            reject_keys.append("rods")
+
+        if params["blocks"] == [0]:
+            reject_keys.append("blocks")
 
         if "rank" not in params:
             params["rank"] = 0
@@ -322,36 +370,32 @@ class QCA:
         self.der = der
         self.uid = hash_state(self.params, reject_keys=reject_keys)
         self.fname = os.path.join(self.der, self.uid) + ".hdf5"
-        try:
-            self.h5file = File(self.fname, "a")
-        # if optining in a mode throws an OSError then
-        # the h5file is corrupt (occurs if a simulation is killed).
-        # We must delete the file and start over.
-        except OSError:
-            self.close()
-            self.h5file = File(self.fname, "a")
+
+        if "params" not in self.available_tasks:
+            with File(self.fname, "a") as h5file:
+                h5file.create_dataset("params",
+                    data=np.array([str(self.params)], dtype='S'))
+
 
     def __getattr__(self, attr):
         try:
             return self.params[attr]
         except KeyError:
-            if attr == "bipart":
-                return [self.h5file[attr][f"l{l}"][:] for l in range(self.L - 1)]
-            else:
-                return self.h5file[attr][:]
+            with File(self.fname, "r") as h5file:
+                if attr in ("bipart", "ebipartdata"):
+                    return [h5file[attr][f"l{l}"][:] for l in range(self.L - 1)]
+                else:
+                    return h5file[attr][:]
+            #except KeyError:
+            #    raise KeyError(f"Can not resolve {attr} for\n{self.available_keys}")
 
-    def close(self):
+
+    def close(self, force=False):
         if "h5file" in self.__dict__:
             self.h5file.close()
-        if os.path.getsize(self.fname) <= 800:
+        if self.available_tasks == ["params"]:
             print(f"Deleting empty {self.uid}")
             os.remove(self.fname)
-
-    def to2d(self, flat_data, subshape=None):
-        shape = [len(self.ts), self.Ly, self.Lx]
-        if subshape is not None:
-             shape += [d for d in subshape]
-        return flat_data.reshape(shape)
 
     @property
     def ts(self):
@@ -359,7 +403,54 @@ class QCA:
 
     @property
     def available_tasks(self):
-        return [k for k in self.h5file.keys()]
+        try:
+            with File(self.fname, "r") as h5file:
+                return [k for k in h5file.keys()]
+        except OSError:
+            return []
+
+    def to2d(self, flat_data, subshape=None):
+        """Reshape measures for 2D grids"""
+        shape = [len(self.ts), self.Ly, self.Lx]
+        if subshape is not None:
+            shape += [d for d in subshape]
+        return flat_data.reshape(shape)
+
+    def diff(self, x, dt=None, acc=8):
+        """First derivative of x"""
+        assert acc in [2, 4, 6, 8]
+        if dt is None:
+            dt = self.dt
+        coeffs = [
+            [1.0 / 2],
+            [2.0 / 3, -1.0 / 12],
+            [3.0 / 4, -3.0 / 20, 1.0 / 60],
+            [4.0 / 5, -1.0 / 5, 4.0 / 105, -1.0 / 280],
+        ]
+        dx = np.sum(
+            np.array(
+                [
+                    (
+                        coeffs[acc // 2 - 1][k - 1] * x[k * 2:]
+                        - coeffs[acc // 2 - 1][k - 1] * x[: -k * 2]
+                    )[acc // 2 - k: len(x) - (acc // 2 + k)]
+                    / dt
+                    for k in range(1, acc // 2 + 1)
+                ]
+            ),
+            axis=0,
+        )
+        return dx
+
+
+    def rolling(self, func, x, winsize=None):
+        """Func applied to rolling window of winsize points"""
+        if winsize is None:
+            winsize = self.L
+        nrows = x.size - winsize + 1
+        n = x.strides[0]
+        xwin = np.lib.stride_tricks.as_strided(x, shape=(nrows,winsize), strides=(n,n))
+        return func(xwin, axis=1)
 
     def check_repo(self, test=True):
         der = "/home/lhillber/documents/research/cellular_automata"
@@ -386,22 +477,52 @@ class QCA:
             if kold in available_keys:
                 print(f"{kold} loaded into {knew}")
                 if not test:
-                    try:
-                        self.h5file[knew] = old_h5file[kold][:]
-                    except RuntimeError:
-                        self.h5file[knew][:] = old_h5file[kold][:]
+                    with File(self.fname, "a") as h5file:
+                        try:
+                            h5file[knew] = old_h5file[kold][:]
+                        except OSError:
+                            h5file[knew][:] = old_h5file[kold][:]
                 if knew == "bipart":
-                    for l in range(self.L):
+                    for l in range(self.L-1):
                         if not test:
-                            try:
-                                self.h5file[knew][f"l{l}"] = old_h5file[kold][f"c{l}"][
-                                    :
-                                ]
-                            except RuntimeError:
-                                self.h5file[knew][f"l{l}"][:] = old_h5file[kold][
-                                    f"c{l}"
-                                ][:]
+                            with File(self.fname, "a") as h5file:
+
+                                try:
+                                    h5file[knew][f"l{l}"] = old_h5file[kold][f"c{l}"][
+                                        :
+                                    ]
+                                except OSError:
+                                    h5file[knew][f"l{l}"][:] = old_h5file[kold][
+                                        f"c{l}"
+                                    ][:]
         old_h5file.close()
+
+
+    def check_der(self, der, fname=None, test=True):
+        if fname is None:
+            der_fname = os.path.join(der, self.uid) + ".hdf5"
+        try:
+            check_h5file = File(der_fname, "r")
+        except OSError:
+            return
+
+        available_keys = [k for k in check_h5file.keys()]
+        for k in available_keys:
+            if not test:
+                with File(self.fname, "a") as h5file:
+                    try:
+                        h5file[k] = check_h5file[k][:]
+                    except (RuntimeError, OSError):
+                        h5file[k][:] = check_h5file[k][:]
+                if k == "bipart":
+                    for l in range(self.L-1):
+                        with File(self.fname, "a") as h5file:
+                            try:
+                                h5file[k][f"l{l}"] = check_h5file[k][f"l{l}"][:]
+                            except (RuntimeError, OSError):
+                                h5file[k][f"l{l}"][:] = check_h5file[k][f"l{l}"][:]
+        check_h5file.close()
+
 
     def run(self, tasks, recalc=False, verbose=True):
         t0 = time()
@@ -415,7 +536,8 @@ class QCA:
                 rec = record(self.params, needed_tasks)
                 added_tasks = needed_tasks
         if len(added_tasks) > 0:
-            save_dict_hdf5(rec, self.h5file)
+            with File(self.fname, "a") as h5file:
+                save_dict_hdf5(rec, h5file)
             del rec
         t1 = time()
         elapsed = t1 - t0
@@ -436,30 +558,32 @@ class QCA:
             p_string += self.fname + "\n"
             p_string += "=" * 80 + "\n"
             print(p_string)
+            with File(self.fname, "a") as h5file:
+                h5file.flush()
 
     def get_measure(self, meas, save=False):
         func, *args = meas.split("_")
-        if func in ("C", "D", "Y", "MI"):
-            args = [2]
         if func[0] in ("s", "C", "D", "Y", "M"):
             args = list(map(int, args))
         return getattr(self, func)(*args, save=save)
 
-    def H(self, save=False):
-        """Bitstring (square-amplitude of state) entropy"""
-        key = "Hdata"
-        try:
-            H = getattr(self, key)
-        except KeyError:
-            H = np.array([ms.get_bitstring_entropy(ps)
-                         for ps in self.bitstring])
-            setattr(self, key, H)
-        if save:
+    def delete_measure(self, key):
+        with File(self.fname, "a") as h5file:
             try:
-                self.h5file[key] = H
-            except RuntimeError:
-                self.h5file[key][:] = H
-        return H
+                del h5file[key]
+            except KeyError:
+                pass
+
+
+    def save_measure(self, key, val):
+        avail = self.available_tasks
+        with File(self.fname, "a") as h5file:
+            if key not in avail:
+                h5file[key] = val
+            else:
+                h5file[key][:] = val
+            h5file.flush()
+
 
     def s(self, order=2, save=False):
         """Local Renyi entropy"""
@@ -470,11 +594,9 @@ class QCA:
             s = np.array([ms.get_entropy(rj, order=order) for rj in self.rhoj])
             setattr(self, key, s)
         if save:
-            try:
-                self.h5file[key] = s
-            except RuntimeError:
-                self.h5file[key][:] = s
+            self.save_measure(key, s)
         return s
+
 
     def s2(self, order=2, save=False):
         """Two-site Renyi entropy"""
@@ -486,11 +608,48 @@ class QCA:
                           for rjk in self.rhojk])
             setattr(self, key, s2)
         if save:
-            try:
-                self.h5file[key] = s2
-            except RuntimeError:
-                self.h5file[key][:] = s2
+            self.save_measure(key, s2)
         return s2
+
+
+    def exp(self, op, name=None, save=False):
+        """Expectation value of local op"""
+        if type(op) == str:
+            name = op
+            op = OPS[op]
+        else:
+            if name is None:
+                raise TypeError("please name your op with the `name` kwarg")
+        key = f"exp_{name}"
+        try:
+            exp = getattr(self, key)
+        except KeyError:
+            exp = np.array([ms.get_expectation(rj, op) for rj in self.rhoj])
+            setattr(self, key, exp)
+        if save:
+            self.save_measure(key, exp)
+        return exp
+
+
+    def exp2(self, ops, name=None, save=False):
+        """Expectation value of two-site op"""
+        if type(ops) == str:
+            name = ops
+            ops = [OPS[op] for op in ops]
+        else:
+            if name is None:
+                raise TypeError("please name your op with the `name` kwarg")
+        key = f"exp2_{name}"
+        try:
+            exp2 = getattr(self, key)
+        except KeyError:
+            exp2 = np.array([
+                ms.get_expectation2(rjk, *ops) for rjk in self.rhojk])
+            setattr(self, key, exp2)
+        if save:
+            self.save_measure(key, exp2)
+        return exp2
+
 
     def sbipart(self, order=2, save=False):
         """Bipartition Renyi entropy"""
@@ -498,17 +657,27 @@ class QCA:
         try:
             sbipart = getattr(self, key)
         except KeyError:
-            bipart = self.bipart
-            sbipart = np.transpose(
-                np.array([ms.get_entropy(rl, order=order) for rl in bipart])
-            )
+            avail = self.available_tasks
+            if "bipart" in avail:
+                sbipart = np.transpose(
+                    np.array([
+                        ms.get_entropy(rhos, order=order)
+                            for rhos in self.bipart])
+                )
+            elif "ebipartdata" in avail:
+                sbipart = np.transpose(
+                    np.array([
+                        ms.get_entropy_from_spectrum(es, order=order)
+                            for es in self.ebipartdata])
+                )
+            else:
+                raise KeyError(
+                    f"Can not compute sbipart with tasks f{avail}")
             setattr(self, key, sbipart)
         if save:
-            try:
-                self.h5file[key] = sbipart
-            except RuntimeError:
-                self.h5file[key][:] = sbipart
+            self.save_measure(key, sbipart)
         return sbipart
+
 
     def sbisect(self, order=2, save=False):
         """Bisection Renyi entropy"""
@@ -516,18 +685,64 @@ class QCA:
         try:
             sbisect = getattr(self, key)
         except KeyError:
-            try:
-                bisect = self.bisect
-            except KeyError:
-                bisect = self.bipart[int((self.L - 1) // 2)]
-            sbisect = ms.get_entropy(bisect, order=order)
+            avail = self.available_tasks
+            if "ebisectdata" in avail:
+                sbisect = ms.get_entropy_from_spectrum(
+                    self.ebisectdata, order=order)
+            elif "ebipartdata" in avail:
+                sbisect = ms.get_entropy_from_spectrum(
+                    self.ebipartdata[int((self.L - 1) // 2)], order=order)
+            elif "bisect" in avail:
+                sbisect = ms.get_entropy(self.bisect, order=order)
+            elif "bipart" in avail:
+                sbisect = ms.get_entropy(
+                    self.bipart[int((self.L - 1) // 2)], order=order)
+            else:
+                raise KeyError(
+                    f"Can not compute sbisect with tasks f{avail}")
             setattr(self, key, sbisect)
+
         if save:
-            try:
-                self.h5file[key] = sbisect
-            except RuntimeError:
-                self.h5file[key][:] = sbisect
+            self.save_measure(key, sbisect)
         return sbisect
+
+
+    def ebipart(self, order=2, save=False):
+        """Bipartition entanglement spectrum"""
+        key = "ebipartdata"
+        try:
+            ebipart = getattr(self, key)
+        except KeyError:
+            ebipart =[ms.get_spectrum(r) for r in self.bipart]
+            setattr(self, key, ebisect)
+
+        if save:
+            save_measure(key, ebipart)
+        return ebispart
+
+    def ebisect(self, order=2, save=False):
+        """Bisection entanglement spectrum"""
+        key = "ebisectdata"
+        try:
+            ebisect = getattr(self, key)
+        except KeyError:
+            avail = self.available_tasks
+            if "bisect" in avail:
+                ebisect = ms.get_spectrum(self.bisect)
+            elif "bipart" in avail:
+                ebisect = ms.get_spectrum(
+                    self.bipart[int((self.L - 1) // 2)])
+            elif "ebipartdata" in avail:
+                ebisect = self.ebipartdata[int((self.L-1)/2)]
+            else:
+                raise KeyError(
+                    f"Can not compute ebisect with tasks f{avail}")
+            setattr(self, key, ebisect)
+
+        if save:
+            save_measure(key, ebisect)
+        return ebisect
+
 
     def MI(self, order=2, save=False):
         """Mutual information adjacency matrix"""
@@ -537,14 +752,35 @@ class QCA:
         except KeyError:
             s = self.s(order)
             s2 = self.s2(order)
-            MI = np.array([ms.get_MI(sone, stwo) for sone, stwo in zip(s, s2)])
+            MI = np.array([
+                ms.get_MI(sone, stwo) for sone, stwo in zip(s, s2)])
             setattr(self, key, MI)
         if save:
-            try:
-                self.h5file[key] = MI
-            except RuntimeError:
-                self.h5file[key][:] = MI
+            self.save_measure(key, MI)
         return MI
+
+
+    def g2(self, ops, name=None, save=False):
+        """g2 correlator of ops"""
+        if type(ops) == str:
+            name = ops
+        else:
+            if name is None:
+                raise TypeError("please name your ops with the `name` kwarg")
+        key = f"g2_{name}"
+        try:
+            g2 = getattr(self, key)
+        except KeyError:
+            e1 = self.exp(ops[0])
+            e2 = self.exp(ops[1])
+            e12 = self.exp2(ops)
+            g2 = np.array([
+                ms.get_g2(eAB, eA, eB ) for eAB, eA, eB in zip(e12, e1, e2)])
+            setattr(self, key,g2)
+        if save:
+            self.save_measure(key, g2)
+        return g2
+
 
     def C(self, order=2, save=False):
         """Mutual information clustering coefficient"""
@@ -556,11 +792,9 @@ class QCA:
             C = np.array([ms.network_clustering(mi) for mi in MI])
             setattr(self, key, C)
         if save:
-            try:
-                self.h5file[key] = C
-            except RuntimeError:
-                self.h5file[key][:] = C
+            self.save_measure(key, C)
         return C
+
 
     def D(self, order=2, save=False):
         """Mutual information density"""
@@ -572,11 +806,9 @@ class QCA:
             D = np.array([ms.network_density(mi) for mi in MI])
             setattr(self, key, D)
         if save:
-            try:
-                self.h5file[key] = D
-            except RuntimeError:
-                self.h5file[key][:] = D
+            self.save_measure(key, D)
         return D
+
 
     def Y(self, order=2, save=False):
         """Mutual information disparity"""
@@ -588,52 +820,84 @@ class QCA:
             Y = np.array([ms.network_disparity(mi) for mi in MI])
             setattr(self, key, Y)
         if save:
-            try:
-                self.h5file[key] = Y
-            except RuntimeError:
-                self.h5file[key][:] = Y
+            self.save_measure(key, Y)
         return Y
 
-    def diff(self, x, dt=1, acc=8, save=False):
-        assert acc in [2, 4, 6, 8]
-        coeffs = [
-            [1.0 / 2],
-            [2.0 / 3, -1.0 / 12],
-            [3.0 / 4, -3.0 / 20, 1.0 / 60],
-            [4.0 / 5, -1.0 / 5, 4.0 / 105, -1.0 / 280],
-        ]
-        dx = np.sum(
-            np.array(
-                [
-                    (
-                        coeffs[acc // 2 - 1][k - 1] * x[k * 2:]
-                        - coeffs[acc // 2 - 1][k - 1] * x[: -k * 2]
-                    )[acc // 2 - k: len(x) - (acc // 2 + k)]
-                    / dt
-                    for k in range(1, acc // 2 + 1)
-                ]
-            ),
-            axis=0,
-        )
-        return dx
 
-    def exp(self, op, name=None, save=False):
-        """Expectation value"""
-        if type(op) == str:
-            name = op
-            op = ops[op]
-        key = f"exp_{name}"
+    def P(self, order=2, save=False):
+        """Mutual information path length"""
+        key = f"P_{order}"
         try:
-            exp = getattr(self, key)
+            P = getattr(self, key)
+            raise KeyError
         except KeyError:
-            exp = np.array([ms.get_expectation(rj, op) for rj in self.rhoj])
-            setattr(self, key, exp)
+            MI = self.MI(order)
+            P = np.array([ms.network_pathlength(mi) for mi in MI])
+            setattr(self, key, P)
         if save:
+            self.save_measure(key, P)
+        return P
+
+
+    def H(self, save=False):
+        """Bitstring (square-amplitude of state) entropy"""
+        key = "Hdata"
+        try:
+            H = getattr(self, key)
+        except KeyError:
+            H = np.array([ms.get_bitstring_entropy(ps)
+                         for ps in self.bitstring])
+            setattr(self, key, H)
+        if save:
+            self.save_measure(key, H)
+        return H
+
+
+    def F(self, save=False):
+        """Bitstring entropy Fidelity"""
+        key = "Fdata"
+        try:
+            F = getattr(self, key)
+        except KeyError:
+            p1 = copy(self.params)
+            p1["N"] = 1
+            p1["E"] = 0.0
+            Q1 = QCA(p1)
             try:
-                self.h5file[key] = exp
-            except RuntimeError:
-                self.h5file[key][:] = exp
-        return exp
+                qs = Q1.bitstring
+            except KeyError:
+                raise KeyError("Need corresponding ideal simulation")
+            ps = self.bitstring
+            F = np.array([ms.get_bitstring_fidelity(p, q) for p, q in zip(ps, qs)])
+            setattr(self, key, F)
+        if save:
+            self.save_measure(key, F)
+        return F
+
+
+    def CF(self, order=2, save=False):
+        """
+            Clustering scaled by ideal simulation and incoherent state:
+            CF = (Cmeasured - Cincoherent ) / (Cexpected - Cincoherent)
+            """
+        key = f"CF_{order}"
+        try:
+            CF = getattr(self, key)
+        except KeyError:
+            p1 = copy(self.params)
+            p1["N"] = 1
+            p1["E"] = 0.0
+            Q1 = QCA(p1)
+            try:
+                C1s = Q1.C(order)
+            except KeyError:
+                raise KeyError("Need corresponding ideal simulation")
+            C2s = self.C(order)
+            CF = np.array([ms.get_clustering_fidelity(C2, C1, self.L) for C1, C2 in zip(C1s, C2s)])
+            setattr(self, key, CF)
+        if save:
+            self.save_measure(key, CF)
+        return CF
 
 
 def to_list(val):
@@ -663,7 +927,7 @@ def main(
     symmetric=None,
 ):
 
-    # parse command line arguments or load defaults
+
     args = parser.parse_args()
     if thread_as is None:
         thread_as = args.thread_as
@@ -715,14 +979,19 @@ def main(
         params, Ls, Lxs, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
     )
 
+    main_from_params_list(params_list, tasks, recalc)
+
+
+def main_from_params_list(params_list, tasks, recalc, der=None, check_der=None):
     # sort by large L first
     allL = [p["L"] for p in params_list]
     params_list = [p for _, p in sorted(zip(allL, params_list),
-                   key=lambda pair: pair[0])][::-1]
+                   key=lambda pair: pair[0])][::1]
     # initialize job meta data
     numsims = len(params_list)  # number of sims in job
     simnum = 1  # current job number
     mysimnum = 1  # current job number per rank
+    Ls = list(set([p["L"] for p in params_list]))
     numperL = {L: 0 for L in Ls}  # number of sims of the same size
     for p in params_list:
         numperL[p["L"]] += 1
@@ -745,7 +1014,10 @@ def main(
             )
             stdout.flush()
             ta = time()
-            Q = QCA(params)
+            Q = QCA(params, der=der)
+            if check_der is not None:
+                Q.check_der(der=check_der, test=False)
+
             Q.run(tasks, recalc=recalc)
             Q.close()
             tb = time()

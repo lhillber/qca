@@ -21,15 +21,17 @@ from PIL import Image
 import matplotlib.gridspec as gridspec
 
 
-rc("text", usetex=True)
-font = {"size": 12, "weight": "normal"}
-mpl.rc(*("font",), **font)
-mpl.rcParams["pdf.fonttype"] = 42
-mpl.rcParams["text.latex.preamble"] = [
-    r"\usepackage{amsmath}",
-    r"\usepackage{sansmath}",  # sanserif math
-    r"\sansmath",
-]
+fontstyle = {'pdf.fonttype': 42,
+'text.usetex': True,
+'text.latex.preamble': '\\usepackage{amsfonts}',
+'font.family': 'serif',
+'axes.labelsize': 9,
+'font.size': 9,
+'legend.fontsize': 9,
+'xtick.labelsize': 9,
+'ytick.labelsize': 9}
+plt.rcParams.update(fontstyle)
+rc("mathtext", default='regular')
 
 
 # Convert QECA rule number to ECA rule number
@@ -269,8 +271,12 @@ def plot(Rs=[30, 90, 110], L=65, T=65 // 2):
 
     ax3.imshow(np.asarray(im))
     ax3.axis("off")
+    ax3.text(0.01, 0.87, letters[3], transform=ax3.transAxes)
+    ax3.text(0.03, 0.59, "$C_{30}$", transform=ax3.transAxes)
+    ax3.text(0.03, 0.37, "$C_{90}$", transform=ax3.transAxes)
+    ax3.text(0.03, 0.15, "$C_{110}$", transform=ax3.transAxes)
 
-    plt.savefig("figures/classical/C30_90_110.pdf",
+    plt.savefig("figures/classical/C30_90_110_V2.pdf",
                 dpi=700, bbox_inches="tight")
 
 

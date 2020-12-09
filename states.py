@@ -410,9 +410,8 @@ def porter_thomas(L, config):
     np.random.seed(None)
     if len(config) > 0:
         np.random.seed(int(config))
-    stateR = np.random.normal(0, 1, 2 ** L)
-    stateI = np.random.normal(0, 1, 2 ** L)
-    state = stateR + 1j * stateI
+    state = np.random.normal(0, 1, (2 ** L, 2))
+    state = state[:, 0] + 1j * state[:, 1]
     state = state / np.sqrt(np.conj(state).dot(state)).real
     return state
 

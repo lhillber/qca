@@ -132,6 +132,37 @@ def boundary_rule_ops(V, R, r, BC_conf, totalistic=False, hamiltonian=False):
     return OPs[:r], OPs[r:][::-1]
 
 
+def rule_hamiltonian(V, R, r, BC, L=None, totalistic=False):
+    BC_type, *BC_conf = BC.split("-")
+    BC_conf = "".join(BC_conf)
+    if BC_type == "1":
+        BC_conf = [int(bc) for bc in BC_conf]
+
+    bulk = rule_op(V, R, r, totalistic=totalistic, hamiltonian=True)
+    lUs, rUs = boundary_rule_ops(
+        V, R, r, BC_conf, totalistic=totalistic, hamiltonian=True
+    )
+
+    if L is None:
+        L = 2 * r + 1
+        return bulk
+
+    else:  # pad identities
+        H = np.zeros((2**L, 2**L), dtype=complex)
+        for j in range(r, L - r):
+            ln = j - r
+            rn = L - 2 * r - 1 - ln
+            left = np.eye(2 ** ln)
+            right = np.eye(2 ** rn)
+            H += mx.listkron([left, bulk, right])
+        # boundaries
+        for j, (lU, rU) in enumerate(zip(lUs, rUs[::-1])):
+            end = np.eye(2**(L - r - 1 - j))
+            H += mx.listkron([end, rU])
+            H += mx.listkron([lU, end])
+        return H
+
+
 def rule_unitaries(V, R, r, BC, L, dt,
                    totalistic=False, hamiltonian=False, trotter=True):
     """
@@ -142,6 +173,8 @@ def rule_unitaries(V, R, r, BC, L, dt,
     BC_conf = "".join(BC_conf)
     if BC_type == "1":
         BC_conf = [int(bc) for bc in BC_conf]
+    elif BC_type == "0":
+        BC_conf = [0]*2*r
     if L is None:
         L = 2 * r + 1
     bulk = rule_op(V, R, r, totalistic=totalistic, hamiltonian=hamiltonian)
@@ -250,11 +283,15 @@ def evolve(L, T, dt, R, r, V, IC, BC, E=0,
     else:  # trotter
         get_U = get_Ufunc(Us, r, L, BC)
         if symmetric:
-            sqrtUs = [[fractional_matrix_power(u, 0.5)
-                       for u in us] for us in (Us[0], Us[2])]
-            sqrtUs = (sqrtUs[0], fractional_matrix_power(
-                Us[1], 0.5), sqrtUs[1])
-            get_sqrtU = get_Ufunc(sqrtUs, r, L, BC)
+            if BC == "0":
+                sqrtU = fractional_matrix_power(Us, 0.5)
+                get_sqrtU = get_Ufunc(sqrtU, r, L, BC)
+            else:
+                sqrtUs = [[fractional_matrix_power(u, 0.5)
+                           for u in us] for us in (Us[0], Us[2])]
+                sqrtUs = (sqrtUs[0], fractional_matrix_power(
+                    Us[1], 0.5), sqrtUs[1])
+                get_sqrtU = get_Ufunc(sqrtUs, r, L, BC)
 
             for t in ts:
                 # forward
@@ -394,29 +431,33 @@ def record(params, tasks):
     """Record tasks from qca time evolution defined by params into a
        dictionary"""
     ts = np.arange(0, params["T"] + params["dt"], params["dt"])
-    rec = {task: ms.measures[task]["init"](
-        params["L"], len(ts)) for task in tasks}
+    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
+    rec = {key: ms.measures[task]["init"](
+        params["L"], len(ts)) for key, task in zip(keys,tasks)}
     rec.update({"ts": ts})
     # average of reduced density matricies
     for n in range(params["N"]):
         for ti, state in enumerate(evolve(**params)):
             for task in tasks:
-                if task == "bipart":
-                    bipart = ms.measures[task]["get"](state)
+                key = task
+                if task in ("ebipart", "ebisect"):
+                    key += "data"
+                if task in ("bipart", "ebipart"):
+                    data = ms.measures[task]["get"](state)
                     for l in range(params["L"] - 1):
-                        rec[task][ti][l] += bipart[l] / params["N"]
+                        rec[key][ti][l] += data[l] / params["N"]
                 else:
-                    rec[task][ti] += ms.measures[task]["get"](
+                    rec[key][ti] += ms.measures[task]["get"](
                         state) / params["N"]
     return rec
 
 
-def make_params_dict(params, L, T, dt, R, r, V, IC, BC, E, N):
+def make_params_dict(params, L, Lx, T, dt, R, r, V, IC, BC, E, N):
     """ Explicit conversion of parameters to dictionary. Updates
         a base dictonary 'params' """
     p = copy(params)
     p.update(
-            {"L": L, "T": T, "dt": dt, "R": R, "r": r,
+            {"L": L, "Lx":Lx, "T": T, "dt": dt, "R": R, "r": r,
              "V": V, "IC": IC, "BC": BC, "E": E, "N": N})
     return p
 

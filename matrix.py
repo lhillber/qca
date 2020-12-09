@@ -12,6 +12,8 @@ simplefilter('ignore', category=NumbaPerformanceWarning)
 
 ops = {
     "H": 1.0 / sqrt(2.0) * (np.array([[1.0, 1.0], [1.0, -1.0]], dtype=complex)),
+    "h": np.array([[0.85355339+0.14644661j, 0.35355339-0.35355339j],
+                [0.35355339-0.35355339j, 0.14644661+0.85355339j]], dtype=complex),
     "I": np.array([[1.0, 0.0], [0.0, 1.0]], dtype=complex),
     "O": np.array([[0.0, 0.0], [0.0, 0.0]], dtype=complex),
     "X": np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex),
@@ -22,8 +24,20 @@ ops = {
     "0": np.array([[1.0, 0.0], [0.0, 0.0]], dtype=complex),
     "1": np.array([[0.0, 0.0], [0.0, 1.0]], dtype=complex),
     "D": 1.0 / sqrt(2) * np.array([[1.0, -1j], [-1j, 1.0]], dtype=complex),
+    "d": np.array([[ 9.23879533e-01, -3.82683432e-01j],
+                  [ -3.82683432e-01j,  9.23879533e-01]], dtype=complex)
 }
 
+def op_at(opstrs, js, L, base=None):
+    if type(opstrs) == str:
+        opstrs = [opstrs]
+    if type(js) == int:
+        js = [js]
+    if base is None:
+        base = ["I"]*L
+    for j, opstr in zip(js, opstrs):
+        base[j] = opstr
+    return listkron([ops[opstr] for opstr in base])
 
 def op_on_state_inplace(op, js, state, ds=None):
     if ds is None:
@@ -89,7 +103,7 @@ def rdms(state, js, ds=None, out=None):
     ordering = tuple(np.concatenate((js, rest)))
     djs = np.prod(np.array(ds).take(js))
     drest = np.prod(np.array(ds).take(rest))
-    block = state.reshape(ds).transpose(ordering).reshape(djs, drest)
+    block = ptranspose(state, js, outshape=(djs, drest))
     return rdms_njit(block, ds, ordering, djs, drest, out=out)
 
 
@@ -123,23 +137,46 @@ def rdms_njit(block, ds, ordering, djs, drest, out=None):
 
 
 def rdmr(rho, js):
-    print("WARNING: this function is NOT verified")
-    L = np.int(np.log(len(rho), 2))
-    d = 2 * L
-    n = len(js)
-    js = list(js)
+    js = np.array(js)
+    L = np.int(np.log2(len(rho)))
     rest = np.setdiff1d(np.arange(L), js)
-    ordering = js + list(rest)
-    orderingout = [o + L for o in ordering]
-    ordering = ordering + orderingout
-    block = (
-        rho.reshape([2] * d)
-        .transpose(ordering)
-        .reshape(2 ** (d - 2 * n), 2 ** n, 2 ** n)
-    )
-    print(block)
-    RDM = np.trace(block)
-    return RDM / np.trace(RDM)
+
+    shape = [2] * 2 * L
+    d1 = 2**len(js)
+    d2 = 2**len(rest)
+    perm = list(js) + list(js+L) + list(rest) + list(rest + L)
+    block = ptranspose(rho, js, outshape=(d1, d1, d2**2))
+    mask = np.cumsum((d2 + 1) * np.ones(d2), dtype=np.int32) - (d2 + 1)
+    rho = np.sum(block[:, :, mask], axis=2)
+    return rho
+
+
+def rdm(state, js):
+    if len(state.shape) == 1:
+        return rdms(state, js)
+    elif len(state.shape) == 2:
+        return rdmr(state, js)
+
+
+def ptranspose(state, js, ds=None, out=None, outshape=None):
+    js = np.array(js)
+    D = len(state.shape)
+    if ds is None:
+        L = int(np.log2(len(state)))
+        ds = tuple([2] * L * D)
+    else:
+        L = len(ds)
+    rest = np.setdiff1d(np.arange(L), js)
+    if outshape is None:
+        outshape = state.shape
+    if D == 1:
+        ordering = list(js) + list(rest)
+    elif D == 2:
+        ordering = list(js) + list(js+L) + list(rest) + list(rest + L)
+    return state.reshape(ds).transpose(ordering).reshape(outshape)
+
+
+
 
 
 @njit

@@ -6,17 +6,30 @@ import scipy as sp
 import scipy.linalg
 import matrix as mx
 from math import pi
+from copy import copy
 
 
 def spectrum(rho):
-    spec = sp.linalg.eigvalsh(rho)
+    spec = sp.linalg.eigvalsh(rho).real
     return spec
+
+
+def vn_entropy_from_spectrum(spec, tol=1e-14):
+    return np.real(-np.sum(((el * log2(el) if el >= tol else 0.0) for el in spec)))
 
 
 def vn_entropy(rho, tol=1e-14):
     spec = spectrum(rho)
-    s = -np.sum(((el * log2(el) if el >= tol else 0.0) for el in spec))
-    return s
+    return vn_entropy_from_spectrum(spec)
+
+
+def renyi_entropy_from_spectrum(spec, order=2, tol=1e-14):
+    if order == 1:
+        return vn_entropy_from_spectrum(spec, tol=tol)
+    else:
+        denom = 1.0 - order
+        # spec = spectrum(rho)
+        return np.real(log2(np.sum(spec**order)) / denom)
 
 
 def renyi_entropy(rho, order=2, tol=1e-14):
@@ -24,20 +37,14 @@ def renyi_entropy(rho, order=2, tol=1e-14):
         return vn_entropy(rho, tol=tol)
     else:
         denom = 1.0 - order
-        # spec = spectrum(rho)
-        # s = np.real(log2(np.sum(spec**order)) / denom)
         return np.real(log2(np.trace(matrix_power(rho, order))) / denom)
 
 
 def expectation(state, A):
     if len(state.shape) == 2:
-        exp_val = np.real(np.trace(state.dot(A)))
-    else:
-        if len(state.shape) == 1:
-            exp_val = np.real(np.conjugate(state).dot(A.dot(state)))
-        else:
-            raise ValueError("Input state not understood")
-    return exp_val
+        return np.real(np.trace(state.dot(A)))
+    elif len(state.shape) == 1:
+        return np.real(np.conjugate(state).dot(A.dot(state)))
 
 
 def network_density(mat):
@@ -65,34 +72,55 @@ def network_disparity(mat, eps=1e-17j):
     return (1 / len(mat) * sum(numerator / (denominator + eps))).real
 
 
+def network_pathlength(mat, tol=1e-10):
+    import networkx as nx
+    try :
+        M = copy(mat)
+        med = np.percentile(M[M>1e-10], 40)
+        #med = np.mean(M[M>1e-6])
+        #med = 1e-6
+
+        M[M<=med] = 0
+        M[M>med] = 1
+        G = nx.from_numpy_matrix(M)
+        return nx.average_shortest_path_length(G)
+    except:
+        return np.nan
+
+
 def get_rhoj(state):
     L = int(log2(len(state)))
-    rhoj = np.asarray([mx.rdms(state, [j]) for j in range(L)])
+    rhoj = np.asarray([mx.rdm(state, [j]) for j in range(L)])
     return rhoj
 
 
 def get_rhojk(state):
     L = int(log2(len(state)))
     rhojk = np.asarray(
-        [mx.rdms(state, [j, k]) for j in range(L) for k in range(j)]
+        [mx.rdm(state, [j, k]) for j in range(L) for k in range(j)]
     )
     return rhojk
 
 
-def get_bisect(state, out=None):
+def get_bisect(state):
     L = int(log2(len(state)))
-    center_rho = mx.rdms(state, list(range(int(L / 2))), out=out)
+    center_rho = mx.rdm(state, list(range(int(L / 2))))
     return center_rho
+
+
+def get_ebisect(state):
+    center_rho = get_bisect(state)
+    return spectrum(center_rho)
 
 
 def get_bipart(state):
     N = int(log2(len(state))) - 1
     c = int(N / 2)
     left_rdms = [0] * c
-    left_rdm = mx.rdms(state, range(c))
+    left_rdm = mx.rdm(state, range(c))
     left_rdms[-1] = left_rdm
     right_rdms = [0] * (N - c)
-    right_rdm = mx.rdms(state, range(c + 1, N + 1))
+    right_rdm = mx.rdm(state, range(c + 1, N + 1))
     right_rdms[0] = right_rdm
     for j in range(c - 1):
         left_rdm = mx.traceout_last(left_rdm)
@@ -104,6 +132,11 @@ def get_bipart(state):
         right_rdm = mx.traceout_first(right_rdm)
         right_rdms[-1] = right_rdm
     return left_rdms + right_rdms
+
+
+def get_ebipart(state):
+    rs = get_bipart(state)
+    return [spectrum(r) for r in rs]
 
 
 def get_state(state):
@@ -134,8 +167,24 @@ def init_bipart(L, M):
     return init_shape
 
 
+def init_ebipart(L, M):
+    N = L - 1
+    c = int(N / 2)
+    left_dims = [2 ** (l + 1) for l in range(c)]
+    right_dims = left_dims
+    if N % 2 != 0:
+        right_dims = np.append(right_dims, 2 ** (c + 1))
+    dims = np.append(left_dims, right_dims[::-1])
+    init_shape = [[np.zeros(d, dtype=float) for d in dims] for _ in range(M)]
+    return init_shape
+
+
 def init_bisect(L, M):
     return np.zeros((M, 2 ** int(L / 2), 2 ** int(L / 2)), dtype=complex)
+
+
+def init_ebisect(L, M):
+    return np.zeros((M, 2 ** int(L / 2)), dtype=float)
 
 
 def init_state(L, M):
@@ -149,7 +198,9 @@ def init_bitstring(L, M):
 measures = {"rhoj": {"init": init_rhoj, "get": get_rhoj},
             "rhojk": {"init": init_rhojk, "get": get_rhojk},
             "bipart": {"init": init_bipart, "get": get_bipart},
+            "ebipart": {"init": init_ebipart, "get": get_ebipart},
             "bisect": {"init": init_bisect, "get": get_bisect},
+            "ebisect": {"init": init_ebisect, "get": get_ebisect},
             "state": {"init": init_state, "get": get_state},
             "bitstring": {"init": init_bitstring, "get": get_bitstring}
             }
@@ -178,22 +229,31 @@ def symm_mat_from_vec(vec):
     return mat
 
 
-def get_expectation(rhos, A):
-    return np.asarray([expectation(rho, A) for rho in rhos])
-
-
-def get_expectation2(rhos, A, B):
-    exp2_vals = np.asarray([expectation(rho, np.kron(A, B)) for rho in rhos])
-    exp2 = symm_mat_from_vec(exp2_vals)
-    return exp2
+def get_spectrum(rhos):
+    return np.array([spectrum(rho) for rho in rhos])
 
 
 def get_entropy(rhos, order):
-    return np.asarray([renyi_entropy(rho, order) for rho in rhos])
+    return np.array([renyi_entropy(rho, order) for rho in rhos])
+
+
+def get_expectation(rhos, A):
+    return np.array([expectation(rho, A) for rho in rhos])
+
+
+def get_expectation2(rhos, A, B=None):
+    if B is not None:
+        A = np.kron(A, B)
+    exp2_vals = np.array([expectation(rho, A) for rho in rhos])
+    return symm_mat_from_vec(exp2_vals)
+
+
+def get_entropy_from_spectrum(specs, order):
+    return np.array([renyi_entropy_from_spectrum(spec, order) for spec in specs])
 
 
 def get_entropy2(rhos, order):
-    s2_vals = np.asarray([renyi_entropy(rho, order) for rho in rhos])
+    s2_vals = np.array([renyi_entropy(rho, order) for rho in rhos])
     return symm_mat_from_vec(s2_vals)
 
 
@@ -202,17 +262,22 @@ def get_bitstring_entropy(bitstring):
 
 
 def get_bitstring_crossentropy(bitstringp, bitstringq, tol=1e-14):
-    return sum(-p * np.log2(np.max([q, tol])) for p, q in zip(bitstringp, bitstringq))
+    return sum(-p * np.log2(q) if q>=tol else -p*np.log2(tol)
+        for p, q in zip(bitstringp, bitstringq))
 
 
 def get_bitstring_fidelity(pmeasured, pexpected):
-    pincoherent = np.ones_like(pmeasured)
-    pincoherent /= pincoherent.sum()
+    pincoherent = np.ones(pmeasured.shape, dtype=float)
+    pincoherent /= np.sum(pincoherent)
     S_inc_exp = get_bitstring_crossentropy(pincoherent, pexpected)
     S_meas_exp = get_bitstring_crossentropy(pmeasured, pexpected)
     S_exp = get_bitstring_entropy(pexpected)
     return (S_inc_exp - S_meas_exp) / (S_inc_exp - S_exp)
 
+
+def get_clustering_fidelity(Cmeasured, Cexpected, L):
+    Cincoherent = 2.856 * np.e**(-L/1.46) # calibrated elsewhere
+    return (Cmeasured - Cincoherent ) / (Cexpected - Cincoherent)
 
 def get_MI(s, s2):
     L = len(s)
@@ -232,32 +297,45 @@ def get_MI_from_state(state, order):
     return get_MI(s1, s2)
 
 
-def get_g2(expAB, expA, expB):
-    L = len(expA)
+def get_g2(exp12, exp1, exp2):
+    L = len(exp1)
     g2 = np.zeros((L, L))
     for j in range(L):
-        for k in range(j):
-            g2[(j, k)] = expAB[(j, k)] - expA[j] * expB[k]
-            g2[(k, j)] = g2[(j, k)]
-
+        for k in range(L):
+            if j != k:
+                g2[(j, k)] =  exp12[(j, k)] - exp1[j] * exp2[k]
     return g2
+
+
+def get_g2_from_state(state, A, B):
+    rhoj = get_rhoj(state)
+    rhojk = get_rhojk(state)
+    exp1 = get_expectation(rhoj, A)
+    exp2 = get_expectation(rhoj, B)
+    exp12 = get_expectation2(rhojk, A, B)
+    return get_g2(exp12, exp1, exp2)
 
 
 def msqrt(mat):
     return fractional_matrix_power(mat, 0.5)
 
 
-def fidelity(rho, sigma):
+def get_fidelity(rho, sigma):
     if np.allclose(rho, sigma):
         return 1
     sqrt_rho = msqrt(rho)
     return (np.trace(msqrt(multi_dot([sqrt_rho, sigma, sqrt_rho]))).real)**2
 
 
-def relative_entropy(rho, sigma):
+def get_relative_entropy(rho, sigma):
     if np.allclose(rho, sigma):
         return 0
     return np.trace(rho.dot(logm(rho) - logm(sigma))).real
+
+
+def KL_divergence(ps, qs, tol=1e-6):
+    assert np.all(ps[qs<=tol] <= tol)
+    return np.sum([p * np.log2(p/q) for p, q in zip(ps/sum(ps), qs/sum(qs))])
 
 
 def autocorr(x, h=1):

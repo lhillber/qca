@@ -30,15 +30,21 @@ mpl.rcParams["text.latex.preamble"] = [
     r"\sansmath",
 ]
 
-def make_mask(j, k, Ly, Lx, r, BC_type):
-    mask = [True]*2*r*2
-    if Ly == 1:
-        for i in range(2*r):
-            mask[i] = False
-    if Lx == 1:
-        for i in range(2*r, 4*r):
-            mask[i] = False
+tri_dict = {
+        1: [0, 2],
+        2: [1, 2],
+        3: [1, 3],
+        4: [0, 3]}
 
+clip_dict = {
+        1: [1, 3],
+        2: [0, 3],
+        3: [0, 2],
+        4: [1, 2]}
+
+
+def make_mask(j, k, Ly, Lx, r, BC_type, tri=0):
+    mask = np.array([True]*2*r*2)
     if BC_type == "1":
         if j-r < 0:
             for i in range(r-j):
@@ -46,7 +52,6 @@ def make_mask(j, k, Ly, Lx, r, BC_type):
         if j+r > Ly-1:
             for i in range(r, 2*r+j-Ly+1):
                 mask[i] = False
-
         if k-r < 0:
             for i in range(2*r, 3*r-k):
                 mask[i] = False
@@ -54,6 +59,9 @@ def make_mask(j, k, Ly, Lx, r, BC_type):
         if k+r > Lx-1:
             for i in range(3*r, 4*r+k-Lx+1):
                 mask[i] = False
+
+    if tri in [1, 2, 3, 4]:
+        mask[tri_dict[tri]] = False
     return mask
 
 
@@ -69,23 +77,12 @@ def index_arr(j, k, r):
         )).astype(int)
 
 
-def neighbors(j, k, Ly, Lx, r, BC_type):
-    mask = make_mask(j, k, Ly, Lx, r, BC_type)
-    index = index_arr(j, k, r)
-    Njk = np.ravel_multi_index(index, (Ly, Lx), mode="wrap")
-    return Njk[mask]
-
-
-def neighborhood(j, k, Ly, Lx, r, BC_type):
-    return np.r_[central(j, k, Ly, Lx), neighbors(j, k, Ly, Lx, r, BC_type)]
-
-
 # ECA transition funcion
 def ecaf(R, Ni, c):
     s = np.sum(Ni)
     if R & (1 << s):  # not equal to zero, then flip
         return (c+1)%2
-    # otherwise the next center state is 0
+    # otherwise the next center state is unchanged
     else:  # equal to zero, then remain
         return c
 
@@ -119,17 +116,38 @@ def iterate(Ly, Lx, T, R, IC, BC):
         C = np.zeros((T, Ly, Lx), dtype=np.int32)
         C[0, :] = IC
 
-    for t in range(1, T):
-        for s in range(1+1):
-            for j in range(shift, Ly-shift):
-                for k in range(shift, Lx-shift):
-                    if (j+k) % (1+1) == s:
-                        rs, cs = index_arr(j, k, 1)
-                        if s == 0:
-                            C[t, j, k] = ecaf(R, C[t-1, rs%Ly, cs%Lx], C[t-1, j, k])
-                        else:
-                            C[t, j, k] = ecaf(R, C[t, rs%Ly, cs%Lx], C[t-1, j, k])
+    tri_map = {(0, 0): [1, 3],
+               (0, 1): [4, 2],
+               (1, 0): [2, 4],
+               (1, 1): [3, 1]}
 
+    for t in range(1, T-1, 2):
+        for Pi, P in enumerate([1, -1]):
+            #blocks = [0, 3, 1, 2, 3, 1, 2, 0]
+            blocks = [0, 3, 1, 2]*2
+
+            bjs, bks = np.unravel_index(blocks, (2, 2))
+
+            C[t+Pi, :] = C[t+Pi-1, :]
+            bjs = [(j+Pi) % 2 for j in bjs]
+            bks = [(k+Pi) % 2 for k in bks]
+            Ny = int(np.ceil((Ly+Pi) / 2))
+            Nx = int(np.ceil((Lx+Pi) / 2))
+            for J in range(Ny):
+                for K in range(Nx):
+                    for jj, kk in zip(bjs, bks):
+                        j = 2*J + P * jj
+                        k = 2*K + P * kk
+                        if shift <= j < Ly-shift and shift <= k < Lx-shift:
+                            tri = tri_map[jj, kk][Pi]
+                            mask = make_mask(j, k, Ly, Lx, 1, BC_type, tri=tri)
+                            rs, cs = index_arr(j, k, 1)
+                            rs = np.array(rs[mask])
+                            cs = np.array(cs[mask])
+                            # add oposite corner to neighborhood
+                            #rs = np.r_[rs, rs.sum()-j]
+                            #cs = np.r_[cs, cs.sum() - k]
+                            C[t+Pi, j, k] = ecaf(R, C[t+Pi, rs%Ly, cs%Lx], C[t+Pi, j, k])
 
     if BC_type == "1":
         return C[:, 1:-1, 1:-1]
@@ -141,12 +159,13 @@ def iterate(Ly, Lx, T, R, IC, BC):
 # default behavior of this script
 if __name__ == "__main__":
 
-    Ly = 75
-    Lx = 75
-    T = 30
-    Rs = [2, 6, 10, 18]
+    Ly = 51
+    Lx = 51
+    T = 500
+    Rs = [1, 2, 3,  6]
     IC = np.zeros((Ly, Lx))
-    IC[Ly//2, Lx//2] = 1
+    IC[0,0] = 1
+    IC[0,Lx-1] = 1
     BC = "1-0000"
 
     fig, axs = plt.subplots(2, 2)
@@ -172,5 +191,5 @@ if __name__ == "__main__":
     ani = animation.FuncAnimation(fig, updatefig, frames=range(T),
                                   interval=200, blit=False)
     #plt.show()
-    ani.save('figures/animation/2D_R2-6-10-18_small.mp4')
+    ani.save('figures/animation/2D_R1-2-3-6_block-xx.mp4')
 
