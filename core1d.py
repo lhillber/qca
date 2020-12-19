@@ -436,6 +436,7 @@ def record(params, tasks):
         params["L"], len(ts)) for key, task in zip(keys,tasks)}
     rec.update({"ts": ts})
     # average of reduced density matricies
+    # TODO: logic for entanglement spectrum if N>1
     for n in range(params["N"]):
         for ti, state in enumerate(evolve(**params)):
             for task in tasks:

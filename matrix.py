@@ -123,10 +123,7 @@ def rdms2(state, js):
 
 @njit
 def rdms_njit(block, ds, ordering, djs, drest, out=None):
-    if out is None:
-        RDM = np.zeros((djs, djs), dtype=np.complex128)
-    else:
-        RDM = out
+    RDM = np.zeros((djs, djs), dtype=np.complex128)
     for i in range(djs):
         for j in range(i, djs):
             Rij = np.dot(block[i, :], np.conj(block[j, :]))

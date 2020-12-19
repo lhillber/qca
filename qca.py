@@ -106,14 +106,14 @@ from copy import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpi4py import MPI
+from joblib import Parallel, delayed
 from h5py import File
 
 from matrix import ops as OPS
 from matrix import listkron
 import measures as ms
 from core1d import record, hash_state, save_dict_hdf5, params_list_map
-
+from figures import exp2_fit
 
 defaults = {
     "L": 15,  # system size, int/list
@@ -137,6 +137,7 @@ defaults = {
     "hamiltonian": False,  # continuous time evolution?, bool
     "recalc": False,  # recalculate tasks?, bool
     "tasks": ["rhoj", "rhojk"],  # save density matricies, list of str
+    "nprocs": 1
 }
 
 parser = argparse.ArgumentParser()
@@ -306,8 +307,20 @@ parser.add_argument(
     + " rhoj -- single site,"
     + " rhojk -- two site,"
     + " bipart -- all bipartitions,"
-    + " bisect -- central bipartition",
-)
+    + " bisect -- central bipartition"
+    + " ebipart -- all bipartitions, entanglement spectrum,"
+    + " ebisect -- central bipartition, entanglement spectrum")
+
+parser.add_argument(
+    "-nprocs",
+    "--nprocs",
+    default=defaults["nprocs"],
+    type=int,
+    help="Number of parallel workers running requested simulations."
+         +"set to -1 to use all avalable slots,"
+         +"set to -2 to use all but one available slots.")
+
+
 
 def QCA_from_file(fname):
     with File(fname, "r") as h5file:
@@ -363,9 +376,6 @@ class QCA:
         if params["blocks"] == [0]:
             reject_keys.append("blocks")
 
-        if "rank" not in params:
-            params["rank"] = 0
-            params["nprocs"] = 1
         self.params = params
         self.der = der
         self.uid = hash_state(self.params, reject_keys=reject_keys)
@@ -543,7 +553,7 @@ class QCA:
         elapsed = t1 - t0
         if verbose:
             p_string = "\n" + "=" * 80 + "\n"
-            p_string += "Rank: {}\n".format(self.rank)
+            #p_string += "Rank: {}\n".format(self.rank)
             if len(added_tasks) == 0:
                 p_string += "Nothing to add to {}\n".format(self.uid)
             else:
@@ -925,6 +935,8 @@ def main(
     hamiltonian=None,
     trotter=None,
     symmetric=None,
+    nprocs=None,
+    der=None
 ):
 
 
@@ -935,6 +947,8 @@ def main(
         tasks = to_list(args.tasks)
     if recalc is None:
         recalc = args.recalc
+    if nprocs is None:
+        nprocs = args.nprocs
     if Ls is None:
         Ls = to_list(args.L)
     if Lxs is None:
@@ -979,33 +993,53 @@ def main(
         params, Ls, Lxs, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
     )
 
-    main_from_params_list(params_list, tasks, recalc)
+    main_from_params_list(params_list, tasks, recalc, der, nprocs)
 
 
-def main_from_params_list(params_list, tasks, recalc, der=None, check_der=None):
-    # sort by large L first
+def remianing_time_projection(Ls, elapsed):
+    projection  = np.array(copy(elapsed))
+    known_mask = np.array(elapsed) > 0.0
+    if sum(known_mask) == 0:
+        return projection
+    elif sum(known_mask) == 1:
+        return [projection[known_mask][0] * (2**i) for i in range(len(projection))]
+    unknown_mask = np.logical_not(known_mask)
+    func, m, b = exp2_fit(np.array(Ls)[known_mask],
+                          np.array(elapsed)[known_mask])
+    projection[unknown_mask] = func(np.array(Ls)[unknown_mask])
+    return projection
+
+
+def main_from_params_list2(params_list, tasks, recalc, der=None):
+    # sort by small L first
     allL = [p["L"] for p in params_list]
     params_list = [p for _, p in sorted(zip(allL, params_list),
-                   key=lambda pair: pair[0])][::1]
+                   key=lambda pair: pair[0])]
+
     # initialize job meta data
     numsims = len(params_list)  # number of sims in job
     simnum = 1  # current job number
-    mysimnum = 1  # current job number per rank
-    Ls = list(set([p["L"] for p in params_list]))
-    numperL = {L: 0 for L in Ls}  # number of sims of the same size
-    for p in params_list:
-        numperL[p["L"]] += 1
-    elapsed = {L: 0 for L in Ls}  # elapsed time
-    visits = {L: 0 for L in Ls}  # counting number of sims done perL
-    estimate = 0  # remaining time
 
     # initalize parallel communication
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     nprocs = comm.Get_size()
 
+    # what system sizes will each core be running
+    allmyLs = [p["L"] for simnum, p in enumerate(params_list)
+               if (simnum - 1) % nprocs==rank]
+    myLs = list(set(allmyLs))
+    # number of sims of the same size
+    numperLdict = {L: 0 for L in myLs}
+    for L in allmyLs:
+        numperLdict[L] += 1
+    numperL = [numperLdict[L] for L in myLs]
+    visits = [0 for L in myLs]  # number of visits to L
+    elapsed = [0 for L in myLs]  # number of visits to L
+    estimate = 0  # remaining time
+
     # run all requested simulations
-    for params in params_list:
+    for simnum, params in enumerate(params_list):
         if (simnum - 1) % nprocs == rank:
             params.update({"rank": rank, "nprocs": nprocs})
             stdout.write(
@@ -1015,21 +1049,28 @@ def main_from_params_list(params_list, tasks, recalc, der=None, check_der=None):
             stdout.flush()
             ta = time()
             Q = QCA(params, der=der)
-            if check_der is not None:
-                Q.check_der(der=check_der, test=False)
-
             Q.run(tasks, recalc=recalc)
             Q.close()
             tb = time()
             e = tb - ta
-            visits[Q.L] += 1
+            ind = myLs.index(Q.L)
             if e > 0.1:  # only include new sims in average
-                elapsed[Q.L] = ((visits[Q.L] - 1)
-                                * elapsed[Q.L] + e) / visits[Q.L]
-            numremain = np.array([numperL[L] / nprocs - visits[L] for L in Ls])
-            estimate = numremain.dot(list(elapsed.values()))
-            mysimnum += 1
-        simnum += 1
+                visits[ind] += 1
+                elapsed[ind] = ((visits[ind] - 1)
+                                * elapsed[ind] + e) / visits[ind]
+            numremain = np.array(numperL) - np.array(visits)
+            projection = remianing_time_projection(myLs, elapsed)
+            estimate = numremain.dot(projection)
+
+
+def work_load(params, tasks, der, recalc):
+    Q = QCA(params, der=der)
+    Q.run(tasks, recalc=recalc)
+    Q.close()
+
+
+def main_from_params_list(params_list, tasks, recalc, der=None, nprocs=-2):
+    Parallel(n_jobs=nprocs)(delayed(work_load)(params, tasks, der, recalc) for params in params_list)
 
 
 if __name__ == "__main__":
