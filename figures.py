@@ -36,7 +36,9 @@ names = {
     "c3_f1": ket("010"),
     "exp_Z": exp("\hat{\sigma}^{z}_j"),
     "exp_X": exp("\hat{\sigma}^{x}_j"),
-    "s_2": r"$s_j$",
+    "exp_Y": exp("\hat{\sigma}^{y}_j"),
+    "s_1": r"$s_j$",
+    "s_2": r"$s^{(2)}_j$",
     "X": r"XEB",
     "Hx": r"$H_x$",
 
@@ -59,8 +61,8 @@ names = {
     "sbipartavg": r"$\overline{s}^{\mathrm{bond}}_{\ell}$",
     "sbisectavg": r"$\overline{s}^{\mathrm{bond}}_{L/2}$",
     "sbisect": r"$s^{\mathrm{bond}}_{L/2}$",
-    "Dsbisect": r"$\Delta s^{\mathrm{bond}}_{L/2}$",
-    "Dsbisectavg": r"$\overline{\Delta s}^{\mathrm{bond}}_{L/2}$",
+    "Dsbisect": r"$\Delta s^{\mathrm{bond}(2)}_{L/2}$",
+    "Dsbisectavg": r"$\overline{\Delta s}^{\mathrm{bond}(2)}_{L/2}$",
 
     "Cavg": r"$\overline{\mathcal{C}}$",
     "Davg": r"$\overline{\mathcal{D}}$",
@@ -87,7 +89,10 @@ names = {
     "time": r"Time $t$",
     "size": r"Size $L$",
     "site": r"Site $j$",
-    "cut":  r"Cut $\ell$"
+    "cut":  r"Cut $\ell$",
+
+    "KL": r"$K$",
+    "KLavg": r"$K$",
 }
 
 colors = {6: "crimson",
@@ -104,9 +109,9 @@ letters = [r"$\mathrm{\bf{(%s)}}$" % lett for lett in "abcdefghijklmnopqrstuvwxy
 #letters = [r"$\bf{%s}$" % lett for lett in "abcdefghijklmnopqrstuvwxyz".upper()]
 
 
-def lettering(ax, x, y, num):
+def lettering(ax, x, y, num, color="k"):
     ax.text(x, y, letters[num], weight="bold", fontsize=9, transform=ax.transAxes,
-            horizontalalignment="center", verticalalignment="center")
+            horizontalalignment="center", verticalalignment="center", color=color)
 
 
 def multipage(fname, figs=None, clf=True, dpi=300, clip=True, extra_artist=None):
@@ -417,7 +422,7 @@ def draw_MI(M_orig, ax, layout="spring", pos=None):
         ax=ax,
         node_color="purple",
         node_size=9,
-        alphs=0.5,
+        alpha=0.7,
         edgelist=edges,
         #edge_color=ws,
         #edge_cmap=plt.cm.,

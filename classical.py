@@ -248,8 +248,8 @@ def plot(Rs=[30, 90, 110], L=65, T=65 // 2):
             ax.set_yticks(yticks)
             ax.set_xticklabels(xticks)
             ax.set_yticklabels(yticks)
-            ax.set_xlabel("Site, $j$")
-            ax.set_ylabel("Time, $t$")
+            ax.set_xlabel("Site $j$")
+            ax.set_ylabel("Time $t$")
 
     legend_elements = [
         Patch(facecolor="w", edgecolor="k", label="0,"),

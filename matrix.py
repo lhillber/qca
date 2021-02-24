@@ -91,24 +91,33 @@ def op_on_state_2(local_op_list, js, state):
     return big_op.dot(state)
 
 
-# @jit
-def rdms(state, js, ds=None, out=None):
+def rdms(state, js):
     js = np.array(js)
-    if ds is None:
-        L = int(np.log2(len(state)))
-        ds = tuple([2] * L)
-    else:
-        L = len(ds)
-    rest = np.setdiff1d(np.arange(L), js)
+    L = int(np.log2(len(state)))
+    ds = (2,)*L
+    #rest = np.setdiff1d(np.arange(L), js)
+    mask = np.ones(L, dtype=bool)
+    mask[js] = False
+    rest = np.arange(L)[mask]
     ordering = tuple(np.concatenate((js, rest)))
     djs = np.prod(np.array(ds).take(js))
     drest = np.prod(np.array(ds).take(rest))
     block = ptranspose(state, js, outshape=(djs, drest))
-    return rdms_njit(block, ds, ordering, djs, drest, out=out)
+    return rdms_njit(block, ds, ordering, djs, drest)
 
+@njit
+def rdms_njit(block, ds, ordering, djs, drest):
+    RDM = np.zeros((djs, djs), dtype=np.complex128)
+    for i in range(djs):
+        for j in range(i, djs):
+            Rij = np.dot(block[i, :], np.conj(block[j, :]))
+            RDM[i, j] = Rij
+            if i != j:
+                RDM[j, i] = np.conjugate(Rij)
+    return RDM
 
 def rdms2(state, js):
-    L = log(len(state), 2)
+    L = int(np.log2(len(state)))
     mask = np.ones(L, dtype=np.bool)
     mask[js] = False
     trce = list(np.array(list(range(L)))[mask])
@@ -117,27 +126,26 @@ def rdms2(state, js):
         mask[trce] = False
         js = list(np.array(list(range(L)))[mask])
     state = np.reshape(state, [2] * L)
-    rho = np.tensordot(state, np.conj(state), (trce, trce))
+    rho = np.tensordot(state, np.conj(state), (trce, trce)).reshape((2**len(js), 2**(len(js))))
     return rho
 
-
-@njit
-def rdms_njit(block, ds, ordering, djs, drest, out=None):
-    RDM = np.zeros((djs, djs), dtype=np.complex128)
-    for i in range(djs):
-        for j in range(i, djs):
-            Rij = np.dot(block[i, :], np.conj(block[j, :]))
-            RDM[(i, j)] = Rij
-            if i != j:
-                RDM[(j, i)] = np.conjugate(Rij)
-    return RDM
+def rdms3(state, js):
+    L = int(np.log2(len(state)))
+    keep = np.asarray(js)
+    dims = np.asarray([2]*L)
+    Ndim = dims.size
+    Nkeep = np.prod(dims[keep])
+    idx1 = [i for i in range(Ndim)]
+    idx2 = [Ndim+i if i in keep else i for i in range(Ndim)]
+    state = state.reshape(dims)
+    rho = np.einsum(state, idx1, state.conj(), idx2, optimize=True)
+    return rho.reshape(Nkeep, Nkeep)
 
 
 def rdmr(rho, js):
     js = np.array(js)
     L = np.int(np.log2(len(rho)))
     rest = np.setdiff1d(np.arange(L), js)
-
     shape = [2] * 2 * L
     d1 = 2**len(js)
     d2 = 2**len(rest)
@@ -147,34 +155,23 @@ def rdmr(rho, js):
     rho = np.sum(block[:, :, mask], axis=2)
     return rho
 
-
 def rdm(state, js):
     if len(state.shape) == 1:
-        return rdms(state, js)
+        return rdms2(state, js)
     elif len(state.shape) == 2:
         return rdmr(state, js)
 
-
-def ptranspose(state, js, ds=None, out=None, outshape=None):
+def ptranspose(state, js, outshape):
     js = np.array(js)
     D = len(state.shape)
-    if ds is None:
-        L = int(np.log2(len(state)))
-        ds = tuple([2] * L * D)
-    else:
-        L = len(ds)
+    L = int(np.log2(len(state)))
+    ds = tuple([2] * L * D)
     rest = np.setdiff1d(np.arange(L), js)
-    if outshape is None:
-        outshape = state.shape
     if D == 1:
         ordering = list(js) + list(rest)
     elif D == 2:
         ordering = list(js) + list(js+L) + list(rest) + list(rest + L)
     return state.reshape(ds).transpose(ordering).reshape(outshape)
-
-
-
-
 
 @njit
 def traceout_outer_njit(rho, dim, mask):
@@ -223,7 +220,7 @@ def make_U2(V):
     ang_inds = [i for i, v in enumerate(Vs) if v in ("P", "R", "p")]
     if len(angs) != len(ang_inds):
         raise ValueError(
-            "improper V configuration {}:                need one angle for every P, R, and p".format(
+            "improper V configuration {}: need one angle for every P, R, and p".format(
                 V
             )
         )
@@ -396,4 +393,3 @@ if __name__ == "__main__":
     final_Y_exp = [np.trace(r.dot(ops["Y"])).real for r in final_rj]
     print("final Z exp vals:", final_Z_exp)
     print("final Y exp vals:", final_Y_exp)
-# okay decompiling matrix.cpython-37.pyc

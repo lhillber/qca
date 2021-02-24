@@ -7,7 +7,7 @@ import scipy.linalg
 import matrix as mx
 from math import pi
 from copy import copy
-
+from joblib import Parallel, delayed
 
 def spectrum(rho):
     spec = sp.linalg.eigvalsh(rho).real
@@ -24,16 +24,19 @@ def vn_entropy(rho, tol=1e-14):
 
 
 def renyi_entropy_from_spectrum(spec, order=2, tol=1e-14):
-    if order == 1:
+    if order == 0:
+        return sum(spec>tol)
+    elif order == 1:
         return vn_entropy_from_spectrum(spec, tol=tol)
     else:
         denom = 1.0 - order
-        # spec = spectrum(rho)
         return np.real(log2(np.sum(spec**order)) / denom)
 
 
 def renyi_entropy(rho, order=2, tol=1e-14):
-    if order == 1:
+    if order == 0:
+        return sum(spectrum(rho)>tol)
+    elif order == 1:
         return vn_entropy(rho, tol=tol)
     else:
         denom = 1.0 - order
@@ -84,7 +87,7 @@ def network_pathlength(mat, tol=1e-10):
         M[M>med] = 1
         G = nx.from_numpy_matrix(M)
         return nx.average_shortest_path_length(G)
-    except:
+    except: #networkX Error
         return np.nan
 
 
@@ -225,7 +228,7 @@ def symm_mat_from_vec(vec):
     for j in range(L):
         for k in range(L):
             if j != k:
-                mat[(j, k)] = select_jk(vec, j, k)
+                mat[j, k] = select_jk(vec, j, k)
     return mat
 
 
@@ -241,11 +244,21 @@ def get_expectation(rhos, A):
     return np.array([expectation(rho, A) for rho in rhos])
 
 
-def get_expectation2(rhos, A, B=None):
-    if B is not None:
-        A = np.kron(A, B)
-    exp2_vals = np.array([expectation(rho, A) for rho in rhos])
-    return symm_mat_from_vec(exp2_vals)
+def get_expectation2(rhos, A, B):
+    AB = np.kron(A, B)
+    BA = np.kron(B, A)
+    exp2AB = get_expectation(rhos, AB)
+    exp2BA = get_expectation(rhos, BA)
+    N = len(rhos)
+    L = int((1 + sqrt(1 + 8 * N)) / 2)
+    mat = np.zeros((L, L))
+    for j in range(L):
+        for k in range(L):
+            if j > k:
+                mat[j, k] = select_jk(exp2AB, j, k)
+            elif j < k:
+                mat[j, k] = select_jk(exp2BA, j, k)
+    return mat
 
 
 def get_entropy_from_spectrum(specs, order):
@@ -295,6 +308,8 @@ def get_MI_from_state(state, order):
     s1 = get_entropy(rhoj, order)
     s2 = get_entropy2(rhojk, order)
     return get_MI(s1, s2)
+
+#def get_classicla_MI(pm, pmn):
 
 
 def get_g2(exp12, exp1, exp2):

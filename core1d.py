@@ -434,7 +434,6 @@ def record(params, tasks):
     keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
     rec = {key: ms.measures[task]["init"](
         params["L"], len(ts)) for key, task in zip(keys,tasks)}
-    rec.update({"ts": ts})
     # average of reduced density matricies
     # TODO: logic for entanglement spectrum if N>1
     for n in range(params["N"]):
