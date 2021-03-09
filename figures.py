@@ -44,10 +44,11 @@ names = {
 
     "sbipart_2": r"$s^{\mathrm{bond}(2)}_{\ell}$",
     "sbipart_2avg": r"$\overline{s}^{\mathrm{bond}(2)}_{\ell}$",
-    "sbisect_2avg": r"$\overline{s}^{\mathrm{bond}(2)}_{L/2}$",
-    "sbisect_2": r"$s^{\mathrm{bond}(2)}_{L/2}$",
-    "Dsbisect_2": r"$\Delta s^{\mathrm{bond}(2)}_{L/2}$",
-    "Dsbisect_2avg": r"$\overline{\Delta s}^{\mathrm{bond}(2)}_{L/2}$",
+
+    "sbisect_2avg": r"$\overline{s}_{\mathrm{bond}}$",
+    "sbisect_2": r"$s_{\mathrm{bond}}$",
+    "Dsbisect_2": r"$\Delta s_{\mathrm{bond}}$",
+    "Dsbisect_2avg": r"$\overline{\Delta s}_{\mathrm{bond}}$",
 
     "sbipart_1": r"$s^{\mathrm{bond}(1)}_{\ell}$",
     "sbipart_1avg": r"$\overline{s}^{\mathrm{bond}(1)}_{\ell}$",
