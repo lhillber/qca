@@ -572,20 +572,32 @@ class QCA:
         """Run tasks and save data to hdf5 file."""
         t0 = time()
         needed_tasks = [k for k in tasks if k not in self.available_tasks]
+        if "ebisectdata" in self.available_tasks and "ebisect" in needed_tasks:
+            del needed_tasks[needed_tasks.index("ebisect")]
+        if "ebipartdata" in self.available_tasks and "ebipart" in needed_tasks:
+            del needed_tasks[needed_tasks.index("ebipart")]
+        print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
         added_tasks = []
         print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
         print("Running")
         print(print_params)
         if recalc:
+            if verbose:
+                print("Rerunning:")
+                print("   ", print_params)
             rec = record(self.params, tasks)
             added_tasks = tasks
         else:
             if len(needed_tasks) > 0:
+                if verbose:
+                    print("Running:")
+                    print("   ", print_params)
                 rec = record(self.params, needed_tasks)
                 added_tasks = needed_tasks
         if len(added_tasks) > 0:
             with File(self.fname, "a") as h5file:
                 save_dict_hdf5(rec, h5file)
+                h5file.flush()
             del rec
         t1 = time()
         elapsed = t1 - t0
@@ -609,8 +621,6 @@ class QCA:
             p_string += self.fname + "\n"
             p_string += "=" * 80 + "\n"
             print(p_string)
-            with File(self.fname, "a") as h5file:
-                h5file.flush()
 
     def get_measure(self, meas, save=False, Dmode="std"):
         """Parse string `meas` to compute entropy, expectation values,

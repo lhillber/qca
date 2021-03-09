@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from core import evolve
+from core1d import evolve
+import measures as ms
+from matrix import ops
 import matplotlib as mpl
 from matplotlib import rc
 rc("text", usetex=True)
@@ -16,6 +18,7 @@ mpl.rcParams["text.latex.preamble"] = [
 def convergance(L, T, R, r, V, IC, BC, totalistic):
     """Run and plot convergence study"""
     dts = np.array([1 / 2**n for n in (0, 1, 2, 3, 4, 5, 6, 7)])
+    dts = [1, 0.5, 0.1]
     e1s = []
     e2s = []
     for dt in dts:
@@ -28,12 +31,24 @@ def convergance(L, T, R, r, V, IC, BC, totalistic):
         gen2 = evolve(L, T, dt, R, r, V, IC, BC, E=0,
                       totalistic=totalistic, hamiltonian=True,
                       symmetric=True, trotter=True)
+        e1, e2 , c = 0, 0, 0
         for ti, (s0, s1, s2) in enumerate(zip(gen0, gen1, gen2)):
-            e1 = 1 - np.abs(np.sum(np.conj(s1) * s0))**2
-            e2 = 1 - np.abs(np.sum(np.conj(s2) * s0))**2
-        e1s.append(e1)
-        e2s.append(e2)
-        print(f"dt:{dt}, asymmetric err:{e1}, symmetric err:{e2}")
+            e1 += 1 - np.abs(np.sum(np.conj(s1) * s0))**2
+            e2 += 1 - np.abs(np.sum(np.conj(s2) * s0))**2
+            c += 1
+            #rhoj0 = ms.get_rhoj(s0)
+            #rhoj1 = ms.get_rhoj(s1)
+            #rhoj2 = ms.get_rhoj(s2)
+            #exp0 = ms.get_expectation(rhoj0, ops["Z"])
+            #exp1 = ms.get_expectation(rhoj1, ops["Z"])
+            #exp2 = ms.get_expectation(rhoj2, ops["Z"])
+            #plt.plot(exp0[:])
+            #plt.plot(exp1[:])
+            #plt.plot(exp2[:])
+            #plt.show()
+        e1s.append(e1/c)
+        e2s.append(e2/c)
+        print(f"dt:{dt}, asymmetric err:{e1/c}, symmetric err:{e2/c}")
 
     e1s = np.array(e1s)
     e2s = np.array(e2s)
@@ -61,7 +76,7 @@ def convergance(L, T, R, r, V, IC, BC, totalistic):
     ax.minorticks_off()
     print(f"slopes:{fit1[0]}, {fit2[0]}")
     fig.subplots_adjust(left=0.2, bottom=0.2, right=0.95, top=0.95)
-    plt.savefig("figures/convergence_R6.pdf")
+    plt.savefig("figures/convergence_F4.pdf")
 
 
 
@@ -102,7 +117,4 @@ def convergance2(L, T, R, r, V, IC, BC, totalistic):
 
 
 if __name__ == "__main__":
-    convergance(L=11, T=1, R=6, r=1,
-                V="X", IC="R123", BC="1-00",
-                totalistic=False)
-
+    convergance(L=8, T=1000, R=4, r=2, V="X", IC="c3_f0-2", BC="1-0000", totalistic=True)
