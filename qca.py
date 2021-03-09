@@ -577,6 +577,8 @@ class QCA:
         if "ebipartdata" in self.available_tasks and "ebipart" in needed_tasks:
             del needed_tasks[needed_tasks.index("ebipart")]
         print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
+        print("Running")
+        print(print_params)
         added_tasks = []
         if recalc:
             if verbose:
