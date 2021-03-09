@@ -573,6 +573,9 @@ class QCA:
         t0 = time()
         needed_tasks = [k for k in tasks if k not in self.available_tasks]
         added_tasks = []
+        print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
+        print("Running")
+        print(print_params)
         if recalc:
             rec = record(self.params, tasks)
             added_tasks = tasks
@@ -586,7 +589,6 @@ class QCA:
             del rec
         t1 = time()
         elapsed = t1 - t0
-        print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
         if verbose:
             p_string = "\n" + "=" * 80 + "\n"
             p_string += f"{datetime.now().strftime('%d %B %Y, %H:%M:%S')}\n"
