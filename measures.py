@@ -85,6 +85,7 @@ def network_pathlength(mat, tol=1e-10):
 
         M[M<=med] = 0
         M[M>med] = 1
+
         G = nx.from_numpy_matrix(M)
         return nx.average_shortest_path_length(G)
     except: #networkX Error
