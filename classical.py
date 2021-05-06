@@ -66,6 +66,20 @@ def ecaf(R, Ni):
         return 0
 
 
+#def ecaf(R, Ni):
+#    k = sum(j << i for i, j in enumerate(Ni[::-1]))
+#    if R & (1 << k):
+#        return 1
+#    else:
+#        return 0
+#
+#C = np.zeros(T, L)
+#C[0, L//2] = 1
+#for t in range(1, T):
+#    for j in range(0, L):
+#        C[t, j] = ecaf(R, C[t-1, j-1 : j+2])
+
+
 # ECA time evolution
 def iterate(L, T, R, IC, BC):
     """ L: Number of sites
@@ -280,7 +294,38 @@ def plot(Rs=[30, 90, 110], L=65, T=65 // 2):
                 dpi=700, bbox_inches="tight")
 
 
+
+
+def plot_mm21(Rs=[90, 30, 110], L=513, T=1+513 // 2):
+
+    fig, axs = plt.subplots(1, 3, figsize=(6, 1.5))
+
+    IC = np.zeros(L)
+    IC[L // 2] = 1
+    letts = letters[:3]
+    for i, (R, lett, ax) in enumerate(zip(Rs, letts, axs)):
+        C = iterate(L, T, R, IC, BC="1-00")
+        ax.imshow(C, cmap="Greys", origin="lower", interpolation="None")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title("$C_{%s}$" % R)
+        xticks = [0, L // 2, L - 1]
+        yticks = [0, L//4, L//2]
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([])
+        ax.set_yticks(yticks)
+        ax.set_yticklabels([])
+        if i == 0:
+            ax.set_xticklabels(xticks)
+            ax.set_yticklabels(yticks)
+            ax.set_xlabel("Site $j$")
+            ax.set_ylabel("Time $t$")
+
+    plt.savefig("../march_meeting_2021/C30_90_110.png",
+                dpi=1800, bbox_inches="tight")
+
+
 # default behavior of this script
 if __name__ == "__main__":
 
-    plot()
+    plot_mm21()
