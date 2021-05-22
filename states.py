@@ -15,6 +15,10 @@
 #
 #   function  | key |             config                | spec. string example
 # ------------+-----+-----------------------------------+------------------------
+#             |     |           t<th>-p<ph>             | "o"
+#    ferro    |  o  |                                   | "ot180"
+#             |     |                                   | "ot45-p180"
+# ------------+-----+-----------------------------------+------------------------
 #             |     |                                   | 'f0-3_t90-p0_t45-p180'
 #     fock    |  f  |<i-j-k...>_t<th>-p<ph>_t<th>-p<ph> | 'f2_t90-p90'
 #             |     |                                   | 'f0-2-4-6'
@@ -67,6 +71,10 @@
 #              ph = phi is the azimuthal angle in degrees winds from 0 to 180.
 #
 # Description of config sections:
+#   + ferro: ot<th>-p<ph> ferromagnetic state (seperable state of all qubits
+#                          pointing in th same direction)
+#       + section 1, t<th> (p<ph>) holds theta (phi) constant at th (ph)
+#
 #   + fock: f<i-j-k...>_t<th>-p<ph>_t<th>-p<ph> a fock state of qubits
 #       + section 1, <i-j-k...>: site indices of excitation
 #       + section 2, t<th>-p<ph>: theta and phi in deg on Bloch sphere describing
@@ -226,6 +234,17 @@ def fock(L, config):
     return state
 
 
+def ferro(L, config):
+    #config="t<theta>-p<phi> in degrees"
+    args = {"t": 0.0, "p": 0.0}
+    angs = config.split("-")
+    if angs != [""]:
+        args.update({ang[0]: float(ang[1:]) for ang in angs})
+    qubits = [qubit(**args) for _ in range(L)]
+    state = listkron(qubits)
+    return state
+
+
 def doublon(L, config):
     try:
         D = config.split('_')[0]
@@ -241,7 +260,6 @@ def doublon(L, config):
     ex_list= [rel + i for i in range(0, L, D) if (rel + i) < L]
     ex_list += [rel - i for i in range(0, L, D) if (rel - i) >= 0]
     ex_list = list(set(ex_list))
-    print(ex_list)
     fock_config = '-'.join([str(i) for i in ex_list])
     fock_config = ''.join([fock_config, config])
     return fock(L, fock_config)
@@ -440,6 +458,7 @@ def center(L, config):
 
 
 smap = {
+ 'o': ferro,
  'f': fock,
  'd': doublon,
  'n': rand_n,

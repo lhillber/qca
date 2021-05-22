@@ -653,7 +653,7 @@ class QCA:
         """Collect a list of measures"""
         return [self.get_measure(meas, save=save, Dmode=Dmode) for meas in measures]
 
-    def plot(self, meas, tmin=0, tmax=None, stride=1, ax=None, figsize=None, **args):
+    def plot(self, meas, tmin=0, tmax=None, stride=1, ax=None, figsize=None, cbar=True, **args):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         else:
@@ -678,11 +678,12 @@ class QCA:
                         tmin-self.dt*stride/2,
                         tmax+self.dt*stride/2],
                 **args)
-            cbar = fig.colorbar(im)
-            try:
-                cbar.set_label(names[meas])
-            except:
-                pass
+            if cbar:
+                cbar = fig.colorbar(im)
+                try:
+                    cbar.set_label(names[meas])
+                except:
+                    pass
             if m.shape[1] == self.L - 1:
                 ax.set_xlabel(names["cut"])
             else:

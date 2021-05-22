@@ -10,6 +10,14 @@ from warnings import simplefilter
 from numba.core.errors import NumbaPerformanceWarning
 simplefilter('ignore', category=NumbaPerformanceWarning)
 
+
+def haar(n):
+    z = np.random.randn(n, n) + 1j*np.random.randn(n, n) / np.sqrt(2)
+    q, r = np.linalg.qr(z)
+    d = np.diag(r)
+    Lambda = d / np.abs(d)
+    return np.multiply(q, Lambda, q)
+
 ops = {
     "H": 1.0 / sqrt(2.0) * (np.array([[1.0, 1.0], [1.0, -1.0]], dtype=complex)),
     "h": np.array([[0.85355339+0.14644661j, 0.35355339-0.35355339j],
@@ -17,7 +25,7 @@ ops = {
     "I": np.array([[1.0, 0.0], [0.0, 1.0]], dtype=complex),
     "O": np.array([[0.0, 0.0], [0.0, 0.0]], dtype=complex),
     "X": np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex),
-    "Y": np.array([[0.0, (0.0 - 1j)], [1j, 0.0]], dtype=complex),
+    "Y": np.array([[0.0, -1j], [1j, 0.0]], dtype=complex),
     "Z": np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex),
     "S": np.array([[1.0, 0.0], [0.0, 1j]], dtype=complex),
     "T": np.array([[1.0, 0.0], [0.0, exp(1j * pi / 4.0)]], dtype=complex),
@@ -25,8 +33,9 @@ ops = {
     "1": np.array([[0.0, 0.0], [0.0, 1.0]], dtype=complex),
     "D": 1.0 / sqrt(2) * np.array([[1.0, -1j], [-1j, 1.0]], dtype=complex),
     "d": np.array([[ 9.23879533e-01, -3.82683432e-01j],
-                  [ -3.82683432e-01j,  9.23879533e-01]], dtype=complex)
+                  [ -3.82683432e-01j,  9.23879533e-01]], dtype=complex),
 }
+
 
 def op_at(opstrs, js, L, base=None):
     if type(opstrs) == str:
@@ -214,9 +223,15 @@ def make_U2(V):
     if len(Vs_angs) == 2:
         Vs, angs = Vs_angs
         angs = angs.split("-")
-    else:
-        if len(Vs_angs) == 1:
+    elif len(Vs_angs) == 1:
             Vs, angs = Vs_angs[0], []
+    else:
+        raise ValueError(
+            "improper V configuration {}: need one angle for every P, R, and p".format(
+                V
+            )
+        )
+
     ang_inds = [i for i, v in enumerate(Vs) if v in ("P", "R", "p")]
     if len(angs) != len(ang_inds):
         raise ValueError(
@@ -248,7 +263,7 @@ def make_U2(V):
         else:
             try:
                 Vmat = Vmat.dot(ops[v])
-            except:
+            except KeyError:
                 raise ValueError("string op {} not understood".format(v))
 
     return Vmat
@@ -287,7 +302,7 @@ def commute(A, B):
 
 def isU(U):
     m, n = U.shape
-    Ud = np.conjugate(np.transpose(U))
+    Ud = dagger(U)
     UdU = np.dot(Ud, U)
     UUd = np.dot(U, Ud)
     I = np.eye(n, dtype=complex)

@@ -26,6 +26,7 @@ names = {
     0: r"$T_{0}$",
     1: r"$T_{1}$",
     6: r"$T_{6}$",
+    8: r"$T_{8}$",
     13: r"$T_{13}$",
     14: r"$T_{14}$",
     4: r"$F_{4}$",
@@ -102,6 +103,8 @@ colors = {6: "crimson",
           13: "olivedrab",
           4: "darkgoldenrod",
           26: "olivedrab",
+          15: "k",
+          8: "purple",
           "R": "k"}
 
 markers = {"G": "s", "W": "*", "R": "x", "C": "d"}

@@ -30,7 +30,10 @@ def rule_element(V, Rel, hood, hamiltonian=False, lslice=None, rslice=None):
         lslice = slice(0, r)
     if rslice is None:
         rslice = slice(r, N + 1)
-    Vmat = matrix_power(mx.make_U2(V), Rel)
+    if type(V) == str:
+        Vmat = mx.make_U2(V)
+    else:
+        Vmat = V
     mx.ops["V"] = Vmat
     ops = (
         [str(el) for el in hood[lslice]]
@@ -137,31 +140,67 @@ def rule_hamiltonian(V, R, r, BC, L=None, totalistic=False):
     BC_conf = "".join(BC_conf)
     if BC_type == "1":
         BC_conf = [int(bc) for bc in BC_conf]
+        bulk = rule_op(V, R, r, totalistic=totalistic, hamiltonian=True)
+        lUs, rUs = boundary_rule_ops(
+            V, R, r, BC_conf, totalistic=totalistic, hamiltonian=True
+        )
 
-    bulk = rule_op(V, R, r, totalistic=totalistic, hamiltonian=True)
-    lUs, rUs = boundary_rule_ops(
-        V, R, r, BC_conf, totalistic=totalistic, hamiltonian=True
-    )
+        if L is None:
+            L = 2 * r + 1
+            return bulk
 
-    if L is None:
-        L = 2 * r + 1
-        return bulk
-
-    else:  # pad identities
+        else:  # pad identities
+            H = np.zeros((2**L, 2**L), dtype=complex)
+            for j in range(r, L - r):
+                ln = j - r
+                rn = L - 2 * r - 1 - ln
+                left = np.eye(2 ** ln)
+                right = np.eye(2 ** rn)
+                H += mx.listkron([left, bulk, right])
+            # boundaries
+            for j, (lU, rU) in enumerate(zip(lUs, rUs[::-1])):
+                end = np.eye(2**(L - r - 1 - j))
+                H += mx.listkron([end, rU])
+                H += mx.listkron([lU, end])
+            return H
+    elif BC_type == "0":
+        if type(V) == str:
+            Vmat = mx.make_U2(V)
+        else:
+            Vmat = V
         H = np.zeros((2**L, 2**L), dtype=complex)
-        for j in range(r, L - r):
-            ln = j - r
-            rn = L - 2 * r - 1 - ln
-            left = np.eye(2 ** ln)
-            right = np.eye(2 ** rn)
-            H += mx.listkron([left, bulk, right])
-        # boundaries
-        for j, (lU, rU) in enumerate(zip(lUs, rUs[::-1])):
-            end = np.eye(2**(L - r - 1 - j))
-            H += mx.listkron([end, rU])
-            H += mx.listkron([lU, end])
-        return H
+        N = 2*r
+        if totalistic:
+            R2 = mx.dec_to_bin(R, N + 1)[::-1]
+            for j in range(L):
+                for elnum, Rel in enumerate(R2):
+                    K = elnum * [1] + (N - elnum) * [0]
+                    hoods = list(set([perm for perm in permutations(K, N)]))
+                    hoods = map(list, hoods)
+                    mx.ops["V"] = Rel*Vmat
+                    for hood in hoods:
+                        opstr = "I"*L
+                        opstr[j] ="V"
+                        hoodinds = np.arange(-r, r)
+                        hoodinds = hoodinds[hoodinds != 0]
+                        for ki, k in enumerate(hoodinds):
+                            opstr[(j+k) % L] = hood[ki]
+                        H += mx.listkron([mx.ops[op] for op in opstr])
 
+        else:  # non-totalistic
+            R2 = mx.dec_to_bin(R, 2 ** N)[::-1]
+            for j in range(L):
+                for elnum, Rel in enumerate(R2):
+                    mx.ops["V"] = Rel*Vmat
+                    hood = mx.dec_to_bin(elnum, N)
+                    opstr = ["I"]*L
+                    opstr[j] ="V"
+                    hoodinds = np.arange(-r, r+1)
+                    hoodinds = hoodinds[hoodinds != 0]
+                    for ki, k in enumerate(hoodinds):
+                        opstr[(j+k) % L] = str(hood[ki])
+                    H += mx.listkron([mx.ops[op] for op in opstr])
+        return H
 
 def rule_unitaries(V, R, r, BC, L, dt,
                    totalistic=False, hamiltonian=False, trotter=True):
@@ -266,8 +305,13 @@ def evolve(L, T, dt, R, r, V, IC, BC, E=0,
     """
     Generator of qca dynamics yields state at each time step
     """
-    Us = rule_unitaries(V, R, r, BC, L, dt, totalistic=totalistic,
-                        hamiltonian=hamiltonian, trotter=trotter)
+    if V == "A":
+        Vmat = mx.haar(2)
+        Us = rule_unitaries(Vmat, R, r, BC, L, dt, totalistic=totalistic,
+                            hamiltonian=hamiltonian, trotter=trotter)
+    else:
+        Us = rule_unitaries(V, R, r, BC, L, dt, totalistic=totalistic,
+                            hamiltonian=hamiltonian, trotter=trotter)
     ts = np.arange(dt, T + dt, dt)
     if initstate is None:
         initstate = make_state(L, IC)
@@ -319,6 +363,11 @@ def evolve(L, T, dt, R, r, V, IC, BC, E=0,
             for t in ts:
                 for k in range(r + 1):
                     for j in range(k, L, r + 1):
+                        if V[0] == "A":
+                            Vmat = mx.haar(2)
+                            Us = rule_unitaries(Vmat, R, r, BC, L, dt, totalistic=totalistic,
+                                                hamiltonian=hamiltonian, trotter=trotter)
+                            get_U = get_Ufunc(Us, r, L, BC)
                         Nj, u = get_U(j)
                         state = mx.op_on_state(u, Nj, state)
                         state = depolarize(state, Nj, E)
