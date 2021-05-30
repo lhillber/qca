@@ -632,8 +632,10 @@ class QCA:
            (Dmode=`std`, default)."""
         func, *args = meas.split("_")
 
-        if func == "exp":
+        if func in ("exp", "expn"):
             return getattr(self, func)(*args, save=save)
+
+
 
         elif func in ("C", "D", "Y", "P") or func[0]=="s":
             args = list(map(int, args))
@@ -775,6 +777,33 @@ class QCA:
             self.save_measure(key, exp2)
         return exp2
 
+
+    def expn(self, op, name=None, save=False):
+        """Expectation value of local op"""
+        if type(op) == str:
+            name = op
+            n = len(op)
+            op = listkron([OPS[o] for o in op])
+        else:
+            n = int(np.log2(len(op.shape[0])))
+            if name is None:
+                raise TypeError("please name your op with the `name` kwarg")
+        key = f"expn_{name}"
+        try:
+            exp = getattr(self, key)
+        except KeyError:
+            c = int(self.L / 2)
+            if n in (3, 4, 5):
+                rhos = getattr(self, f"rho{n}")
+            elif n == 2:
+                rhos = np.array([ms.select_jk(rjk, c-1, c) for rjk in self.rhojk])
+            elif n == 1:
+                rhos = self.rhoj[:, c]
+            exp = ms.get_expectation(rhos, op)
+            setattr(self, key, exp)
+        if save:
+            self.save_measure(key, exp)
+        return exp
 
     def sbipart(self, order=2, save=False):
         """Bipartition Renyi entropy"""
