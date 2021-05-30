@@ -98,6 +98,29 @@ def get_rhoj(state):
     return rhoj
 
 
+def get_rho3(state):
+    L = int(log2(len(state)))
+    c = int(L/2)
+    js = [c-1, c, c+1]
+    rho3 = mx.rdm(state, js)
+    return rho3
+
+
+def get_rho4(state):
+    L = int(log2(len(state)))
+    c = int(L/2)
+    js = [c-2, c-1, c, c+1]
+    rho4 = mx.rdm(state, js)
+    return rho4
+
+
+def get_rho5(state):
+    L = int(log2(len(state)))
+    c = int(L/2)
+    js = [c-2, c-1, c, c+1, c+2]
+    rho5 = mx.rdm(state, js)
+    return rho5
+
 def get_rhojk(state):
     L = int(log2(len(state)))
     rhojk = np.asarray(
@@ -159,6 +182,18 @@ def init_rhojk(L, M):
     return np.zeros((M, int(L*(L-1)/2), 4, 4), dtype=complex)
 
 
+def init_rho3(L, M):
+    return np.zeros((M, 8, 8), dtype=complex)
+
+
+def init_rho4(L, M):
+    return np.zeros((M, 16, 16), dtype=complex)
+
+
+def init_rho5(L, M):
+    return np.zeros((M, 32, 32), dtype=complex)
+
+
 def init_bipart(L, M):
     N = L - 1
     c = int(N / 2)
@@ -201,6 +236,9 @@ def init_bitstring(L, M):
 
 measures = {"rhoj": {"init": init_rhoj, "get": get_rhoj},
             "rhojk": {"init": init_rhojk, "get": get_rhojk},
+            "rho3": {"init": init_rho3, "get": get_rho3},
+            "rho4": {"init": init_rho4, "get": get_rho4},
+            "rho5": {"init": init_rho5, "get": get_rho5},
             "bipart": {"init": init_bipart, "get": get_bipart},
             "ebipart": {"init": init_ebipart, "get": get_ebipart},
             "bisect": {"init": init_bisect, "get": get_bisect},
