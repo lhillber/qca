@@ -56,7 +56,7 @@ def network_density(mat):
     return sum(sum(mat)) / lsq
 
 
-def network_clustering(mat):
+def network_clustering_david(mat):
     matsq = matrix_power(mat, 2)
     matcube = matrix_power(mat, 3)
     for i in range(len(matsq)):
@@ -68,6 +68,16 @@ def network_clustering(mat):
         return 0.0
     return numerator / denominator
 
+
+def network_clustering(mat):
+    matsq = mat @ mat
+    matcube = mat @ mat @ mat
+    np.fill_diagonal(matsq, 0.0)
+    denominator = np.sum(matsq)
+    numerator = np.trace(matcube)
+    if denominator == 0.0:
+        return 0.0
+    return numerator / denominator
 
 def network_disparity(mat, eps=1e-17j):
     numerator = np.sum(mat ** 2, axis=1)
@@ -337,7 +347,7 @@ def get_MI(s, s2):
     for j in range(L):
         for k in range(L):
             if j != k:
-                MI[(j, k)] = np.abs(s[j] + s[k] - s2[(j, k)]) / 2.0
+                MI[j, k] = np.abs(s[j] + s[k] - s2[j, k]) / 2.0
     return MI
 
 

@@ -476,7 +476,7 @@ def recurs_save_dict_hdf5(h5file, path, dic_):
             raise ValueError("Cannot save %s type" % item)
 
 
-def record(params, tasks):
+def record_bak(params, tasks):
     """Record tasks from qca time evolution defined by params into a
        dictionary"""
     ts = np.arange(0, params["T"] + params["dt"], params["dt"])
@@ -498,6 +498,56 @@ def record(params, tasks):
                 else:
                     rec[key][ti] += ms.measures[task]["get"](
                         state) / params["N"]
+    return rec
+
+from joblib import Parallel, delayed
+
+def workload(params, tasks, Nper_job):
+    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
+    ts = np.arange(0, params["T"] + params["dt"], params["dt"])
+    rec = {key: ms.measures[task]["init"](
+        params["L"], len(ts)) for key, task in zip(keys,tasks)}
+    for n in range(Nper_job):
+        for ti, state in enumerate(evolve(**params)):
+            for task in tasks:
+                key = task
+                if task in ("ebipart", "ebisect"):
+                    key += "data"
+                if task in ("bipart", "ebipart"):
+                    data = ms.measures[task]["get"](state)
+                    for l in range(params["L"] - 1):
+                        rec[key][ti][l] += data[l] / Nper_job
+                else:
+                    rec[key][ti] += ms.measures[task]["get"](
+                        state) / Nper_job
+    return rec
+
+def record(params, tasks, nprocs_for_trials):
+    """Record tasks from qca time evolution defined by params into a
+       dictionary"""
+    ts = np.arange(0, params["T"] + params["dt"], params["dt"])
+    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
+    rec = {key: ms.measures[task]["init"](
+        params["L"], len(ts)) for key, task in zip(keys, tasks)}
+    # average of reduced density matricies
+    # TODO: logic for entanglement spectrum if N>1
+    Nper_job = params["N"] // nprocs_for_trials
+    Nper_job_remainder = params["N"] % nprocs_for_trials
+    Nper_jobs = [Nper_job] *Nper_job
+    Nper_jobs[0] += Nper_job_remainder
+    recs = Parallel(n_jobs=nprocs_for_trials)(
+        delayed(workload)(params, tasks, Npj) for Npj in Nper_jobs)
+
+    for reci in recs:
+        for key in rec.keys():
+            if key in ("bipartdata", "ebipartdata"):
+                for ti, datacut in enumerate(reci[key]):
+                    for l in range(params["L"] - 1):
+                        rec[key][ti][l] += datacut[l] / Nper_job
+            else:
+                rec[key] += reci[key] / Nper_job
+
+
     return rec
 
 

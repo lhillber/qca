@@ -110,6 +110,7 @@ from copy import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from joblib import Parallel, delayed
 from h5py import File
 
@@ -119,7 +120,7 @@ import measures as ms
 from core1d import record, hash_state, save_dict_hdf5, params_list_map
 from figures import exp2_fit, names
 
-non_params = ["recalc", "tasks", "nprocs", "thread_as"]
+non_params = ["recalc", "tasks", "nprocs", "nprocs_for_trials", "thread_as"]
 
 defaults = {
     # parameters
@@ -144,7 +145,8 @@ defaults = {
     # non parameters:
     "recalc": False,  # recalculate tasks?, bool
     "tasks": ["rhoj", "rhojk"],  # save density matricies, list of str
-    "nprocs": 1,  # number of processers
+    "nprocs": 1,  # number of processers for indipendent simulations
+    "nprocs_for_trials": 1,  # number of processers for trials of random simulations
     "thread_as": "product",  # Combining lists of above parameters, str
 }
 
@@ -332,6 +334,15 @@ parser.add_argument(
 )
 
 
+parser.add_argument(
+    "-nprocs_for_trials",
+    "--nprocs_for_trials",
+    default=defaults["nprocs_for_trials"],
+    type=int,
+    help="Number of parallel workers running trials for randomized simulations."
+         +"set to -1 to use all avalable slots,"
+         +"set to -2 to use all but one available slots."
+)
 
 def QCA_from_file(fname=None, name=None, der=None):
     """ QCA factory function to load a file name into a class.
@@ -568,7 +579,7 @@ class QCA:
         check_h5file.close()
 
 
-    def run(self, tasks, recalc=False, verbose=True, add_string=""):
+    def run(self, tasks, nprocs_for_trials=1, recalc=False, verbose=True, add_string=""):
         """Run tasks and save data to hdf5 file."""
         t0 = time()
         needed_tasks = [k for k in tasks if k not in self.available_tasks]
@@ -587,14 +598,14 @@ class QCA:
             if verbose:
                 print("Rerunning:")
                 print("   ", print_params)
-            rec = record(self.params, tasks)
+            rec = record(self.params, tasks, nprocs_for_trials)
             added_tasks = tasks
         else:
             if len(needed_tasks) > 0:
                 if verbose:
                     print("Running:")
                     print("   ", print_params)
-                rec = record(self.params, needed_tasks)
+                rec = record(self.params, needed_tasks, nprocs_for_trials)
                 added_tasks = needed_tasks
         if len(added_tasks) > 0:
             with File(self.fname, "a") as h5file:
@@ -649,19 +660,24 @@ class QCA:
             elif Dmode == "diff":
                 args = list(map(int, args))
                 m = getattr(self, func[1:])(*args, save=save)
-                return np.abs(self.diff(m, np.std))
+                return np.abs(self.diff(m))
 
     def get_measures(self, measures, save=False, Dmode="std"):
         """Collect a list of measures"""
         return [self.get_measure(meas, save=save, Dmode=Dmode) for meas in measures]
 
-    def plot(self, meas, tmin=0, tmax=None, stride=1, ax=None, figsize=None, cbar=True, **args):
+    def plot(self, meas, tmin=0, tmax=None, stride=1, ax=None, figsize=None, cbar=True, Dmode="std", **args):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
         else:
             fig = plt.gcf()
-        m = self.get_measure(meas)
+        m = self.get_measure(meas, Dmode=Dmode)
         ts = self.ts
+        if meas[0] == "D" and meas != "D":
+            if Dmode == "diff":
+                ts = ts[4: -4]
+            elif Dmode == "std":
+                ts = ts[:len(m)]
         if tmax is None:
             tmax = ts[-1]
         mask = np.logical_and(ts>=tmin, ts<=tmax)
@@ -681,7 +697,9 @@ class QCA:
                         tmax+self.dt*stride/2],
                 **args)
             if cbar:
-                cbar = fig.colorbar(im)
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                cbar = fig.colorbar(im, cax=cax, orientation='vertical')
                 try:
                     cbar.set_label(names[meas])
                 except:
@@ -1080,6 +1098,7 @@ def main(
     trotter=None,
     symmetric=None,
     nprocs=None,
+    nprocs_for_trials=None,
     der=None
 ):
 
@@ -1093,6 +1112,8 @@ def main(
         recalc = args.recalc
     if nprocs is None:
         nprocs = args.nprocs
+    if nprocs_for_trials is None:
+        nprocs_for_trials = args.nprocs_for_trials
     if Ls is None:
         Ls = to_list(args.L)
     if Lxs is None:
@@ -1137,88 +1158,21 @@ def main(
         params, Ls, Lxs, Ts, dts, Rs, rs, Vs, ICs, BCs, Es, Ns
     )
 
-    main_from_params_list(params_list, tasks, recalc, der, nprocs)
+    main_from_params_list(params_list, tasks, recalc, der, nprocs, nprocs_for_trials)
 
 
-def remianing_time_projection(Ls, elapsed):
-    projection  = np.array(copy(elapsed))
-    known_mask = np.array(elapsed) > 0.0
-    if sum(known_mask) == 0:
-        return projection
-    elif sum(known_mask) == 1:
-        return [projection[known_mask][0] * (2**i) for i in range(len(projection))]
-    unknown_mask = np.logical_not(known_mask)
-    func, m, b = exp2_fit(np.array(Ls)[known_mask],
-                          np.array(elapsed)[known_mask])
-    projection[unknown_mask] = func(np.array(Ls)[unknown_mask])
-    return projection
-
-
-def main_from_params_list2(params_list, tasks, recalc, der=None):
-    # sort by small L first
-    allL = [p["L"] for p in params_list]
-    params_list = [p for _, p in sorted(zip(allL, params_list),
-                   key=lambda pair: pair[0])]
-
-    # initialize job meta data
-    numsims = len(params_list)  # number of sims in job
-    simnum = 1  # current job number
-
-    # initalize parallel communication
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    nprocs = comm.Get_size()
-
-    # what system sizes will each core be running
-    allmyLs = [p["L"] for simnum, p in enumerate(params_list)
-               if (simnum - 1) % nprocs==rank]
-    myLs = list(set(allmyLs))
-    # number of sims of the same size
-    numperLdict = {L: 0 for L in myLs}
-    for L in allmyLs:
-        numperLdict[L] += 1
-    numperL = [numperLdict[L] for L in myLs]
-    visits = [0 for L in myLs]  # number of visits to L
-    elapsed = [0 for L in myLs]  # number of visits to L
-    estimate = 0  # remaining time
-
-    # run all requested simulations
-    for simnum, params in enumerate(params_list):
-        if (simnum - 1) % nprocs == rank:
-            params.update({"rank": rank, "nprocs": nprocs})
-            stdout.write(
-                f"Rank {rank}/{nprocs} running simulation {simnum}/{numsims}."
-                + f"     (~{round(estimate, 1)} s remaining)     \r"
-            )
-            stdout.flush()
-            ta = time()
-            Q = QCA(params, der=der)
-            Q.run(tasks, recalc=recalc)
-            Q.close()
-            tb = time()
-            e = tb - ta
-            ind = myLs.index(Q.L)
-            if e > 0.1:  # only include new sims in average
-                visits[ind] += 1
-                elapsed[ind] = ((visits[ind] - 1)
-                                * elapsed[ind] + e) / visits[ind]
-            numremain = np.array(numperL) - np.array(visits)
-            projection = remianing_time_projection(myLs, elapsed)
-            estimate = numremain.dot(projection)
-
-
-def work_load(params, tasks, der, recalc, add_string):
+def work_load(params, tasks, der, recalc, nprocs_for_trials, add_string):
     Q = QCA(params, der=der)
-    Q.run(tasks, recalc=recalc, add_string=add_string)
+    Q.run(tasks, recalc=recalc, nprocs_for_trials=nprocs_for_trials, add_string=add_string)
     Q.close()
 
 
-def main_from_params_list(params_list, tasks, recalc, der=None, nprocs=-2):
+def main_from_params_list(params_list, tasks, recalc, der=None, nprocs=-2, nprocs_for_trials=1):
     allL = [p["L"] for p in params_list]
     params_list = [p for _, p in sorted(zip(allL, params_list),
                    key=lambda pair: pair[0])]
-    add_string = f"Running {len(params_list)} job(s) with {nprocs} worker(s)\n"
-    Parallel(n_jobs=nprocs)(delayed(work_load)(params, tasks, der, recalc, add_string)
+    add_string = f"Running {len(params_list)} job(s) with {nprocs*nprocs_for_trials} worker(s)\n"
+    Parallel(n_jobs=nprocs)(delayed(work_load)(params, tasks, der, recalc, nprocs_for_trials, add_string)
         for params in params_list)
 
 
