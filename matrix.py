@@ -37,14 +37,14 @@ ops = {
 }
 
 
-def op_at(opstrs, js, L, base=None):
-    if type(opstrs) == str:
-        opstrs = [opstrs]
+def op_at(opstrs, js, L, base=None, BC=None):
     if type(js) == int:
         js = [js]
     if base is None:
         base = ["I"]*L
     for j, opstr in zip(js, opstrs):
+        if BC == "0":
+            j = j%L
         base[j] = opstr
     return listkron([ops[opstr] for opstr in base])
 

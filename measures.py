@@ -85,11 +85,11 @@ def network_disparity(mat, eps=1e-17j):
     return (1 / len(mat) * sum(numerator / (denominator + eps))).real
 
 
-def network_pathlength(mat, tol=1e-10):
+def network_pathlength_old(mat, tol=1e-10):
     import networkx as nx
     try :
         M = copy(mat)
-        med = np.percentile(M[M>1e-10], 40)
+        med = np.percentile(M[M>1e-10], 50)
         #med = np.mean(M[M>1e-6])
         #med = 1e-6
 
@@ -99,6 +99,21 @@ def network_pathlength(mat, tol=1e-10):
         G = nx.from_numpy_matrix(M)
         return nx.average_shortest_path_length(G)
     except: #networkX Error
+        return np.nan
+
+
+def network_pathlength(MI):
+    from networkx import from_numpy_matrix, average_shortest_path_length
+    M = np.zeros_like(MI)
+    for i in range(len(M)):
+        for j in range(len(M)):
+            if i != j:
+                if MI[i,j] > np.median(MI[MI>1e-10]):
+                    M[i, j] = 1 / MI[i, j]
+    try:
+        G = from_numpy_matrix(M)
+        return average_shortest_path_length(G, method= 'dijkstra', weight="weight")
+    except:
         return np.nan
 
 
@@ -113,6 +128,7 @@ def get_rho3(state):
     c = int(L/2)
     js = [c-1, c, c+1]
     rho3 = mx.rdm(state, js)
+    js = [j%L for j in js]
     return rho3
 
 
@@ -120,6 +136,7 @@ def get_rho4(state):
     L = int(log2(len(state)))
     c = int(L/2)
     js = [c-2, c-1, c, c+1]
+    js = [j%L for j in js]
     rho4 = mx.rdm(state, js)
     return rho4
 
@@ -128,8 +145,18 @@ def get_rho5(state):
     L = int(log2(len(state)))
     c = int(L/2)
     js = [c-2, c-1, c, c+1, c+2]
+    js = [j%L for j in js]
     rho5 = mx.rdm(state, js)
     return rho5
+
+
+def get_rho6(state):
+    L = int(log2(len(state)))
+    c = int(L/2)
+    js = [c-3, c-2, c-1, c, c+1, c+2]
+    js = [j%L for j in js]
+    rho6 = mx.rdm(state, js)
+    return rho6
 
 def get_rhojk(state):
     L = int(log2(len(state)))
@@ -176,6 +203,19 @@ def get_ebipart(state):
     return [spectrum(r) for r in rs]
 
 
+def get_sbipart(state, order):
+    rs = get_bipart(state)
+    return get_entropy(rs, order)
+
+
+def get_sbipart_1(state):
+    return get_sbipart(state, 1)
+
+
+def get_sbipart_2(state):
+    return get_sbipart(state, 2)
+
+
 def get_state(state):
     return state
 
@@ -204,6 +244,9 @@ def init_rho5(L, M):
     return np.zeros((M, 32, 32), dtype=complex)
 
 
+def init_rho6(L, M):
+    return np.zeros((M, 64, 64), dtype=complex)
+
 def init_bipart(L, M):
     N = L - 1
     c = int(N / 2)
@@ -228,6 +271,10 @@ def init_ebipart(L, M):
     return init_shape
 
 
+def init_sbipart(L, M):
+    return np.zeros((M, L-1), dtype=float)
+
+
 def init_bisect(L, M):
     return np.zeros((M, 2 ** int(L / 2), 2 ** int(L / 2)), dtype=complex)
 
@@ -249,8 +296,11 @@ measures = {"rhoj": {"init": init_rhoj, "get": get_rhoj},
             "rho3": {"init": init_rho3, "get": get_rho3},
             "rho4": {"init": init_rho4, "get": get_rho4},
             "rho5": {"init": init_rho5, "get": get_rho5},
+            "rho6": {"init": init_rho6, "get": get_rho6},
             "bipart": {"init": init_bipart, "get": get_bipart},
             "ebipart": {"init": init_ebipart, "get": get_ebipart},
+            "sbipart_1": {"init": init_sbipart, "get": get_sbipart_1},
+            "sbipart_2": {"init": init_sbipart, "get": get_sbipart_2},
             "bisect": {"init": init_bisect, "get": get_bisect},
             "ebisect": {"init": init_ebisect, "get": get_ebisect},
             "state": {"init": init_state, "get": get_state},
@@ -341,6 +391,7 @@ def get_clustering_fidelity(Cmeasured, Cexpected, L):
     Cincoherent = 2.856 * np.e**(-L/1.46) # calibrated elsewhere
     return (Cmeasured - Cincoherent ) / (Cexpected - Cincoherent)
 
+
 def get_MI(s, s2):
     L = len(s)
     MI = np.zeros((L, L))
@@ -358,7 +409,36 @@ def get_MI_from_state(state, order):
     s2 = get_entropy2(rhojk, order)
     return get_MI(s1, s2)
 
-#def get_classicla_MI(pm, pmn):
+
+def get_cMI(p0, p1, p00, p01, p10, p11):
+    pm = np.array([p0, p1])
+    pmn = np.array([[p00, p01],[p10, p11]])
+    L = len(p0)
+    A = np.zeros((L, L))
+    for j in range(L):
+        for k in range(L):
+            if j != k:
+                for m in (0, 1):
+                    for n in (0, 1):
+                        numerator = pmn[m, n, j, k]
+                        denom = pm[m, k] * pm[n, j]
+                        if denom > 0 and numerator > 0:
+                            val = numerator*np.log2(numerator/denom)
+                            A[j, k] += val
+    return A
+
+
+def get_cMI_from_state(state):
+    rhoj = get_rhoj(state)
+    rhojk = get_rhojk(state)
+    Ps = {}
+    for m in (0, 1):
+        Ps["p"+str(m)] = get_expectation(rhoj, mx.ops[str(m)])
+        for n in (0, 1):
+            key = "p" + str(m) + str(n)
+            mn = [mx.ops[op] for op in key[1:]]
+            Ps[key] = get_expectation2(rhojk, *mn)
+    return get_cMI(**Ps)
 
 
 def get_g2(exp12, exp1, exp2):
@@ -369,6 +449,16 @@ def get_g2(exp12, exp1, exp2):
             if j != k:
                 g2[(j, k)] =  exp12[(j, k)] - exp1[j] * exp2[k]
     return g2
+
+
+def get_expectation2_from_state(state, A, B):
+    rhojk = get_rhojk(state)
+    return get_expectation2(rhojk, A, B)
+
+
+def get_expectation_from_state(state, A):
+    rhoj = get_rhoj(state)
+    return get_expectation(rhojk, A)
 
 
 def get_g2_from_state(state, A, B):

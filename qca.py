@@ -588,12 +588,7 @@ class QCA:
         if "ebipartdata" in self.available_tasks and "ebipart" in needed_tasks:
             del needed_tasks[needed_tasks.index("ebipart")]
         print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
-        print("Running")
-        print(print_params)
         added_tasks = []
-        print_params = {k:v for k,v in self.params.items() if k not in self.reject_keys}
-        print("Running")
-        print(print_params)
         if recalc:
             if verbose:
                 print("Rerunning:")
@@ -857,18 +852,21 @@ class QCA:
         try:
             sbisect = getattr(self, key)
         except KeyError:
+            lc = int((self.L - 2) // 2)
             avail = self.available_tasks
-            if "ebisectdata" in avail:
+            if f"sbipart_{order}" in avail:
+                sbisect = self.sbipart(order=order)[:, lc]
+            elif "ebisectdata" in avail:
                 sbisect = ms.get_entropy_from_spectrum(
                     self.ebisectdata, order=order)
             elif "ebipartdata" in avail:
                 sbisect = ms.get_entropy_from_spectrum(
-                    self.ebipartdata[int((self.L - 1) // 2)], order=order)
+                    self.ebipartdata[:, lc], order=order)
             elif "bisect" in avail:
                 sbisect = ms.get_entropy(self.bisect, order=order)
             elif "bipart" in avail:
                 sbisect = ms.get_entropy(
-                    self.bipart[int((self.L - 1) // 2)], order=order)
+                    self.bipart[:, lc], order=order)
             else:
                 raise KeyError(
                     f"Can not compute sbisect with tasks f{avail}")
@@ -916,7 +914,7 @@ class QCA:
         return ebisect
 
 
-    def MI(self, order=2, save=False):
+    def MI(self, order=1, save=False):
         """Mutual information adjacency matrix"""
         key = f"MI_{order}"
         try:
@@ -931,6 +929,26 @@ class QCA:
             self.save_measure(key, MI)
         return MI
 
+    def cMI(self, save=False):
+        """Classical (Shannon) Mutual information adjacency matrix"""
+        key = f"cMIdata"
+        try:
+            cMI = getattr(self, key)
+        except KeyError:
+            p00s = self.exp2("00")
+            p01s = self.exp2("01")
+            p10s = self.exp2("10")
+            p11s = self.exp2("11")
+            p0s = self.exp("0")
+            p1s = self.exp("1")
+            args = (p0s, p1s, p00s, p01s, p10s, p11s)
+            cMI = np.array([
+                ms.get_cMI(*arg) for arg in zip(*args)
+                ])
+            setattr(self, key, cMI)
+        if save:
+            self.save_measure(key, cMI)
+        return cMI
 
     def g2(self, ops, name=None, save=False):
         """g2 correlator of ops"""
@@ -954,7 +972,7 @@ class QCA:
         return g2
 
 
-    def C(self, order=2, save=False):
+    def C(self, order=1, save=False):
         """Mutual information clustering coefficient"""
         key = f"C_{order}"
         try:
@@ -968,7 +986,7 @@ class QCA:
         return C
 
 
-    def D(self, order=2, save=False):
+    def D(self, order=1, save=False):
         """Mutual information density"""
         key = f"D_{order}"
         try:
@@ -982,7 +1000,7 @@ class QCA:
         return D
 
 
-    def Y(self, order=2, save=False):
+    def Y(self, order=1, save=False):
         """Mutual information disparity"""
         key = f"Y_{order}"
         try:
@@ -996,7 +1014,7 @@ class QCA:
         return Y
 
 
-    def P(self, order=2, save=False):
+    def P(self, order=1, save=False):
         """Mutual information path length"""
         key = f"P_{order}"
         try:

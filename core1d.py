@@ -163,6 +163,7 @@ def rule_hamiltonian(V, R, r, BC, L=None, totalistic=False):
                 H += mx.listkron([end, rU])
                 H += mx.listkron([lU, end])
             return H
+
     elif BC_type == "0":
         if type(V) == str:
             Vmat = mx.make_U2(V)
@@ -201,6 +202,121 @@ def rule_hamiltonian(V, R, r, BC, L=None, totalistic=False):
                         opstr[(j+k) % L] = str(hood[ki])
                     H += mx.listkron([mx.ops[op] for op in opstr])
         return H
+
+
+def rule_unitary_full_rank(V, R, r, BC, L=None, totalistic=False):
+    BC_type, *BC_conf = BC.split("-")
+    BC_conf = "".join(BC_conf)
+    if BC_type == "1":
+        pass
+
+    elif BC_type == "0":
+        if type(V) == str:
+            if V == "A":
+                Vmat = mx.haar(2)
+            else:
+                Vmat = mx.make_U2(V)
+        else:
+            Vmat = V
+        U = np.eye(2**L, dtype=complex)
+        N = 2*r
+        if totalistic:
+            R2 = mx.dec_to_bin(R, N + 1)[::-1]
+            for k in range(N):
+                for j in range(k, L, r + 1):
+                    subU = np.zeros((2**L,2**L), dtype=complex)
+                    if type(V) == str:
+                        if V == "A":
+                            Vmat = mx.haar(2)
+                    for elnum, Rel in enumerate(R2):
+                        K = elnum * [1] + (N - elnum) * [0]
+                        hoods = list(set([perm for perm in permutations(K, N)]))
+                        hoods = map(list, hoods)
+                        mx.ops["V"] = Vmat*Rel + mx.ops["I"]*(1-Rel)
+                        for hood in hoods:
+                            opstr = "I"*L
+                            opstr[j] ="V"
+                            hoodinds = np.arange(-r, r)
+                            hoodinds = hoodinds[hoodinds != 0]
+                            for li, l in enumerate(hoodinds):
+                                opstr[(j+l) % L] = hood[li]
+                            subU += mx.listkron([mx.ops[op] for op in opstr])
+                    U = U.dot(subU)
+
+        else:  # non-totalistic
+            R2 = mx.dec_to_bin(R, 2 ** N)[::-1]
+            for k in range(N):
+                for j in range(k, L, r+1):
+                    subU = np.zeros((2**L,2**L), dtype=complex)
+                    if type(V) == str:
+                        if V == "A":
+                            Vmat = mx.haar(2)
+                    for elnum, Rel in enumerate(R2):
+                        mx.ops["V"] = Vmat*Rel + mx.ops["I"]*(1-Rel)
+                        hood = mx.dec_to_bin(elnum, N)
+                        opstr = ["I"]*L
+                        opstr[j] ="V"
+                        hoodinds = np.arange(-r, r+1)
+                        hoodinds = hoodinds[hoodinds != 0]
+                        for li, l in enumerate(hoodinds):
+                            opstr[(j+l) % L] = str(hood[li])
+                        subU += mx.listkron([mx.ops[op] for op in opstr])
+                    U = subU.dot(U)
+        return U
+
+
+def rule_unitary_full_rank_layers(V, R, r, BC, L=None, totalistic=False):
+    BC_type, *BC_conf = BC.split("-")
+    BC_conf = "".join(BC_conf)
+    if BC_type == "1":
+        pass
+
+    elif BC_type == "0":
+        if type(V) == str:
+            Vmat = mx.make_U2(V)
+        else:
+            Vmat = V
+        Us = []
+        N = 2*r
+        if totalistic:
+            R2 = mx.dec_to_bin(R, N + 1)[::-1]
+            for k in range(N):
+                for j in range(k, L, r + 1):
+                    subU = np.zeros((2**L,2**L), dtype=complex)
+                    for elnum, Rel in enumerate(R2):
+                        K = elnum * [1] + (N - elnum) * [0]
+                        hoods = list(set([perm for perm in permutations(K, N)]))
+                        hoods = map(list, hoods)
+                        mx.ops["V"] = Vmat*Rel + mx.ops["I"]*(1-Rel)
+                        for hood in hoods:
+                            opstr = "I"*L
+                            opstr[j] ="V"
+                            hoodinds = np.arange(-r, r)
+                            hoodinds = hoodinds[hoodinds != 0]
+                            for li, l in enumerate(hoodinds):
+                                opstr[(j+l) % L] = hood[li]
+                            subU += mx.listkron([mx.ops[op] for op in opstr])
+                    Us.append(subU)
+
+        else:  # non-totalistic
+            R2 = mx.dec_to_bin(R, 2 ** N)[::-1]
+            for k in range(N):
+                for j in range(k, L, r+1):
+                    subU = np.zeros((2**L,2**L), dtype=complex)
+                    for elnum, Rel in enumerate(R2):
+                        mx.ops["V"] = Vmat*Rel + mx.ops["I"]*(1-Rel)
+                        hood = mx.dec_to_bin(elnum, N)
+                        opstr = ["I"]*L
+                        opstr[j] ="V"
+                        hoodinds = np.arange(-r, r+1)
+                        hoodinds = hoodinds[hoodinds != 0]
+                        for li, l in enumerate(hoodinds):
+                            opstr[(j+l) % L] = str(hood[li])
+                        subU += mx.listkron([mx.ops[op] for op in opstr])
+                    Us.append(subU)
+        return Us[::-1]
+
+
 
 def rule_unitaries(V, R, r, BC, L, dt,
                    totalistic=False, hamiltonian=False, trotter=True):
@@ -533,14 +649,14 @@ def record(params, tasks, nprocs_for_trials):
     # TODO: logic for entanglement spectrum if N>1
     Nper_job = params["N"] // nprocs_for_trials
     Nper_job_remainder = params["N"] % nprocs_for_trials
-    Nper_jobs = [Nper_job] *Nper_job
+    Nper_jobs = [Nper_job] * Nper_job
     Nper_jobs[0] += Nper_job_remainder
     recs = Parallel(n_jobs=nprocs_for_trials)(
         delayed(workload)(params, tasks, Npj) for Npj in Nper_jobs)
 
     for reci in recs:
         for key in rec.keys():
-            if key in ("bipartdata", "ebipartdata"):
+            if key in ("bipart", "ebipartdata"):
                 for ti, datacut in enumerate(reci[key]):
                     for l in range(params["L"] - 1):
                         rec[key][ti][l] += datacut[l] / Nper_job
