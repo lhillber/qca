@@ -99,56 +99,120 @@ def op_on_state_2(local_op_list, js, state):
     big_op = listkron(I_list)
     return big_op.dot(state)
 
+def random_psi(L):
+    "Haar-random state of L qubits"
+    Re, Im = np.random.randn(2, 2**L)
+    psi = Re + 1j * Im
+    return psi / np.sqrt(psi @ np.conj(psi))
 
-def rdms(state, js):
+
+def ptranspose(state, js, outshape):
+    """ Partial transpose of a state vector or density matrix.
+
+    Parameters:
+        state (array): 1D interpreted as state vector, 2D interpreted as density matrix
+
+        js (array-like): Qubit indicies to be transposed in front of remaining indicies
+
+        outshape (tuple): Shape of the returned array
+
+    Returns:
+        array: state wth js transposed to be the first indicies
+
+    """
     js = np.array(js)
+    D = len(state.shape)
     L = int(np.log2(len(state)))
-    ds = (2,)*L
-    #rest = np.setdiff1d(np.arange(L), js)
+    ds = [2] * (L * D)
     mask = np.ones(L, dtype=bool)
     mask[js] = False
     rest = np.arange(L)[mask]
-    ordering = tuple(np.concatenate((js, rest)))
-    djs = np.prod(np.array(ds).take(js))
-    drest = np.prod(np.array(ds).take(rest))
-    block = ptranspose(state, js, outshape=(djs, drest))
-    return rdms_njit(block, ds, ordering, djs, drest)
+    if D == 1:  # state vector
+        ordering = list(js) + list(rest)
+    elif D == 2:  # density matrix
+        ordering = list(js) + list(js+L) + list(rest) + list(rest + L)
+    return state.reshape(ds).transpose(ordering).reshape(outshape)
+
 
 @njit
-def rdms_njit(block, ds, ordering, djs, drest):
+def _rdms_njit(state):
+    """ Partial trace helper for numba implementation"""
+    djs, drest = state.shape
     RDM = np.zeros((djs, djs), dtype=np.complex128)
     for i in range(djs):
         for j in range(i, djs):
-            Rij = np.dot(block[i, :], np.conj(block[j, :]))
+            Rij = 0
+            for k in range(drest):
+                Rij += state[i, k] * np.conj(state[j, k])
             RDM[i, j] = Rij
             if i != j:
-                RDM[j, i] = np.conjugate(Rij)
+                RDM[j, i] = np.conj(Rij)
     return RDM
 
-def rdms2(state, js):
-    L = int(np.log2(len(state)))
-    mask = np.ones(L, dtype=np.bool)
-    mask[js] = False
-    trce = list(np.array(list(range(L)))[mask])
-    if(js is None):
-        mask = np.ones((L), dtype=np.bool)
-        mask[trce] = False
-        js = list(np.array(list(range(L)))[mask])
-    state = np.reshape(state, [2] * L)
-    rho = np.tensordot(state, np.conj(state), (trce, trce)).reshape((2**len(js), 2**(len(js))))
-    return rho
 
-def rdms3(state, js):
+
+def rdms_numba(state, js):
+    """ Partial trace (numba implementation)
+
+     Parameters:
+        state (array): 1D interpreted as state vector, 2D interpreted as density matrix
+
+        js (array-like): Qubit indicies to keep
+
+    Returns:
+        array: state wth js kept and the remaining qubits traced-out."""
     L = int(np.log2(len(state)))
-    keep = np.asarray(js)
-    dims = np.asarray([2]*L)
-    Ndim = dims.size
-    Nkeep = np.prod(dims[keep])
-    idx1 = [i for i in range(Ndim)]
-    idx2 = [Ndim+i if i in keep else i for i in range(Ndim)]
+    js = np.array(js)
+    dims =np.array([2]*L)
+    mask = np.ones(L, dtype=bool)
+    mask[js] = False
+    rest = np.arange(L)[mask]
+    ordering = np.concatenate((js, rest))
+    djs = np.prod(dims.take(js))
+    drest = np.prod(dims.take(rest))
+    state = ptranspose(state, js, outshape=(djs, drest))
+    return _rdms_njit(state)
+
+
+def rdms_tensordot(state, js):
+    """ Partial trace (tensordot implementation)
+
+     Parameters:
+        state (array): 1D interpreted as state vector, 2D interpreted as density matrix
+        js (array-like): Qubit indicies to keep
+
+    Returns:
+        array: state wth js kept and the remaining qubits traced-out."""
+    L = int(np.log2(len(state)))
+    js = np.array(js)
+    dims = np.array([2]*L)
+    mask = np.ones(L, dtype=bool)
+    mask[js] = False
+    rest = np.arange(L)[mask]
+    state = state.reshape(dims)
+    djs = np.prod(dims.take(js))
+    return np.tensordot(state, state.conj(), (rest, rest)).reshape((djs, djs))
+
+
+def rdms_einsum(state, js):
+    """ Partial trace (einsum implementation)
+
+     Parameters:
+        state (array): 1D interpreted as state vector, 2D interpreted as density matrix
+
+        js (array-like): Qubit indicies to keep
+
+    Returns:
+        array: state wth js kept and the remaining qubits traced-out."""
+    L = int(np.log2(len(state)))
+    js = np.array(js)
+    dims = np.array([2]*L)
+    djs = np.prod(dims.take(js))
+    idx1 = [i for i in range(L)]
+    idx2 = [L+i if i in js else i for i in np.arange(L)]
     state = state.reshape(dims)
     rho = np.einsum(state, idx1, state.conj(), idx2, optimize=True)
-    return rho.reshape(Nkeep, Nkeep)
+    return rho.reshape(djs, djs)
 
 
 def rdmr(rho, js):
@@ -166,21 +230,13 @@ def rdmr(rho, js):
 
 def rdm(state, js):
     if len(state.shape) == 1:
-        return rdms2(state, js)
+        if len(js) <= 3:
+            return rdms_numba(state, js)
+        else:
+            return rdms_tensordot(state, js)
     elif len(state.shape) == 2:
         return rdmr(state, js)
 
-def ptranspose(state, js, outshape):
-    js = np.array(js)
-    D = len(state.shape)
-    L = int(np.log2(len(state)))
-    ds = tuple([2] * L * D)
-    rest = np.setdiff1d(np.arange(L), js)
-    if D == 1:
-        ordering = list(js) + list(rest)
-    elif D == 2:
-        ordering = list(js) + list(js+L) + list(rest) + list(rest + L)
-    return state.reshape(ds).transpose(ordering).reshape(outshape)
 
 @njit
 def traceout_outer_njit(rho, dim, mask):

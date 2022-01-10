@@ -13,7 +13,7 @@ from itertools import product, cycle, zip_longest
 from hashlib import sha1
 from copy import deepcopy
 from json import dumps
-
+from joblib import Parallel, delayed
 
 def rule_element(V, Rel, hood, hamiltonian=False, lslice=None, rslice=None):
     """
@@ -79,7 +79,7 @@ def boundary_rule_ops(V, R, r, BC_conf, totalistic=False, hamiltonian=False):
     Special operators for boundaries (of which there are 2r).
     BC_conf is a string "b0b1...br...b2r" where each bj is
     either 0 or 1. Visiually, BC_conf represents the fixed boundaries
-    from left to right: |b0>|b1>...|br> |psi>|b2r-r>|b2r-r+1>...|b2r>.
+    from left to right: |b0>|b1>...|br> |psi>|br+1>|br+2>...|b2r>.
     """
     # split BC configuration into left and reverse-right boundaries
     BC_conf = [BC_conf[:r], BC_conf[r::][::-1]]
@@ -592,16 +592,22 @@ def recurs_save_dict_hdf5(h5file, path, dic_):
             raise ValueError("Cannot save %s type" % item)
 
 
-def record_bak(params, tasks):
+def init_record(params, tasks):
+    # Initialize a dictonary for calculation results
+    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
+    Ti = len(np.arange(0, params["T"] + params["dt"], params["dt"]))
+    rec = {key: ms.measures[task]["init"](
+        params["L"], Ti) for key, task in zip(keys, tasks)}
+    return rec
+
+
+def record_sequential(params, tasks, Ntrials=None):
     """Record tasks from qca time evolution defined by params into a
        dictionary"""
-    ts = np.arange(0, params["T"] + params["dt"], params["dt"])
-    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
-    rec = {key: ms.measures[task]["init"](
-        params["L"], len(ts)) for key, task in zip(keys,tasks)}
-    # average of reduced density matricies
-    # TODO: logic for entanglement spectrum if N>1
-    for n in range(params["N"]):
+    if Ntrials is None:
+        Ntrials = params["N"]
+    rec = init_record(params, tasks)
+    for n in range(Ntrials):
         for ti, state in enumerate(evolve(**params)):
             for task in tasks:
                 key = task
@@ -610,60 +616,38 @@ def record_bak(params, tasks):
                 if task in ("bipart", "ebipart"):
                     data = ms.measures[task]["get"](state)
                     for l in range(params["L"] - 1):
-                        rec[key][ti][l] += data[l] / params["N"]
+                        rec[key][ti][l] += data[l] / Ntrials
                 else:
                     rec[key][ti] += ms.measures[task]["get"](
-                        state) / params["N"]
+                        state) / Ntrials
     return rec
 
-from joblib import Parallel, delayed
-
-def workload(params, tasks, Nper_job):
-    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
-    ts = np.arange(0, params["T"] + params["dt"], params["dt"])
-    rec = {key: ms.measures[task]["init"](
-        params["L"], len(ts)) for key, task in zip(keys,tasks)}
-    for n in range(Nper_job):
-        for ti, state in enumerate(evolve(**params)):
-            for task in tasks:
-                key = task
-                if task in ("ebipart", "ebisect"):
-                    key += "data"
-                if task in ("bipart", "ebipart"):
-                    data = ms.measures[task]["get"](state)
-                    for l in range(params["L"] - 1):
-                        rec[key][ti][l] += data[l] / Nper_job
-                else:
-                    rec[key][ti] += ms.measures[task]["get"](
-                        state) / Nper_job
-    return rec
 
 def record(params, tasks, nprocs_for_trials):
-    """Record tasks from qca time evolution defined by params into a
-       dictionary"""
-    ts = np.arange(0, params["T"] + params["dt"], params["dt"])
-    keys = [task+"data" if task in ("ebipart", "ebisect") else task for task in tasks]
-    rec = {key: ms.measures[task]["init"](
-        params["L"], len(ts)) for key, task in zip(keys, tasks)}
-    # average of reduced density matricies
-    # TODO: logic for entanglement spectrum if N>1
+    if nprocs_for_trials == 1:
+        return record_sequential(params, tasks)
+    # Number of sequential trials per parallel job
     Nper_job = params["N"] // nprocs_for_trials
     Nper_job_remainder = params["N"] % nprocs_for_trials
-    Nper_jobs = [Nper_job] * Nper_job
-    Nper_jobs[0] += Nper_job_remainder
-    recs = Parallel(n_jobs=nprocs_for_trials)(
-        delayed(workload)(params, tasks, Npj) for Npj in Nper_jobs)
+    Nper_jobs = [Nper_job] * nprocs_for_trials
+    for i in range(Nper_job_remainder):
+        ind = i%nprocs_for_trials
+        Nper_jobs[ind] += 1
 
+    # List of result records from the parallel jobs
+    recs = Parallel(n_jobs=nprocs_for_trials)(
+        delayed(record_sequential)(params, tasks, Npj) for Npj in Nper_jobs)
+
+    # Average the parallel results
+    rec = init_record(params, tasks)
     for reci in recs:
         for key in rec.keys():
             if key in ("bipart", "ebipartdata"):
                 for ti, datacut in enumerate(reci[key]):
                     for l in range(params["L"] - 1):
-                        rec[key][ti][l] += datacut[l] / Nper_job
+                        rec[key][ti][l] += datacut[l] / nprocs_for_trials
             else:
-                rec[key] += reci[key] / Nper_job
-
-
+                rec[key] += reci[key] / nprocs_for_trials
     return rec
 
 

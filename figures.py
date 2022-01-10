@@ -48,7 +48,8 @@ names = {
     "sbipart_2avg": r"$\overline{s}^{\mathrm{bond}(2)}_{\ell}$",
 
     "sbisect_2avg": r"$\overline{s}_{\mathrm{bond}}$",
-    "sbisect_2": r"$s_{\mathrm{bond}}$",
+    #"sbisect_2": r"$s_{\mathrm{bond}}$",
+    "sbisect_2": r"$s^{\mathrm{bond}(2)}_{L/2}$",
     "Dsbisect_2": r"$\Delta s_{\mathrm{bond}}$",
     "Dsbisect_2avg": r"$\overline{\Delta s}_{\mathrm{bond}}$",
 
@@ -110,13 +111,16 @@ colors = {6: "crimson",
 
 markers = {"G": "s", "W": "*", "R": "x", "C": "d"}
 lines = {"H": "-", "HP_45": "--"}
-letters = [r"$\mathrm{\bf{(%s)}}$" % lett for lett in "abcdefghijklmnopqrstuvwxyz"]
-#letters = [r"$\bf{%s}$" % lett for lett in "abcdefghijklmnopqrstuvwxyz".upper()]
+letters_lower = [r"$\mathrm{\bf{%s}}$" % lett for lett in "abcdefghijklmnopqrstuvwxyz"]
+letters_round = [r"$\mathrm{\bf{(%s)}}$" % lett for lett in "abcdefghijklmnopqrstuvwxyz"]
+letters_upper = [r"$\bf{%s}$" % lett for lett in "abcdefghijklmnopqrstuvwxyz".upper()]
 
+letters_map = {"round": letters_round, "upper": letters_upper, "lower":letters_lower}
 
-def lettering(ax, x, y, num, color="k"):
-    ax.text(x, y, letters[num], weight="bold", fontsize=9, transform=ax.transAxes,
-            horizontalalignment="center", verticalalignment="center", color=color)
+def lettering(ax, x, y, num, color="k", mode="round", **kwargs):
+    letters = letters_map[mode]
+    ax.text(x, y, letters[num], weight="bold", transform=ax.transAxes,
+            horizontalalignment="center", verticalalignment="center", color=color, **kwargs)
 
 
 def multipage(fname, figs=None, clf=True, dpi=300, clip=True, extra_artist=None):
@@ -369,14 +373,14 @@ def grid_animation(Qs, meas, cmap="inferno", nrows=1, tmin=0, tmax=60, vmin=None
 
 
 # Network movies
-def draw_MI(M_orig, ax, layout="spring", pos=None):
+def draw_MI(M_orig, ax, layout="spring", pos=None, pos0=None, with_labels=False, seed=None, edge_cmap=None):
     M = copy(M_orig)
     M[np.abs(M) < 1e-6] = 0.0
     M[np.abs(M) < np.median(M)] = 0.0
     G = nx.from_numpy_matrix(M)
     if pos is None:
         if layout == "spring":
-            pos = nx.spring_layout(G, k=1, iterations=200)
+            pos = nx.spring_layout(G, pos=pos0, k=1, iterations=200, seed=seed)
         elif layout == "bipartite":
             pos = nx.bipartite_layout(G, nodes=range(len(M) // 2))
         elif layout == "circular":
@@ -420,23 +424,26 @@ def draw_MI(M_orig, ax, layout="spring", pos=None):
     mn = min(ws)
     if mx != mn:
         ws = (ws - mn) / (mx - mn)
-        ws *= 1.5
+        ws *= 1.2
+        #pass
     nx.draw(
         G,
         pos,
         ax=ax,
         node_color="purple",
-        node_size=9,
+        node_size=15,
         alpha=0.7,
         edgelist=edges,
         #edge_color=ws,
-        #edge_cmap=plt.cm.,
-        edge_color="k",
+        edge_cmap=edge_cmap,
+        #edge_color="k",
         width=ws,
+        with_labels=with_labels
     )
     ax.collections[0].set_facecolor("none")
     ax.collections[0].set_edgecolor("k")
-    ax.set_aspect("equal")
+    #ax.set_aspect(1)
+    return pos
 
 
 def network_animation(Qs, order=2, layout="grid", tmin=1, tmax=60, label="R"):
